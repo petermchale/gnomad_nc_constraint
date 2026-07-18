@@ -1,0 +1,202 @@
+\author{Peter McHale}
+\documentclass{article}
+\usepackage{amsmath, amssymb}
+\usepackage{microtype}
+\usepackage{xcolor}
+\title{How bias arises in Gnocchi}
+\begin{document}
+\maketitle
+
+\section{Expected number of SNVs under neutrality}
+In a selectively neutral genomic window,
+the expected number of sites that are polymorphic 
+(a site is polymorphic if an ALT allele is seen 
+at that site in one or more members of a given cohort)
+is
+\begin{equation}
+    \sum_{i} p_{c_i}(x_i)
+    \label{eq:expected_snvs}
+\end{equation}
+where:
+\begin{itemize}
+    \item $i$ indexes the single-nucleotide sites in the window
+    \item $x_i$ is a vector of regional features (GC content, etc)
+    associated with site $i$,
+    \item $c_i$ is the sequence and methylation context of the site $i$,
+    \item $p_c(x)$ is the probability that a site is polymorphic,
+    conditional on context $c$ and regional feature vector $x$,
+    and, of course, the number of individuals in the cohort.
+\end{itemize}
+
+\section{Assuming uniformity of the features within a genomic window}
+
+Assume that all the features vectors $\{x_i\}$, ranging over all sites $i$ in a window $w$,
+are approximately the same: 
+\[ x_i = x_w. \]
+Under this assumption, equation~\eqref{eq:expected_snvs} simplifies to
+\begin{equation}
+\sum_{i} p_{c_i}(x_w) = \sum_c n_c^{(w)} p_c(x_w),
+\end{equation}
+where the right side groups probabilities that appear on the left side by 
+context, and $n_c^{(w)}$ is the number of sites in window $w$ that have 
+sequence and methylation context $c$. 
+
+\section{The naive way to fit a model of the polymorphism probability}
+
+To predict the SNV count of a window with feature vector $x$, we need to 
+model $p_c(x)$, the probability that a site with context $c$ 
+and feature vector $x$ is polymorphic (as opposed to monomorphic) across 
+the cohort of interest. 
+The natural approach is to 
+construct a parametric model of $p_c(x)$ as follows: 
+\begin{equation} 
+    p_c(x) = \sigma(\beta_c \cdot x),
+    \label{eq:joint_model}
+\end{equation}
+where: 
+\begin{itemize}
+    \item $\sigma(x)$ is the sigmoid function (bounded between 0 and 1), 
+    \item $\cdot$ is the dot product,
+    \item $\beta_c$ is a parameter vector associated with the sequence and methylation context $c$,
+\end{itemize}
+and then train one model for each context $c$ on an appropriate genome-wide 
+training set of sites 
+(each with context $c$, but with varying feature vectors $x$) 
+that are either monomorphic or polymorphic in the cohort. 
+
+\section{The training set is contaminated with selection that may correlate with $x$}
+
+The problem with this approach lies in choosing the training set of sites. 
+These sites should be selectively neutral, but, 
+in practice we don't know how to identify such sites in the noncoding genome, 
+where functional annotations are infrequent and imprecise. 
+Moreover, noncoding sites under selection may correlate with $x$
+(e.g., promoters, which are under selection, tend to have high GC content), causing $p_c(x)$ 
+to be inaccurate in the tails of the $x$-distribution. 
+
+\section{A 2-stage approach to eliminate the effect of feature-dependent contamination of the training set}
+
+De novo mutations (DNMs), by definition, have not
+been exposed to natural selection, and therefore
+inform us about the inherent mutability of a genomic site. 
+Can we use DNMs as a training set? 
+Not immediately: we want a neutral 
+estimate of the polymorphism probability, which scales with cohort size, 
+not DNM rate, which does not. 
+
+There is a way, however, to draw that DNM rate 
+into the polymorphism probability such that it eliminates the effect of 
+feature-dependent contamination with selection that would otherwise occur in a training set 
+of polymorphisms constructed from the entire noncoding genome. 
+To leverage a set of neutrally pure DNMs, 
+Chen et al broke the problem into two steps: 
+\begin{equation}
+    p_c(x) = r_c(x) \, p_c(\bar{x}),
+\end{equation}
+where $\bar{x}$ is the average of $x$ over all windows of interest, 
+and
+\begin{equation}
+    r_c(x) = \frac{p_c(x)}{p_c(\bar{x})},
+\end{equation}
+is a feature-dependent multiplicative adjustment to the feature-independent 
+$p_c(\bar{x})$.
+
+In the first step, they approximated $p_c(\bar{x})$
+by the maximum-likelihood estimate: 
+\begin{equation}
+    p_c(\bar{x}) \approx \frac{N_c^{(p)}}{N_c^{(m)} + N_c^{(p)}}
+\end{equation}
+where 
+\begin{itemize} 
+    \item $N_c^{(m)}$ is the number of sites in the noncoding genome with 
+    context $c$ that are monomorphic, and
+    \item $N_c^{(p)}$ is the number of sites in the noncoding genome with 
+    context $c$ that are polymorphic
+\end{itemize}
+Given the large number of training examples, and the fact that 
+most of them have feature vectors close to $\bar{x}$, 
+this estimate is likely to be quite accurate
+(though subject to low levels of contamination by selection).
+
+In the second step, they assumed that the polymorphism probability
+in the cohort, $p_c(x)$, 
+is approximately proportional to the DNM probability, $\hat{p}_c(x)$,
+in an arbitrary training set of DNMs and background sites (not DNMs).
+Under this assumption:
+\begin{equation}
+    r_c(x) \approx \frac{\hat{p}_c(x)}{\hat{p}_c(\bar{x})}
+\end{equation}
+where 
+\begin{equation}
+\hat{p}_c(x) = \sigma(\hat{\beta}_c \cdot x),
+\end{equation}
+with parameters $\hat{\beta}_c$ estimated 
+from the training set of DNMs and background sites (not DNMs).
+Notice that, even though $\hat{p}_c(x)$ is sensitive to the class balance in the training set
+(the ratio of DNMs examples to non-DNM examples), 
+the estimate of $r_c(x)$, which is a ratio of such probabilities, is not.
+Though this training set can be trusted to be neutral, even in the tails of the $x$-distributon, 
+it is much smaller than that used to compute $p_c(\bar{x})$, 
+so the estimate of $r_c(x)$ is likely to be noisier than that of $p_c(\bar{x})$
+solely because of sampling noise.  
+
+\section{Hypothesis: the feature-dependent adjustment is biased}
+As we show in our manuscript, 
+the process of training any function of $x$ works, in general, to minimize 
+global bias at the expense of local bias in the tails of the $x$-distribution. 
+Applied to the adjustment factor $r_c(x)$, whose training data is sparse,
+we expect $r_c(x)$ to be accurate near $\bar{x}$, but inaccurate (and possibly biased) 
+in the tails ($x$ far from $\bar{x}$). 
+This bias would propagate, via $p_c(x)$, to the expected per-window SNV counts as a function of $x$,
+potentially explaining the bias we observe in Gnocchi at extreme GC content, for example.  
+
+\section{Predictions of the hypothesis}
+It is instructive to consider what would happen, under the above hypothesis, 
+as the size of the DNM training set is increased. 
+
+When the DNM training set is so small that the tails are not sampled at all, 
+then $r_c(x)$ is expected to tend towards its value at $\bar{x}$, 
+which is 1 by construction, 
+and Gnocchi reduces to a context-only model, 
+inheriting whatever bias it has as a function of $x$. 
+\textcolor{red}{We performed this
+experiment and found
+not only that bias in Gnocchi was reduced, but
+also that it approached the levels of bias we saw
+in other context-only constraint metrics.}
+
+As the DNM training set size increases, and more and more extreme 
+values of $x$ are sampled, 
+$r_c(x)$ will start to capture the true function near $\bar{x}$
+making Gnocchi better there, 
+but this may come at the expense of deviating from the true function away 
+from $\bar{x}$, in a way that we cannot predict without knowing the truth. 
+\textcolor{red}{This is what we believe is causing the 
+large bias we observe in Gnocchi.}
+
+Eventually, if enough DNM training data existed to densely sample extreme $x$, 
+then we would expect the bias at extreme $x$ to disappear. 
+\textcolor{red}{We approximated this regime by increasing the number of 
+background 
+sites (only) in the DNM training set, 
+retrained $r_c(x)$, and observed that bias below 
+the level we reported in our paper.}
+
+Together these experiments lend support to our hypothesis that 
+the sparseness of the DNM training set is responsible for the large bias 
+observed in Gnocchi as a function of GC content. 
+
+\section{A proposal for Gnocchi 2.0}
+Though DNMs ameliorate the effect of selection contamination of the training set, 
+the trade-off is that the sparseness of DNMs introduces bias into the constraint metric, 
+precisely where it was hoped DNMs would help. 
+Perhaps the quest to avoid contamination of the training set with sites under selection 
+was misguided,
+and it is better to tolerate some contamination if it yields a less biased constraint score 
+where it matters most. 
+This suggests an approach to a possibly improved constraint score: 
+capture the $x$ dependence in Eq.~(\ref{eq:joint_model}) by training directly on dense gnomAD data, 
+instead of factorizing it and training one of the factors on sparse DNM data. 
+\textcolor{red}{Since this requires a new training process, we deemed this experiment out-of-scope for this rebuttal.} 
+
+\end{document}
