@@ -14,11 +14,19 @@ timestamp: 2026-07-20T00:00:00Z
 
 `run_nc_constraint_gnomad_v31_main.py` lines 231–234 *load* a pre-fitted
 `L1BinaryResultsWrapper` (`{model}.pkl`) and a pre-fitted `sklearn.
-IncrementalPCA` (`{model}.pca.pkl`) per trinucleotide context. No script in
-this repo shows the code that produced those two objects — i.e. the
+IncrementalPCA` (`{model}.pca.pkl`) per trinucleotide context. No script
+available to us shows the code that produced those two objects — i.e. the
 multivariate, PCA-reduced logistic regression that actually computes the
-real Gnocchi `r(w)`. This is the same "missing downstream code" situation
-documented for several other files in root `CLAUDE.md`.
+real Gnocchi `r(w)`.
+
+This was re-checked, not just assumed, after discovering that three modules
+root `CLAUDE.md` previously called "missing" (`generic.py`, `constraint_
+basics.py`, `nc_constraint_utils.py`, all imported by `run_nc_constraint_
+gnomad_v31_main.py:23–25`) actually exist at `misc/*.py` in the bucket — they
+were never fetched, not never published. Downloaded and grepped all three
+directly for `PCA`, `IncrementalPCA`, `fit_regularized`: zero hits. So this
+specific gap (the multivariate fit) is confirmed still real, distinct from
+the generically-"missing-code" framing used elsewhere.
 
 What *is* in this repo, and is a close analogue: `analyze_individual_feature_
 effects.py:38–57` fits one logistic regression *per feature* (univariate,

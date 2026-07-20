@@ -108,7 +108,7 @@ selection is per-trinucleotide-context.
 | `logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.ft_mean_std.txt` | ~150 B each | Per-context, per-selected-feature mean/std (this mean is x̄) used to standardize features before PCA. |
 | `context_prepared.ht` | ~578 GB just for `rows/parts/` (measured: 38,029 partitions, 8,771,192,175 rows total — see recipe below) | Hail native `Table`, key `(locus, alleles)`. **One row per *possible* SNV, not per polymorphic/observed site** — 3 rows per genomic position (one per alt allele), for every covered reference position genome-wide, regardless of whether gnomAD ever observed a variant there. Evidence: the row schema has no frequency/allele-count field at all (no `freq`/`AC`/`AN`); the *actual* gnomAD call set lives in a separate table, `genome_prepared.ht` (`run_nc_constraint_gnomad_v31_main.py` line 38), which does carry `.freq`/`.pass_filters`; and `context_prepared.ht` (aliased `context_ht`) is literally what gets grouped and counted to produce the `possible` denominator (line 111: `possible_ht = context_ht.group_by(context,ref,alt,methylation_level).aggregate(count())` → `possible_counts_by_context_methyl.txt`). Core columns actually used downstream: `context` (trinucleotide, e.g. `"TAA"`), `ref`, `alt`, `coverage_mean` (Float64, mean sequencing depth at that position), `methyl_level` (Int32, CpG methylation bin), `transition`/`cpg` (Boolean), `variant_type`/`variant_type_model` (String), `was_flipped` (Boolean, strand-flip flag), plus allele-splitting bookkeeping (`idx`, `a_index`, `was_split`, `old_locus`, `old_alleles`). Also carries a large unused `vep` struct (full Ensembl VEP annotation: transcript/regulatory/motif consequences, per-population MAFs, SIFT/PolyPhen, etc.) that `run_nc_constraint_gnomad_v31_main.py` never reads. Sample rows (`chr1:10002`–`10003`, not claimed to be polymorphic — just the first two reference positions): `context=TAA/AAC, ref=A, alt=C/G/T, coverage_mean=4.61/6.38`. Needs Hail to read — see the Hail-on-this-Mac recipe below. Superseded for this analysis by `expected_counts_by_context_methyl_genome_1kb.txt` below — no longer needed. |
 | `expected_counts_per_context_methyl_genome_1kb.txt` | 3.3 GB (bucket root) | This *is* the exact `hl.export()` at `run_nc_constraint_gnomad_v31_main.py` lines 191–197: `expected_ht = possible_ht.group_by(key=(element_id, context)).aggregate(possible=sum, expected=sum)`, one row per `(element_id, context)` pair — multiple rows per window, one for each trinucleotide context that occurs in it (e.g. `chr1-10000-11000` has 4: `ACC, CCC, TAA, TAG`). Columns `element_id, context, possible, expected`, both **summed over every `(ref, alt, methylation_level)` combination sharing that context**: `possible` = count of possible SNV sites of this context in the window (after coverage/black-region filtering, lines 159–166); `expected` = `possible × fitted_po` per `(ref,alt,methylation_level)` (line 188, `fitted_po` from `fig_tables/mutation_rate_by_context_methyl.txt`), i.e. genome-wide expected counts from sequence context alone, `r ≡ 1`, computed *before* the regional-feature adjustment in lines 209–249. Sample: `chr1-10000-11000 / ACC → possible=3, expected=0.31501`. |
-| `expected_counts_by_context_methyl_genome_1kb.txt` | 107 MB (bucket root) | **The step-1 (context-only) expected-count table, further summed down to one row per `element_id`: `element_id, possible, expected`.** Same `possible`/`expected` definitions as the row above, just summed again over all 32 contexts (so `possible` here matches the meaning of `possible` in `fig_tables/constraint_z_genome_1kb.annot.txt`, which the later `r`-adjustment never touches). Despite the name, this file is *not* produced anywhere in `run_nc_constraint_gnomad_v31_main.py` — the script only ever writes the per-`(element_id, context)` file above; this further `group_by('element_id')` sum must happen in a downstream/publication step not included in this repo (same situation as the missing `generic.py`/`constraint_basics.py`/`nc_constraint_utils.py`). Verified self-consistent by hand: summing the 4 per-context rows for `chr1-10000-11000` in the file above (`possible` 3+3+1+4=11, `expected` 0.31501+0.26256+0.074125+0.15301=0.804705) exactly matches this file's row (`11`, `0.80470500`). Trustworthy to use directly, just can't point to its exact generating code. Use this directly — no need to reconstruct step-1 from `context_prepared.ht` (Option A) or the reference FASTA (Option B). |
+| `expected_counts_by_context_methyl_genome_1kb.txt` | 107 MB (bucket root) | **The step-1 (context-only) expected-count table, further summed down to one row per `element_id`: `element_id, possible, expected`.** Same `possible`/`expected` definitions as the row above, just summed again over all 32 contexts (so `possible` here matches the meaning of `possible` in `fig_tables/constraint_z_genome_1kb.annot.txt`, which the later `r`-adjustment never touches). Despite the name, this file is *not* produced anywhere in `run_nc_constraint_gnomad_v31_main.py` — the script only ever writes the per-`(element_id, context)` file above; this further `group_by('element_id')` sum must happen in a downstream/publication step. (Earlier text here said this was "the same situation as the missing `generic.py`/`constraint_basics.py`/`nc_constraint_utils.py`" — that was wrong: those three modules are *not* missing, they're at `misc/generic.py`, `misc/constraint_basics.py`, `misc/nc_constraint_utils.py` in the bucket, and are confirmed to be exactly what `run_nc_constraint_gnomad_v31_main.py:23–25` imports [`from generic import *`, etc.] — this local checkout just never fetched them. Checked directly: none of the three contain a `group_by('element_id')` step matching this file either, so the specific aggregation behind *this* file genuinely still isn't shown anywhere available — just don't extend that gap to the utility modules generally, see the "fitting code" section below.) Verified self-consistent by hand: summing the 4 per-context rows for `chr1-10000-11000` in the file above (`possible` 3+3+1+4=11, `expected` 0.31501+0.26256+0.074125+0.15301=0.804705) exactly matches this file's row (`11`, `0.80470500`). Trustworthy to use directly, just can't point to its exact generating code. Use this directly — no need to reconstruct step-1 from `context_prepared.ht` (Option A) or the reference FASTA (Option B). |
 | `observed_counts_genome_1kb.txt` | 71 MB (bucket root) | Standalone observed-variant-count table, `element_id, variant_count`. Same numbers as the `observed` column of `fig_tables/constraint_z_genome_1kb.annot.txt` below, but much smaller if `pass_qc`/`coding_prop`/functional annotations aren't needed. |
 
 Bucket contents are listable without `gsutil`/auth via the JSON API, e.g.:
@@ -357,11 +357,47 @@ features' PCA components together, not one feature at a time like
 model (the analogous `sm.Logit(...).fit_regularized()` call, but on a PCA'd,
 multi-feature design matrix) is **not in this repo** — only the *apply/predict* side is
 (`run_nc_constraint_gnomad_v31_main.py:231–249`, which loads an already-fitted `.pkl` and
-`.pca.pkl` and computes `r(w)` from them). Reproducing the *exact* published Gnocchi
-refit under a resized training set therefore requires writing this multivariate-fit step
-yourself, using `analyze_individual_feature_effects.py`'s univariate fit and
+`.pca.pkl` and computes `r(w)` from them). Checked directly: `misc/generic.py`,
+`misc/constraint_basics.py`, `misc/nc_constraint_utils.py` (the three modules
+`run_nc_constraint_gnomad_v31_main.py` imports, confirmed present in the bucket — see
+above) contain no `PCA`, `IncrementalPCA`, or `fit_regularized` reference anywhere, so
+this specific gap is real, not just an artifact of an incomplete local checkout.
+Reproducing the *exact* published Gnocchi refit under a resized training set therefore
+requires writing this multivariate-fit step yourself, using
+`analyze_individual_feature_effects.py`'s univariate fit and
 `run_nc_constraint_gnomad_v31_main.py`'s apply-side code as templates. The
 feature-*selection* stage, though, is fully reproducible today as-is.
+
+### A completely separate DNM-prediction approach, also in the bucket
+
+Found by actually listing `misc/` in full (never done before — a 20-file directory,
+cheap to check) rather than only checking directories already named by code or by the
+root-level listing. None of the below is referenced by any script in this repo:
+
+| File | Contents |
+|---|---|
+| `misc/RF_f18_dnm_1M.pkl` | A pickled Random Forest model — the "f18" is 18 features (17 regional features + trinucleotide context), not "feature 18". |
+| `fig_tables_init/rf_f18_feature_importance.txt` | That model's feature importances, confirming 18 features: `Trinucleotide context` (importance 0.30, by far the largest), `cDNM maternal`, `Recomb male`, `Nucleosome density`, `Dist to telomere`, `Methyl oocyte`, `Methyl sperm`, `Repl BG02`, `CpG island`, `SINE`, `Dist to centromere`, `LCR`, `Methyl PGC`, `LINE`, `Recomb female`, `Methyl preimplantation`, `GC content`, `cDNM paternal`. |
+| `fig_tables_init/rf_f18_predicted_dnms_1M.txt` | `element_id, observed, predicted` at 1Mb resolution (e.g. `chr1-120000000-121000000 → observed=35, predicted=47.9`) — this model's DNM-count predictions vs. real observed DNM counts, i.e. a direct regression-style alternative to the per-context-logistic-regression-plus-PCA approach documented above. |
+| `misc/genomic_features17_1kb.txt`, `misc/genomic_features17_1M.txt` | The regional-feature source for the RF model above: 17 columns (`dist2telo, dist2cent, GC_content, RT_BG02, LCR, SINE, LINE, recomb_male, recomb_female, met_sperm, met_oocyte, met_preimplantation, met_pgc, Nucleosome, cDNM_maternal_05M, cDNM_paternal_05M, CpG_island`) — a **superset** of the published 13-feature panel: same 13, plus `RT_BG02` (replication timing) and three extra methylation contexts (`met_oocyte`, `met_preimplantation`, `met_pgc`) that the published pipeline's 13-feature panel never uses. |
+| `misc/genomic_features13.tar.gz` | An archived form of the (published, 13-feature) `misc/genomic_features13_genome_1kb.txt` — same data, different packaging. |
+| `misc/DNM_decode_psychencode.flip2hl.txt` | `locus, ref, alt` — each DNM locus listed twice, once per allele orientation (e.g. `chr10:100003712 A C` and `chr10:100003712 C A`). Looks like a strand-flip/normalization reference table for the DECODE+PsychENCODE DNM sites; exact use unconfirmed, no code in this repo references it. |
+
+This looks like an earlier or parallel exploration (`fig_tables_init/`, not `fig_tables/`)
+of predicting DNM counts directly via Random Forest regression on a broader feature
+panel, distinct from — and not clearly related to — the published per-context logistic-
+regression-plus-PCA `r(w)` approach. Not investigated further; flagged here so it isn't
+mistaken for part of the [pipeline](okf/dnm-training-set-experiment/pipeline.md) above,
+and so a future session doesn't have to re-discover it.
+
+**On exhaustiveness**: the file lists in this document are not guaranteed complete. This
+DNM-prediction material was missed in an earlier pass specifically because `misc/`
+(only 20 files) was never fully listed. Directories still not fully checked for
+"dnm"-adjacent content: the unexplained bucket-root `index/` (9,137 subdirs) and `rows/`
+prefixes (see the Hail recipe section above — these don't obviously belong to any named
+`.ht` table), and the internals of the smaller `*.ht` Hail tables (their `metadata.json`
+schemas are known and don't mention DNMs, but their directory listings haven't all been
+individually re-checked for stray files beyond the standard Hail structure).
 
 ### Files that look like outputs, not inputs, of a DNM-based validation
 
