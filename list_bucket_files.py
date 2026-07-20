@@ -59,6 +59,19 @@ def list_objects(prefix: str, recursive: bool):
             break
 
 
+def count_immediate_children(prefix: str):
+    """Returns (n_files, n_subdirs) of the immediate (non-recursive) children
+    of prefix, via the same delimiter-based listing as list_objects."""
+    n_files = 0
+    n_subdirs = 0
+    for _, size in list_objects(prefix, recursive=False):
+        if size is None:
+            n_subdirs += 1
+        else:
+            n_files += 1
+    return n_files, n_subdirs
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -74,7 +87,8 @@ def main():
     total_size = 0
     for name, size in list_objects(args.prefix, args.recursive):
         if size is None:
-            print(f"{name}  (directory)")
+            n_child_files, n_child_subdirs = count_immediate_children(name)
+            print(f"{name}  (directory: {n_child_files} files, {n_child_subdirs} subdirs)")
         else:
             print(f"{name}\t{human_size(size)}")
             n_files += 1
