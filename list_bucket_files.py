@@ -9,6 +9,13 @@ descend into every subdirectory instead, and -prefix to scope the listing to
 one subdirectory (recursive listing without -prefix will enumerate the whole
 bucket, which is slow and produces a very long listing).
 
+Each directory entry also reports its total recursive size (not just its
+immediate children's), which needs a full recursive listing of that
+directory regardless of whether -recursive was passed for the outer listing
+-- for huge directories like context_prepared.ht/ (~578 GB, 38,000+ objects)
+this alone takes 100+ paginated API calls, so a plain top-level listing of
+the bucket root is noticeably slower than it looks.
+
 Examples:
     python list_bucket_files.py                              # top-level only
     python list_bucket_files.py -prefix fig_tables/           # one dir, top-level
@@ -90,6 +97,14 @@ def count_immediate_children(prefix: str):
     return n_files, n_subdirs
 
 
+def dir_total_size(prefix: str) -> int:
+    """Returns the total size (bytes) of every file recursively under prefix
+    -- not just its immediate children. Requires a full recursive listing, so
+    this is slow for huge directories (e.g. context_prepared.ht/, ~578 GB
+    across 38,000+ objects, needs ~100+ paginated API calls on its own)."""
+    return sum(size for _, size in list_objects(prefix, recursive=True) if size is not None)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -106,8 +121,10 @@ def main():
     for name, size in list_objects(args.prefix, args.recursive):
         if size is None:
             n_child_files, n_child_subdirs = count_immediate_children(name)
+            child_total_size = dir_total_size(name)
             print(f"{DIR}{name}{RESET}  {COUNT}(directory: {n_child_files} files, "
-                  f"{n_child_subdirs} subdirs){RESET}")
+                  f"{n_child_subdirs} subdirs, {RESET}{SIZE}{human_size(child_total_size)}"
+                  f"{COUNT} total){RESET}")
         else:
             print(f"{name}\t{SIZE}{human_size(size)}{RESET}")
             n_files += 1
