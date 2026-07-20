@@ -275,24 +275,8 @@ cover everything:
    `papers/neutral_models_are_biased/9.regression/fit_neutral_models.py`:
    `residuals_{model}Model = predicted_y - y`).
 
-6. **Compare** to Supp Fig 1 of the McHale/Goldberg/Quinlan paper and to the simulation
-   results in `/Users/petermchale/rebuttal-simulation/simulate_constraint_bias.py`.
-   That script currently compares three models — re-run 2026-07-20, real numbers:
-   **A** (context-only): global bias (MSE vs. true rate) 4.75, tail-bin local bias
-   left=−5.35/right=+3.84. **B** (context + per-category ad hoc regional correction,
-   Chen et al.'s actual two-stage method): global bias 3.67 (lower than A), tail bias
-   left=−4.74/right=+3.90 — i.e. B's tail bias is *smaller* than A's on the left and only
-   marginally larger on the right (~1.4%), not a clean "reduces global but increases
-   local" story. **C** (a single joint model — context intercepts and a shared
-   quadratic-in-G regional effect fit *together* on the full dense data, i.e. the
-   "Gnocchi 2.0" proposal from `chen_formula.tex`'s final section, which the tex itself
-   says was "deemed out of scope for this rebuttal"): global bias 0.01, tail bias
-   left=−0.50/right=+0.29 — far better than both A and B on every metric. Since this repo
-   only has real data for step 1 (context-only ≈ A) and step 2 (real Gnocchi ≈ B), the
-   real-data comparison below can only test the A-vs-B qualitative pattern, not C (which
-   would require actually building a joint model on real data — not attempted here). Does
-   the real data show B beating A on global-type bias while not being uniformly worse on
-   local/tail bias, the way B vs. A actually comes out in the current simulation above?
+6. **Compare** to Supp Fig 1 of the McHale/Goldberg/Quinlan paper — does the real data
+   here show the same qualitative pattern?
 
 **No genome-wide "global" bias metric is computed.** McHale et al.'s simulation defines
 one (`compute_overall_model_bias()` in the same notebook directory:
