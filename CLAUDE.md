@@ -308,3 +308,78 @@ no downsampling) before treating it as a robust result.
 - `context_prepared.ht`, `expected_counts_per_context_methyl_genome_1kb.txt`, and the
   reference-FASTA approach are no longer needed for this analysis — kept in the data
   inventory above only as background/cross-check options.
+
+## The next experiment: DNM training-set size vs. Gnocchi's local bias
+
+`chen_formula/chen_formula.tex`, section "Predictions of the hypothesis", predicts (and
+the rebuttal's red-text claims to have empirically shown) that Gnocchi's GC-content bias
+should shrink toward the context-only model's bias as the DNM training set shrinks
+(sparse tails collapse `r_c(x)` toward 1), and should shrink again, in the tails
+specifically, if the training set is densified there — concretely, by adding more
+*background* (non-mutated) sites without adding more real DNMs. This section documents
+what's available in the bucket for attempting the same experiment here: resize the DNM
+training set, refit the regional-feature logistic regression, and observe the effect on
+local (GC-binned) bias.
+
+### The actual training data (what to subsample)
+
+| File | Size | Contents |
+|---|---|---|
+| `genomic_features/DNM_decode_psychencode_site_context.mutation_rate.txt` | 24.7 MB | The **dnm1** set: 410,542 real germline de novo mutation sites (DECODE + PsychENCODE trio sequencing) — the positive/mutated class. Columns: `locus, alleles, context, ref, alt, methyl_level, sid, 3mer` (`3mer` = the context-only fitted mutation rate for that trinucleotide/methylation combo, i.e. `fitted_po` from `fig_tables/mutation_rate_by_context_methyl.txt`, pre-joined in). Sample: `chr1:137548 [G,C] CCC C G 0 CCC-0 0.26256`. |
+| `genomic_features/context_prefiltered_nonmutated-dnm_sites10xdnm.mutation_rate.txt` | 190 MB | The **dnm0** ("non-mutated") background set: 4,107,802 sites — exactly 10x the dnm1 count (the "10x" in the filename and in `logit_regularized_dnm01_{context}...`), matched control sites from the same trinucleotide-context pool — the negative/unmutated class. Columns: `locus, context, methyl_level, sid, 3mer` (no `alleles`/`ref`/`alt`, since nothing mutated here). Sample: `chr1:279810 TCT 0 TCT-0 0.21248`. `analyze_individual_feature_effects.py:18` additionally drops all `chrX` sites from this set before fitting (autosomes only). |
+| `genomic_features/genomic_features13_dnm1_flnk_1k-1M.txt` | 206 MB | Regional-feature values — the same 13 features × 4 window scales = 52 columns as `misc/genomic_features13_genome_1kb.txt` — for each dnm1 site, keyed by `element_id` (= the site's own locus, e.g. `chr10:100003712`, *not* a 1kb window here). ~413K rows; joined to the dnm1 site table above via `locus`↔`element_id` at `analyze_individual_feature_effects.py:15`. |
+| `genomic_features/genomic_features13_dnm0_10x_flnk_1k-1M.txt` | 2.05 GB | Same 52 regional-feature columns, for each dnm0 background site — roughly 10x the row count of the dnm1 version above, consistent with the 10x site-count ratio. Joined via `locus` at `analyze_individual_feature_effects.py:20`. |
+
+To vary training-set size: subsample rows from the dnm1 and/or dnm0 site tables (join
+each to its matching `genomic_features13_dnm{0,1}_...` feature file on `locus` first),
+then refit. The tex's three regimes map onto this data as: (1) shrink both dnm0+dnm1 to
+remove tail-`x` coverage entirely, (2) the full dataset as published (baseline), (3) grow
+*only* dnm0 (background sites) to densify tail-`x` coverage without adding real DNMs —
+matching "increasing the number of background sites (only) in the DNM training set."
+
+### The fitting code that's actually here — and the gap
+
+`analyze_individual_feature_effects.py` (already in this repo) is the real, confirmed
+source of `misc/genomic_features13_sel.txt` — its own last line says so
+(`# this file corresponds to gs://gnomad-nc-constraint-v31-paper/misc/genomic_features13_sel.txt`).
+It loads dnm0+dnm1 and joins in their regional features (lines 13–20), then for every
+`(context, window, feature)` triple fits a **univariate** logistic regression of
+mutation status (0/1) on that one z-scored feature
+(`sm.Logit(...).fit_regularized()`, line 49, inside the loop at lines 31–57), and
+Bonferroni-selects the significant ones (lines 61–68) — this *is* the feature-selection
+step, and it's directly reproducible and directly subsample-able as-is.
+
+**But this is not the final model.** The regional-adjustment factor `r(w)` that
+`run_nc_constraint_gnomad_v31_main.py` actually computes (lines 209–249) comes from a
+**multivariate**, **PCA-reduced** logistic regression per context — one fitted
+`L1BinaryResultsWrapper` per trinucleotide context, loaded from
+`logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.pkl` — fit on the *selected*
+features' PCA components together, not one feature at a time like
+`analyze_individual_feature_effects.py`. The code that actually *fits* that multivariate
+model (the analogous `sm.Logit(...).fit_regularized()` call, but on a PCA'd,
+multi-feature design matrix) is **not in this repo** — only the *apply/predict* side is
+(`run_nc_constraint_gnomad_v31_main.py:231–249`, which loads an already-fitted `.pkl` and
+`.pca.pkl` and computes `r(w)` from them). Reproducing the *exact* published Gnocchi
+refit under a resized training set therefore requires writing this multivariate-fit step
+yourself, using `analyze_individual_feature_effects.py`'s univariate fit and
+`run_nc_constraint_gnomad_v31_main.py`'s apply-side code as templates. The
+feature-*selection* stage, though, is fully reproducible today as-is.
+
+### Files that look like outputs, not inputs, of a DNM-based validation
+
+These share the `_dnm`/`_dnm_1M` naming but are **not** training data — they look like a
+separate, already-computed validation of the fitted context-only model against real DNM
+counts (paralleling the gnomAD-based `possible`/`expected`/`observed` triple, but for
+DNMs), at both per-context and 1Mb-window resolution. No script in this repo produces or
+consumes them, so this is inferred from naming/structure, not confirmed by code:
+
+| File | Size | Contents |
+|---|---|---|
+| `expected_counts_by_context_methyl_dnm_1M.txt` | 114 KB | `element_id, possible, expected` at 1Mb window resolution (e.g. `chr1-0-1000000`), same structure as `expected_counts_by_context_methyl_genome_1kb.txt` but for the DNM cohort. |
+| `observed_counts_dnm_1M.txt` | 74 KB | `element_id, variant_count` — observed DNM counts per 1Mb window; same `element_id`s as the row above. |
+| `possible_counts_by_context_methyl_dnm.ht/`, `observed_counts_by_context_methyl_dnm.ht/`, `proportion_observed_by_context_methyl_dnm.ht/`, `proportion_observed_by_context_methyl_dnm_.ht/` | Hail tables | Presumably per-context (not 1Mb-binned) versions of the same DNM-based possible/observed/proportion-observed triple. |
+| `possible_counts_by_context_methyl_dnm_1M.ht/`, `observed_counts_by_context_methyl_dnm_1M.ht/`, `expected__counts_by_context_methyl_dnm_1M.ht/` (double underscore is in the actual bucket path) | Hail tables | 1Mb-binned Hail-table versions of the two `.txt` files above. |
+| `possible_counts_by_context_heptamer_methyl_dnm_1M.ht/` | Hail table | Same idea at **heptamer** (7-mer) context resolution instead of trinucleotide — presumably feeds the `z_heptamer` model referenced in Extended Data Fig. 6 (see the comparisons_*.txt section above), though again unconfirmed by any code in this repo. |
+
+Use `list_bucket_files.py -prefix genomic_features/` or `-prefix <name>.ht/` to browse
+any of these directly.
