@@ -106,10 +106,57 @@ selection is per-trinucleotide-context.
 | `logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.pkl` | ~15–20 MB each | Fitted L1-logit model, one per trinucleotide context (32 contexts). |
 | `logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.pca.pkl` | ~1 KB each | Fitted PCA transform (sklearn `IncrementalPCA`) per context. |
 | `logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.ft_mean_std.txt` | ~150 B each | Per-context, per-selected-feature mean/std (this mean is x̄) used to standardize features before PCA. |
-| `context_prepared.ht` | large (Hail table, size unknown, likely tens of GB) | Raw genome-wide per-site trinucleotide context + ref/alt/methyl_level annotation, pre-aggregation. Needs Hail to read. Superseded for this analysis by `expected_counts_by_context_methyl_genome_1kb.txt` below — no longer needed. |
+| `context_prepared.ht` | ~578 GB just for `rows/parts/` (measured: 38,029 partitions, 8,771,192,175 rows total — see recipe below) | Hail native `Table`, key `(locus, alleles)`. One row per possible SNV: 3 rows per genomic position (one per alt allele). Core columns actually used downstream: `context` (trinucleotide, e.g. `"TAA"`), `ref`, `alt`, `coverage_mean` (Float64, mean sequencing depth at that position), `methyl_level` (Int32, CpG methylation bin), `transition`/`cpg` (Boolean), `variant_type`/`variant_type_model` (String), `was_flipped` (Boolean, strand-flip flag), plus allele-splitting bookkeeping (`idx`, `a_index`, `was_split`, `old_locus`, `old_alleles`). Also carries a large unused `vep` struct (full Ensembl VEP annotation: transcript/regulatory/motif consequences, per-population MAFs, SIFT/PolyPhen, etc.) that `run_nc_constraint_gnomad_v31_main.py` never reads. Sample rows (`chr1:10002`–`10003`): `context=TAA/AAC, ref=A, alt=C/G/T, coverage_mean=4.61/6.38`. Needs Hail to read — see the Hail-on-this-Mac recipe below. Superseded for this analysis by `expected_counts_by_context_methyl_genome_1kb.txt` below — no longer needed. |
 | `expected_counts_per_context_methyl_genome_1kb.txt` | 3.3 GB (bucket root) | This *is* the exact `hl.export()` at `run_nc_constraint_gnomad_v31_main.py` lines 191–197: `expected_ht = possible_ht.group_by(key=(element_id, context)).aggregate(possible=sum, expected=sum)`, one row per `(element_id, context)` pair — i.e. genome-wide expected counts from sequence context alone, `r ≡ 1`, computed *before* the regional-feature adjustment in lines 209–249. `element_id, context, possible, expected`. |
 | `expected_counts_by_context_methyl_genome_1kb.txt` | 107 MB (bucket root) | **The step-1 (context-only) expected-count table, further summed down to one row per `element_id`: `element_id, possible, expected`.** Despite the name, this is *not* produced anywhere in `run_nc_constraint_gnomad_v31_main.py` — the script only ever writes the per-`(element_id, context)` file above; this further `group_by('element_id')` sum must happen in a downstream/publication step not included in this repo (same situation as the missing `generic.py`/`constraint_basics.py`/`nc_constraint_utils.py`). Verified self-consistent by hand: summing the 4 per-context rows for `chr1-10000-11000` in the file above (`possible` 3+3+1+4=11, `expected` 0.31501+0.26256+0.074125+0.15301=0.804705) exactly matches this file's row (`11`, `0.80470500`). Trustworthy to use directly, just can't point to its exact generating code. Use this directly — no need to reconstruct step-1 from `context_prepared.ht` (Option A) or the reference FASTA (Option B). |
 | `observed_counts_genome_1kb.txt` | 71 MB (bucket root) | Standalone observed-variant-count table, `element_id, variant_count`. Same numbers as the `observed` column of `fig_tables/constraint_z_genome_1kb.annot.txt` below, but much smaller if `pass_qc`/`coding_prop`/functional annotations aren't needed. |
+
+### Recipe: reading `context_prepared.ht` (or any `.ht`/`.mt`) with Hail on this Mac
+
+`hail==0.2.138` and `pyspark` are already in `requirements.txt`/`.venv`. To actually use
+them:
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@11   # NOT the JDK bundled in IGV.app — plain
+                                                  # `brew install openjdk@11`. Hail 0.2.138
+                                                  # warns if run under Java 21 (e.g. IGV's).
+export PATH="$PWD/.venv/bin:$PATH"               # puts find_spark_home.py on PATH; without
+                                                  # this, hl.init(backend='local') fails with
+                                                  # FileNotFoundError: find_spark_home.py
+```
+
+```python
+import hail as hl
+hl.init(backend='local', quiet=True)   # NOT the default 'spark' backend — that one only
+                                        # has HadoopFS, which errors "No FileSystem for
+                                        # scheme gs" (no Hadoop GCS connector jar here).
+                                        # backend='local' uses Hail's own GoogleStorageFS,
+                                        # which can read gs:// paths directly with no
+                                        # gsutil/auth setup, since the bucket is public.
+ht = hl.read_table('gs://gnomad-nc-constraint-v31-paper/context_prepared.ht')
+ht.show(5)
+```
+
+Two gotchas actually hit when doing this (2026-07-20):
+
+1. **`hl.init(backend='local')` itself throws `IOException: Your default credentials were
+   not found`** — even for purely local paths — because Hail's `RouterFS` eagerly builds
+   routes for every cloud filesystem (GCS included) at backend-construction time, which
+   probes for Google Application Default Credentials whether or not you ever touch `gs://`.
+   Fix: point `GOOGLE_APPLICATION_CREDENTIALS` at *any* syntactically-valid throwaway
+   service-account JSON (fake key, fake project, never actually used for a real call —
+   generate one with `openssl genrsa 2048` and hand-build the JSON). This is a Hail/Java
+   quirk, not a real auth requirement — the bucket is public.
+2. **`.show(n)`/`.take(n)` reads partitions in doubling batches (1 → 2 → 4 → 8 → ...),
+   not just enough to satisfy `n` rows** — even though partition 0 alone (201,627 rows)
+   already dwarfs a 5-row request. If you're mirroring a `.ht` locally instead of pointing
+   at `gs://` directly (e.g. to avoid the ~578 GB full download), you need whichever
+   power-of-two of partitions the doubling lands on (4 partitions/~46 MB sufficed for a
+   5-row `.show()` here), not just partition 0. A local mirror needs, per partition `i`:
+   `rows/parts/part-*`, `index/part-*.idx/{index,metadata.json.gz}`; plus the table-level
+   `metadata.json.gz`, `globals/{metadata.json.gz,parts/part-0}`, `rows/metadata.json.gz`,
+   `_SUCCESS`, `README.txt` once. All of these are plain HTTPS-fetchable (no auth) since
+   the bucket is public — see the listing trick below.
 
 Bucket contents are listable without `gsutil`/auth via the JSON API, e.g.:
 ```
