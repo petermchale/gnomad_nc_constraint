@@ -163,6 +163,65 @@ Two gotchas actually hit when doing this (2026-07-20):
    `_SUCCESS`, `README.txt` once. All of these are plain HTTPS-fetchable (no auth) since
    the bucket is public — see the listing trick above.
 
+## Why `fig_tables/comparisons_*.txt` (Extended Data Fig. 6) can't answer the GC-bias question
+
+Extended Data Fig. 6 of Chen et al. 2024 ("Comparison of constraint scores built from
+different mutational models and genomic windows") plots ROC curves comparing Gnocchi
+(`z`) against context-only models built at trinucleotide (`z_trimer`) and heptanucleotide
+(`z_heptamer`) resolution — i.e. `z_trimer` is conceptually the same "step-1, `r ≡ 1`"
+idea as `expected_counts_by_context_methyl_genome_1kb.txt`, just scored per-variant
+instead of per-window. It's tempting to pull `z`/`z_trimer`/`z_heptamer` straight from
+this figure's underlying data, bin by GC content, and use it as a second, independent
+demonstration that the context-only model has lower local bias than Gnocchi. **This
+doesn't work**, for reasons confirmed directly (not just asserted) by downloading the
+real data — see `verify_comparisons_tables.py`, which fetches
+`fig_tables/comparisons.tar.gz` (the source for `efig_utils.py:plt_comparison_roc_gnocchi`,
+the function `generate_manuscript_efigures.py -efig 6` calls) and prints each
+`comparisons_*.txt` file's real schema, row counts, and sample rows:
+
+```
+python verify_comparisons_tables.py [-dest_dir tmp]
+```
+
+Findings from running it:
+
+1. **Not a genome-wide window sample — a curated variant-classification dataset.**
+   Each file is one of the four positive ("functional") sets or one of six negative
+   (AF-matched, downsampled TOPMed-control) sets from the ROC/AUC task. The row counts
+   confirm this *is* Extended Data Fig. 6's exact data: `comparisons_gwas_catalog_repl.txt`
+   has exactly 9,229 rows, `comparisons_gwas_fine-mapping_pip09_hc.txt` exactly 140, and
+   `comparisons_likely_pathogenic_clinvar_hgmd.txt` has 1,273 rows but exactly 1,026
+   *unique* loci (247 duplicates) — matching the paper's caption counts of "9,229 GWAS
+   Catalog variants ... 140 high-confidence fine-mapped variants ... 1,026 likely
+   pathogenic variants" exactly, the last one only after the dedup
+   `plt_comparison_roc_gnocchi` applies (`.drop_duplicates(subset=['locus'])`, line 970).
+   GWAS/fine-mapping/pathogenic variants are enriched in regulatory, promoter, and
+   CpG-island-rich (i.e. high-GC) regions by construction; the "negative" TOPMed pools
+   are pre-filtered by AF band and further subsampled at plot time to a fixed 10:1 ratio
+   against whichever positive set they're paired with (`sampling = 10`,
+   `df_0.sample(n=sampling*len(df_1))`) — confirmed by the raw pool sizes themselves
+   (9,229 positive vs 129,979 candidate negative for the `topmed_maf5` pairing, 14.1x,
+   pre-subsampling). None of this is a uniform sample of 1kb windows across the genome.
+2. **No GC-content column, and not keyed by `element_id`.** Every file is keyed by
+   `locus` (an individual variant position, e.g. `chr1:960326`), not `element_id` (a 1kb
+   window) — confirmed directly from the printed column list for all 10 files. Computing
+   GC content at all would first require floor-dividing each `locus` into its containing
+   1kb window and joining against `misc/genomic_features13_genome_1kb.txt`'s
+   `GC_content_1k` — doable, but doesn't fix problem 1.
+3. **Units mismatch even setting aside ascertainment.** `z` is a signed chi-based
+   statistic, `z = ±√((observed−expected)²/expected)` (`run_nc_constraint_gnomad_v31_main.py`
+   lines 278–280) — not the raw `expected − observed` residual that
+   `compute_gc_bias_step1_vs_step2.py` and McHale et al.'s Supp Fig. 1 are both defined
+   on. Averaging `z` (or `z_trimer`) by GC bin is a different quantity from averaging
+   `(expected − observed)` by GC bin, and isn't directly comparable to the existing
+   step-1-vs-step-2 results even if the ascertainment problem in (1) didn't exist.
+
+Bottom line: `comparisons_*.txt` could answer a legitimate but *different* question —
+"does Gnocchi's classification advantage over trimer/heptamer hold up specifically in
+high-GC vs low-GC functional variants?" — but not the reviewer's actual question about
+genome-wide local bias, which the existing genome-wide analysis below already answers
+correctly.
+
 ## The analysis: real-data version of the reviewer's request
 
 **This whole analysis stands or falls on one interpretive claim**: that `expected` in
