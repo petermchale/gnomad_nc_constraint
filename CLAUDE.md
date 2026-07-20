@@ -111,6 +111,11 @@ selection is per-trinucleotide-context.
 | `expected_counts_by_context_methyl_genome_1kb.txt` | 107 MB (bucket root) | **The step-1 (context-only) expected-count table, further summed down to one row per `element_id`: `element_id, possible, expected`.** Despite the name, this is *not* produced anywhere in `run_nc_constraint_gnomad_v31_main.py` — the script only ever writes the per-`(element_id, context)` file above; this further `group_by('element_id')` sum must happen in a downstream/publication step not included in this repo (same situation as the missing `generic.py`/`constraint_basics.py`/`nc_constraint_utils.py`). Verified self-consistent by hand: summing the 4 per-context rows for `chr1-10000-11000` in the file above (`possible` 3+3+1+4=11, `expected` 0.31501+0.26256+0.074125+0.15301=0.804705) exactly matches this file's row (`11`, `0.80470500`). Trustworthy to use directly, just can't point to its exact generating code. Use this directly — no need to reconstruct step-1 from `context_prepared.ht` (Option A) or the reference FASTA (Option B). |
 | `observed_counts_genome_1kb.txt` | 71 MB (bucket root) | Standalone observed-variant-count table, `element_id, variant_count`. Same numbers as the `observed` column of `fig_tables/constraint_z_genome_1kb.annot.txt` below, but much smaller if `pass_qc`/`coding_prop`/functional annotations aren't needed. |
 
+Bucket contents are listable without `gsutil`/auth via the JSON API, e.g.:
+```
+curl -s "https://storage.googleapis.com/storage/v1/b/gnomad-nc-constraint-v31-paper/o?prefix=logit_pickles/&maxResults=50"
+```
+
 ### Recipe: reading `context_prepared.ht` (or any `.ht`/`.mt`) with Hail on this Mac
 
 `hail==0.2.138` and `pyspark` are already in `requirements.txt`/`.venv`. To actually use
@@ -156,12 +161,7 @@ Two gotchas actually hit when doing this (2026-07-20):
    `rows/parts/part-*`, `index/part-*.idx/{index,metadata.json.gz}`; plus the table-level
    `metadata.json.gz`, `globals/{metadata.json.gz,parts/part-0}`, `rows/metadata.json.gz`,
    `_SUCCESS`, `README.txt` once. All of these are plain HTTPS-fetchable (no auth) since
-   the bucket is public — see the listing trick below.
-
-Bucket contents are listable without `gsutil`/auth via the JSON API, e.g.:
-```
-curl -s "https://storage.googleapis.com/storage/v1/b/gnomad-nc-constraint-v31-paper/o?prefix=logit_pickles/&maxResults=50"
-```
+   the bucket is public — see the listing trick above.
 
 ## The analysis: real-data version of the reviewer's request
 
