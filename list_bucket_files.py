@@ -40,6 +40,8 @@ import argparse
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.request
 
 BUCKET = "gnomad-nc-constraint-v31-paper"
@@ -77,6 +79,20 @@ def human_size(n: int) -> str:
     return f"{n:.1f}PB"
 
 
+def _urlopen_with_retries(url: str, max_attempts: int = 5):
+    """GCS occasionally returns transient 429/5xx under the request volume
+    a full -depth or -size sweep generates (hundreds of sequential calls) --
+    retry those with exponential backoff instead of letting the whole
+    listing crash on one blip."""
+    for attempt in range(max_attempts):
+        try:
+            return urllib.request.urlopen(url)
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 502, 503, 504) or attempt == max_attempts - 1:
+                raise
+            time.sleep(2 ** attempt)
+
+
 def list_objects(prefix: str, recursive: bool):
     """Yields (name, size) tuples. Non-recursive listing also yields
     (dirname, None) tuples for subdirectory prefixes."""
@@ -90,7 +106,7 @@ def list_objects(prefix: str, recursive: bool):
         if token:
             params["pageToken"] = token
         url = API_URL + "?" + "&".join(f"{k}={v}" for k, v in params.items())
-        with urllib.request.urlopen(url) as resp:
+        with _urlopen_with_retries(url) as resp:
             data = json.load(resp)
 
         for item in data.get("items", []):
