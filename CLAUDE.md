@@ -222,7 +222,7 @@ high-GC vs low-GC functional variants?" — but not the reviewer's actual questi
 genome-wide local bias, which the existing genome-wide analysis below already answers
 correctly.
 
-## The analysis: real-data version of the reviewer's request
+## The analysis that does work: real-data version of the reviewer's request
 
 **This whole analysis stands or falls on one interpretive claim**: that `expected` in
 `expected_counts_by_context_methyl_genome_1kb.txt` is the context-only, pre-adjustment
