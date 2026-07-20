@@ -1,0 +1,260 @@
+# Output of: python list_bucket_files.py -depth 2
+# Generated: 2026-07-20
+# Full, non-recursive listing of every top-level directory in
+# gs://gnomad-nc-constraint-v31-paper, expanded one level (each top-level
+# directory's own immediate files/subdirs shown inline, indented).
+#
+# See CLAUDE.md for the discussion this came out of, and
+# list_bucket_files.py for the script (colorized on a real terminal; plain
+# here since this is a redirected/saved copy).
+
+expected_counts_by_context_methyl_dnm_1M.txt	113.9KB
+expected_counts_by_context_methyl_genome_1kb.txt	102.2MB
+expected_counts_per_context_methyl_genome_1kb.txt	3.1GB
+mu_by_context_methyl_downsampled_1000.txt	11.7KB
+mutation_rate_by_context_methyl.txt	12.3KB
+observed_counts_by_context_methyl.txt	2.7KB
+observed_counts_dnm_1M.txt	73.8KB
+observed_counts_genome_1kb.txt	67.6MB
+possible_counts_by_context_methyl.txt	2.8KB
+possible_counts_by_context_methyl_downsampled_1000.txt	2.9KB
+possible_counts_by_context_methyl_genome_1kb.txt	8.3GB
+browser_files/  (directory: 5 files, 0 subdirs)
+  browser_files/constraint_z_genome_1kb_filtered.browser.txt.gz	87.3MB
+  browser_files/constraint_z_genome_1kb_unfiltered.qc_annot.browser.txt.gz	123.0MB
+  browser_files/enh_gene_roadmaplinks.all.browser.txt.gz	9.8MB
+  browser_files/enh_gene_roadmaplinks_by_tissue.browser.txt.gz	8.9MB
+  browser_files/enh_gene_roadmaplinks_merged_tissues.browser.txt.gz	917.3KB
+context_downsampled_1000.ht/  (directory: 3 files, 4 subdirs)
+  context_downsampled_1000.ht/README.txt	147.0B
+  context_downsampled_1000.ht/_SUCCESS	0.0B
+  context_downsampled_1000.ht/metadata.json.gz	81.2KB
+  context_downsampled_1000.ht/globals/  (directory: 1 files, 1 subdirs)
+  context_downsampled_1000.ht/index/  (directory: 0 files, 38031 subdirs)
+  context_downsampled_1000.ht/references/  (directory: 0 files, 0 subdirs)
+  context_downsampled_1000.ht/rows/  (directory: 1 files, 1 subdirs)
+context_prefiltered.ht/  (directory: 3 files, 4 subdirs)
+  context_prefiltered.ht/README.txt	147.0B
+  context_prefiltered.ht/_SUCCESS	0.0B
+  context_prefiltered.ht/metadata.json.gz	76.4KB
+  context_prefiltered.ht/globals/  (directory: 1 files, 1 subdirs)
+  context_prefiltered.ht/index/  (directory: 0 files, 38040 subdirs)
+  context_prefiltered.ht/references/  (directory: 0 files, 0 subdirs)
+  context_prefiltered.ht/rows/  (directory: 1 files, 1 subdirs)
+context_prepared.ht/  (directory: 3 files, 4 subdirs)
+  context_prepared.ht/README.txt	147.0B
+  context_prepared.ht/_SUCCESS	0.0B
+  context_prepared.ht/metadata.json.gz	4.1KB
+  context_prepared.ht/globals/  (directory: 1 files, 1 subdirs)
+  context_prepared.ht/index/  (directory: 0 files, 38065 subdirs)
+  context_prepared.ht/references/  (directory: 0 files, 0 subdirs)
+  context_prepared.ht/rows/  (directory: 1 files, 1 subdirs)
+context_prepared_mutation_rate_po_rr_1kb.tmp.ht/  (directory: 3 files, 4 subdirs)
+  context_prepared_mutation_rate_po_rr_1kb.tmp.ht/README.txt	148.0B
+  context_prepared_mutation_rate_po_rr_1kb.tmp.ht/_SUCCESS	0.0B
+  context_prepared_mutation_rate_po_rr_1kb.tmp.ht/metadata.json.gz	63.9KB
+  context_prepared_mutation_rate_po_rr_1kb.tmp.ht/globals/  (directory: 1 files, 1 subdirs)
+  context_prepared_mutation_rate_po_rr_1kb.tmp.ht/index/  (directory: 0 files, 20000 subdirs)
+  context_prepared_mutation_rate_po_rr_1kb.tmp.ht/references/  (directory: 0 files, 0 subdirs)
+  context_prepared_mutation_rate_po_rr_1kb.tmp.ht/rows/  (directory: 1 files, 1 subdirs)
+download_files/  (directory: 4 files, 0 subdirs)
+  download_files/constraint_z_enh_gene_roadmaplinks.all.download.txt.gz	4.8MB
+  download_files/constraint_z_genome_1kb.qc.download.txt.gz	87.0MB
+  download_files/constraint_z_genome_1kb.raw.download.txt.gz	121.4MB
+  download_files/nc_constraint_gnomad_v31_README.docx	11.5KB
+expected__counts_by_context_methyl_dnm_1M.ht/  (directory: 3 files, 4 subdirs)
+  expected__counts_by_context_methyl_dnm_1M.ht/README.txt	147.0B
+  expected__counts_by_context_methyl_dnm_1M.ht/_SUCCESS	0.0B
+  expected__counts_by_context_methyl_dnm_1M.ht/metadata.json.gz	297.0B
+  expected__counts_by_context_methyl_dnm_1M.ht/globals/  (directory: 1 files, 1 subdirs)
+  expected__counts_by_context_methyl_dnm_1M.ht/index/  (directory: 0 files, 2720 subdirs)
+  expected__counts_by_context_methyl_dnm_1M.ht/references/  (directory: 0 files, 0 subdirs)
+  expected__counts_by_context_methyl_dnm_1M.ht/rows/  (directory: 1 files, 1 subdirs)
+expected_counts_by_context_methyl_genome_1kb.ht/  (directory: 3 files, 4 subdirs)
+  expected_counts_by_context_methyl_genome_1kb.ht/README.txt	147.0B
+  expected_counts_by_context_methyl_genome_1kb.ht/_SUCCESS	0.0B
+  expected_counts_by_context_methyl_genome_1kb.ht/metadata.json.gz	37.2KB
+  expected_counts_by_context_methyl_genome_1kb.ht/globals/  (directory: 1 files, 1 subdirs)
+  expected_counts_by_context_methyl_genome_1kb.ht/index/  (directory: 0 files, 38038 subdirs)
+  expected_counts_by_context_methyl_genome_1kb.ht/references/  (directory: 0 files, 0 subdirs)
+  expected_counts_by_context_methyl_genome_1kb.ht/rows/  (directory: 1 files, 1 subdirs)
+fig_tables/  (directory: 39 files, 0 subdirs)
+  ... more than 30 entries under fig_tables/ -- not expanding (use -prefix 'fig_tables/' to view directly)
+fig_tables_init/  (directory: 22 files, 0 subdirs)
+  fig_tables_init/.DS_Store	6.0KB
+  fig_tables_init/UKBB_94traits_release1.traits	6.2KB
+  fig_tables_init/ccre_gwascatalog_z_1kb_nc_max.txt	22.6MB
+  fig_tables_init/cnvDevDelay_z_1kb_nc_max.logit.txt	3.8MB
+  fig_tables_init/cnvDevDelay_z_1kb_nc_max.txt	4.2MB
+  fig_tables_init/cnv_IHH_dup4_z_1kb.txt	14.5KB
+  fig_tables_init/constraint_z_genome_1kb.annot.txt	277.0MB
+  fig_tables_init/constraint_z_genome_1kb_chrx.annot.txt	5.4MB
+  fig_tables_init/constraint_z_genome_1kb_exonic.txt	2.1MB
+  fig_tables_init/enh_gene_roadmaplinks.tissue_expr_gtex.txt	5.8MB
+  fig_tables_init/enh_gene_roadmaplinks.txt	1.5MB
+  fig_tables_init/fitted_po_by_context_methyl.txt	13.5KB
+  fig_tables_init/fitted_po_by_context_methyl_chrx.txt	12.5KB
+  fig_tables_init/geneset_erichment_loeuf0_enhz1.txt	91.2KB
+  fig_tables_init/genome_1kb.annot_dist2gene.txt	345.5MB
+  fig_tables_init/genome_1kb.phastCons_mean.txt	168.0MB
+  fig_tables_init/gnomad_v2.1_sv.sites.lft38.z_1kb_bootstrap.txt	1.3KB
+  fig_tables_init/mave_enh_scores.txt	2.2KB
+  fig_tables_init/powered_constraint_z4_by_depl.txt	115.9KB
+  fig_tables_init/rf_f18_feature_importance.txt	620.0B
+  fig_tables_init/rf_f18_predicted_dnms_1M.txt	11.1KB
+  fig_tables_init/ukb_fine-mapping_cs95.json	17.6MB
+genome_downsampled_1000.ht/  (directory: 3 files, 4 subdirs)
+  genome_downsampled_1000.ht/README.txt	147.0B
+  genome_downsampled_1000.ht/_SUCCESS	0.0B
+  genome_downsampled_1000.ht/metadata.json.gz	206.0KB
+  genome_downsampled_1000.ht/globals/  (directory: 1 files, 1 subdirs)
+  genome_downsampled_1000.ht/index/  (directory: 0 files, 115376 subdirs)
+  genome_downsampled_1000.ht/references/  (directory: 0 files, 0 subdirs)
+  genome_downsampled_1000.ht/rows/  (directory: 1 files, 1 subdirs)
+genome_prefiltered.ht/  (directory: 3 files, 4 subdirs)
+  genome_prefiltered.ht/README.txt	147.0B
+  genome_prefiltered.ht/_SUCCESS	0.0B
+  genome_prefiltered.ht/metadata.json.gz	212.5KB
+  genome_prefiltered.ht/globals/  (directory: 1 files, 1 subdirs)
+  genome_prefiltered.ht/index/  (directory: 0 files, 115376 subdirs)
+  genome_prefiltered.ht/references/  (directory: 0 files, 0 subdirs)
+  genome_prefiltered.ht/rows/  (directory: 1 files, 1 subdirs)
+genome_prepared.ht/  (directory: 3 files, 4 subdirs)
+  genome_prepared.ht/README.txt	147.0B
+  genome_prepared.ht/_SUCCESS	0.0B
+  genome_prepared.ht/metadata.json.gz	233.6KB
+  genome_prepared.ht/globals/  (directory: 1 files, 1 subdirs)
+  genome_prepared.ht/index/  (directory: 0 files, 115377 subdirs)
+  genome_prepared.ht/references/  (directory: 0 files, 0 subdirs)
+  genome_prepared.ht/rows/  (directory: 1 files, 1 subdirs)
+genomic_features/  (directory: 5 files, 0 subdirs)
+  genomic_features/DNM_decode_psychencode_site_context.mutation_rate.txt	23.5MB
+  genomic_features/context_prefiltered_nonmutated-dnm_sites10xdnm.mutation_rate.txt	181.4MB
+  genomic_features/dnm01_10x_ft_logit_regularized_coef_z_3mer_context_flnk_1k-1M.txt	124.8KB
+  genomic_features/genomic_features13_dnm0_10x_flnk_1k-1M.txt	1.9GB
+  genomic_features/genomic_features13_dnm1_flnk_1k-1M.txt	196.8MB
+index/  (directory: 0 files, 9137 subdirs)
+  ... more than 30 entries under index/ -- not expanding (use -prefix 'index/' to view directly)
+logit_pickles/  (directory: 96 files, 0 subdirs)
+  ... more than 30 entries under logit_pickles/ -- not expanding (use -prefix 'logit_pickles/' to view directly)
+methylation/  (directory: 3 files, 4 subdirs)
+  methylation/README.txt	147.0B
+  methylation/_SUCCESS	0.0B
+  methylation/metadata.json.gz	31.1KB
+  methylation/globals/  (directory: 1 files, 1 subdirs)
+  methylation/index/  (directory: 0 files, 13989 subdirs)
+  methylation/references/  (directory: 0 files, 0 subdirs)
+  methylation/rows/  (directory: 1 files, 1 subdirs)
+misc/  (directory: 20 files, 0 subdirs)
+  misc/DNM_decode_psychencode.flip2hl.txt	14.7MB
+  misc/RF_f18_dnm_1M.pkl	51.3MB
+  misc/blacklist_gap2.bed	25.2KB
+  misc/constraint_basics.py	47.4KB
+  misc/coord_CDTS_percentile_N11257all.scores.bed	7.5GB
+  misc/generic.py	17.5KB
+  misc/genome_1kb_coding_exons.txt	99.7MB
+  misc/genome_1kb_gnomad_v31_coverage.txt	95.6MB
+  misc/genome_1kb_gnomad_v31_pass.txt	95.1MB
+  misc/genomic_features13.tar.gz	309.6MB
+  misc/genomic_features13_genome_1kb.txt	1.3GB
+  misc/genomic_features13_sel.txt	19.1KB
+  misc/genomic_features17_1M.txt	447.7KB
+  misc/genomic_features17_1kb.txt	344.0MB
+  misc/hg38.chrom.1M.bed	143.2KB
+  misc/hg38.chrom.1kb.bed	140.4MB
+  misc/hg38.chrom.1kb.chr22.bed	2.3MB
+  misc/nc_constraint_utils.py	5.6KB
+  misc/wgEncodeGencodeBasicV19.coding_exons.bed	39.8MB
+  misc/wgEncodeGencodeBasicV32.coding_exons.bed	43.6MB
+observed_counts_by_context_methyl_dnm.ht/  (directory: 3 files, 4 subdirs)
+  observed_counts_by_context_methyl_dnm.ht/README.txt	147.0B
+  observed_counts_by_context_methyl_dnm.ht/_SUCCESS	0.0B
+  observed_counts_by_context_methyl_dnm.ht/metadata.json.gz	292.0B
+  observed_counts_by_context_methyl_dnm.ht/globals/  (directory: 1 files, 1 subdirs)
+  observed_counts_by_context_methyl_dnm.ht/index/  (directory: 0 files, 156 subdirs)
+  observed_counts_by_context_methyl_dnm.ht/references/  (directory: 0 files, 0 subdirs)
+  observed_counts_by_context_methyl_dnm.ht/rows/  (directory: 1 files, 1 subdirs)
+observed_counts_by_context_methyl_dnm_1M.ht/  (directory: 3 files, 4 subdirs)
+  observed_counts_by_context_methyl_dnm_1M.ht/README.txt	147.0B
+  observed_counts_by_context_methyl_dnm_1M.ht/_SUCCESS	0.0B
+  observed_counts_by_context_methyl_dnm_1M.ht/metadata.json.gz	285.0B
+  observed_counts_by_context_methyl_dnm_1M.ht/globals/  (directory: 1 files, 1 subdirs)
+  observed_counts_by_context_methyl_dnm_1M.ht/index/  (directory: 0 files, 2714 subdirs)
+  observed_counts_by_context_methyl_dnm_1M.ht/references/  (directory: 0 files, 0 subdirs)
+  observed_counts_by_context_methyl_dnm_1M.ht/rows/  (directory: 1 files, 1 subdirs)
+observed_counts_by_context_methyl_downsampled_1000.ht/  (directory: 3 files, 4 subdirs)
+  observed_counts_by_context_methyl_downsampled_1000.ht/README.txt	147.0B
+  observed_counts_by_context_methyl_downsampled_1000.ht/_SUCCESS	0.0B
+  observed_counts_by_context_methyl_downsampled_1000.ht/metadata.json.gz	491.0B
+  observed_counts_by_context_methyl_downsampled_1000.ht/globals/  (directory: 1 files, 1 subdirs)
+  observed_counts_by_context_methyl_downsampled_1000.ht/index/  (directory: 0 files, 100 subdirs)
+  observed_counts_by_context_methyl_downsampled_1000.ht/references/  (directory: 0 files, 0 subdirs)
+  observed_counts_by_context_methyl_downsampled_1000.ht/rows/  (directory: 1 files, 1 subdirs)
+observed_counts_dnm_1M.ht/  (directory: 3 files, 4 subdirs)
+  observed_counts_dnm_1M.ht/README.txt	147.0B
+  observed_counts_dnm_1M.ht/_SUCCESS	0.0B
+  observed_counts_dnm_1M.ht/metadata.json.gz	285.0B
+  observed_counts_dnm_1M.ht/globals/  (directory: 1 files, 1 subdirs)
+  observed_counts_dnm_1M.ht/index/  (directory: 0 files, 2714 subdirs)
+  observed_counts_dnm_1M.ht/references/  (directory: 0 files, 0 subdirs)
+  observed_counts_dnm_1M.ht/rows/  (directory: 1 files, 1 subdirs)
+observed_counts_genome_1kb.ht/  (directory: 3 files, 4 subdirs)
+  observed_counts_genome_1kb.ht/README.txt	147.0B
+  observed_counts_genome_1kb.ht/_SUCCESS	0.0B
+  observed_counts_genome_1kb.ht/metadata.json.gz	93.8KB
+  observed_counts_genome_1kb.ht/globals/  (directory: 1 files, 1 subdirs)
+  observed_counts_genome_1kb.ht/index/  (directory: 0 files, 115377 subdirs)
+  observed_counts_genome_1kb.ht/references/  (directory: 0 files, 0 subdirs)
+  observed_counts_genome_1kb.ht/rows/  (directory: 1 files, 1 subdirs)
+possible_counts_by_context_heptamer_methyl_dnm_1M.ht/  (directory: 3 files, 4 subdirs)
+  possible_counts_by_context_heptamer_methyl_dnm_1M.ht/README.txt	147.0B
+  possible_counts_by_context_heptamer_methyl_dnm_1M.ht/_SUCCESS	0.0B
+  possible_counts_by_context_heptamer_methyl_dnm_1M.ht/metadata.json.gz	72.3KB
+  possible_counts_by_context_heptamer_methyl_dnm_1M.ht/globals/  (directory: 1 files, 1 subdirs)
+  possible_counts_by_context_heptamer_methyl_dnm_1M.ht/index/  (directory: 0 files, 38058 subdirs)
+  possible_counts_by_context_heptamer_methyl_dnm_1M.ht/references/  (directory: 0 files, 0 subdirs)
+  possible_counts_by_context_heptamer_methyl_dnm_1M.ht/rows/  (directory: 1 files, 1 subdirs)
+possible_counts_by_context_methyl_dnm.ht/  (directory: 3 files, 4 subdirs)
+  possible_counts_by_context_methyl_dnm.ht/README.txt	147.0B
+  possible_counts_by_context_methyl_dnm.ht/_SUCCESS	0.0B
+  possible_counts_by_context_methyl_dnm.ht/metadata.json.gz	292.0B
+  possible_counts_by_context_methyl_dnm.ht/globals/  (directory: 1 files, 1 subdirs)
+  possible_counts_by_context_methyl_dnm.ht/index/  (directory: 0 files, 156 subdirs)
+  possible_counts_by_context_methyl_dnm.ht/references/  (directory: 0 files, 0 subdirs)
+  possible_counts_by_context_methyl_dnm.ht/rows/  (directory: 1 files, 1 subdirs)
+possible_counts_by_context_methyl_dnm_1M.ht/  (directory: 3 files, 4 subdirs)
+  possible_counts_by_context_methyl_dnm_1M.ht/README.txt	147.0B
+  possible_counts_by_context_methyl_dnm_1M.ht/_SUCCESS	0.0B
+  possible_counts_by_context_methyl_dnm_1M.ht/metadata.json.gz	2.3KB
+  possible_counts_by_context_methyl_dnm_1M.ht/globals/  (directory: 1 files, 1 subdirs)
+  possible_counts_by_context_methyl_dnm_1M.ht/index/  (directory: 0 files, 38032 subdirs)
+  possible_counts_by_context_methyl_dnm_1M.ht/references/  (directory: 0 files, 0 subdirs)
+  possible_counts_by_context_methyl_dnm_1M.ht/rows/  (directory: 1 files, 1 subdirs)
+possible_counts_by_context_methyl_genome_1kb.ht/  (directory: 3 files, 4 subdirs)
+  possible_counts_by_context_methyl_genome_1kb.ht/README.txt	147.0B
+  possible_counts_by_context_methyl_genome_1kb.ht/_SUCCESS	0.0B
+  possible_counts_by_context_methyl_genome_1kb.ht/metadata.json.gz	80.5KB
+  possible_counts_by_context_methyl_genome_1kb.ht/globals/  (directory: 1 files, 1 subdirs)
+  possible_counts_by_context_methyl_genome_1kb.ht/index/  (directory: 0 files, 38029 subdirs)
+  possible_counts_by_context_methyl_genome_1kb.ht/references/  (directory: 0 files, 0 subdirs)
+  possible_counts_by_context_methyl_genome_1kb.ht/rows/  (directory: 1 files, 1 subdirs)
+proportion_observed_by_context_methyl_dnm.ht/  (directory: 3 files, 4 subdirs)
+  proportion_observed_by_context_methyl_dnm.ht/README.txt	147.0B
+  proportion_observed_by_context_methyl_dnm.ht/_SUCCESS	0.0B
+  proportion_observed_by_context_methyl_dnm.ht/metadata.json.gz	310.0B
+  proportion_observed_by_context_methyl_dnm.ht/globals/  (directory: 1 files, 1 subdirs)
+  proportion_observed_by_context_methyl_dnm.ht/index/  (directory: 0 files, 156 subdirs)
+  proportion_observed_by_context_methyl_dnm.ht/references/  (directory: 0 files, 0 subdirs)
+  proportion_observed_by_context_methyl_dnm.ht/rows/  (directory: 1 files, 1 subdirs)
+proportion_observed_by_context_methyl_dnm_.ht/  (directory: 3 files, 4 subdirs)
+  proportion_observed_by_context_methyl_dnm_.ht/README.txt	147.0B
+  proportion_observed_by_context_methyl_dnm_.ht/_SUCCESS	0.0B
+  proportion_observed_by_context_methyl_dnm_.ht/metadata.json.gz	310.0B
+  proportion_observed_by_context_methyl_dnm_.ht/globals/  (directory: 1 files, 1 subdirs)
+  proportion_observed_by_context_methyl_dnm_.ht/index/  (directory: 0 files, 156 subdirs)
+  proportion_observed_by_context_methyl_dnm_.ht/references/  (directory: 0 files, 0 subdirs)
+  proportion_observed_by_context_methyl_dnm_.ht/rows/  (directory: 1 files, 1 subdirs)
+rows/  (directory: 0 files, 1 subdirs)
+  rows/parts/  (directory: 13437 files, 0 subdirs)
+
+11 files, 11.6GB total (top-level listing only; pass -recursive to descend, or -depth N to expand inline)
