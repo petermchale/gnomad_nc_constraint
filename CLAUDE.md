@@ -278,8 +278,9 @@ cover everything:
 6. **Compare** to Supp Fig 1 of the McHale/Goldberg/Quinlan paper — does the real data
    here show the same qualitative pattern?
 
-**No genome-wide "global" bias metric is computed.** McHale et al.'s simulation defines
-one (`compute_overall_model_bias()` in the same notebook directory:
+**No genome-wide "global" bias metric is computed.** McHale et al.'s simulation
+(`github.com/quinlan-lab/constraint-tools`, `papers/neutral_models_are_biased/9.regression/`)
+defines one (`compute_overall_model_bias()`, in `generate_data.py`:
 `mean((predicted_y - true_rate(x))**2)`), but it requires a known ground-truth
 `true_rate(x)` that only exists because their data is simulated. Real gnomAD data has no
 such ground truth — only noisy observed counts — so there's no faithful real-data analog
