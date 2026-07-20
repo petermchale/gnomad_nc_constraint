@@ -17,10 +17,28 @@ Examples:
 """
 import argparse
 import json
+import os
+import sys
 import urllib.request
 
 BUCKET = "gnomad-nc-constraint-v31-paper"
 API_URL = f"https://storage.googleapis.com/storage/v1/b/{BUCKET}/o"
+
+# Colorize only when writing to a real terminal (not a pipe/file) and NO_COLOR
+# isn't set (https://no-color.org) -- otherwise ANSI codes would just pollute
+# redirected output.
+_USE_COLOR = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+
+
+def _c(code: str) -> str:
+    return code if _USE_COLOR else ""
+
+
+RESET = _c("\033[0m")
+DIR = _c("\033[1;34m")     # bold blue, like `ls` directory coloring
+COUNT = _c("\033[90m")     # gray
+SIZE = _c("\033[32m")      # green
+SUMMARY = _c("\033[1;36m")  # bold cyan
 
 
 def human_size(n: int) -> str:
@@ -88,14 +106,15 @@ def main():
     for name, size in list_objects(args.prefix, args.recursive):
         if size is None:
             n_child_files, n_child_subdirs = count_immediate_children(name)
-            print(f"{name}  (directory: {n_child_files} files, {n_child_subdirs} subdirs)")
+            print(f"{DIR}{name}{RESET}  {COUNT}(directory: {n_child_files} files, "
+                  f"{n_child_subdirs} subdirs){RESET}")
         else:
-            print(f"{name}\t{human_size(size)}")
+            print(f"{name}\t{SIZE}{human_size(size)}{RESET}")
             n_files += 1
             total_size += size
 
-    print(f"\n{n_files} files, {human_size(total_size)} total"
-          + ("" if args.recursive else " (top-level listing only; pass -recursive to descend)"))
+    tail = "" if args.recursive else " (top-level listing only; pass -recursive to descend)"
+    print(f"\n{SUMMARY}{n_files} files, {human_size(total_size)} total{RESET}{tail}")
 
 
 if __name__ == "__main__":
