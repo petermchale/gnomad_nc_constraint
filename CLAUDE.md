@@ -287,17 +287,6 @@ such ground truth — only noisy observed counts — so there's no faithful real
 of that particular metric. Only the GC-binned local bias (their "feature-specific bias",
 the `groupby(x_bin).mean(residual)` line in `plot_residuals.py`) is ported here.
 
-**Confirmed live against GitHub** (`gh api "search/code?q=compute_overall_model_bias+repo:quinlan-lab/constraint-tools"`):
-`compute_overall_model_bias` appears in exactly 4 files, all under
-`papers/neutral_models_are_biased/9.regression/` — `generate_data.py` (where it's
-actually defined, line 33), and imported into `plot_residuals.py`,
-`predict_constraint.py`, `fit_neutral_models.py`. Its body is
-`((df[f'predicted_y_{model_type}Model'] - true_rate(df['x'])) ** 2).mean()`, matching
-the `mean((predicted_y - true_rate(x))**2)` formula quoted above exactly. (A stale local
-clone at `/Users/petermchale/tmp/constraint-tools/`, a 2021 snapshot predating this
-`papers/` restructuring, briefly looked like it might contradict this claim — it
-doesn't; it's just outdated and not authoritative.)
-
 **Implemented in `compute_gc_bias_step1_vs_step2.py`** (steps 1–5 above). Run once so far
 on a `-downsample_n 5000` rough pass (not the full ~3M windows, and with
 `-restrict_to_noncoding` off, i.e. coding windows still included): step-1 bias stays
