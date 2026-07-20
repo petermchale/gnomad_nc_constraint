@@ -31,3 +31,16 @@ timestamp: 2026-07-20T00:00:00Z
   superset panel (`misc/genomic_features17_*`) — documented in root
   `CLAUDE.md` only, not folded into this bundle's pipeline since it's a
   different modeling approach, not a resizing of the same training set.
+
+- **2026-07-20 (later still)** — Ran `list_bucket_files.py -depth 2` across
+  the whole bucket (after fixing two bugs in that script: an uncapped
+  expansion that hung for minutes on `*.ht/index/` directories, and no
+  retry on transient GCS 5xx errors) and grepped the saved output
+  (`bucket_listing_depth2.txt`, repo root) for "dnm" to check whether
+  [training-data](training-data.md)'s file list was still missing anything.
+  One find: `genomic_features/dnm01_10x_ft_logit_regularized_coef_z_3mer_context_flnk_1k-1M.txt`
+  is the exact published output of `analyze_individual_feature_effects.py:29`
+  run on the full training data — added to [training-data](training-data.md)
+  and as a new step 0 in [pipeline](pipeline.md) (validate the fitting code
+  reproduces this file before touching training-set size at all). Everything
+  else matching "dnm" in the listing was already documented.

@@ -11,6 +11,16 @@ timestamp: 2026-07-20T00:00:00Z
 
 # Pipeline
 
+0. **Validate the fitting code first, before touching training-set size at
+   all.** Run `analyze_individual_feature_effects.py` unmodified, on the
+   full, unmodified [training-data](training-data.md) files, and diff its
+   output against the published
+   `genomic_features/dnm01_10x_ft_logit_regularized_coef_z_3mer_context_flnk_1k-1M.txt`
+   — confirmed to be that script's exact published output (see
+   [training-data](training-data.md)). Only proceed to steps 1+ once this
+   matches; otherwise a resized-training-set refit could just as easily be
+   diverging from the published pipeline for an unrelated reason.
+
 Start with regime 1 from [training-data](training-data.md) (shrink both
 dnm0+dnm1) — simplest, no new data sourcing needed, most directly comparable
 to the existing step-1/step-2 baseline in root `CLAUDE.md`.

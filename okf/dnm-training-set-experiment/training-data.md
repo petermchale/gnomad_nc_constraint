@@ -28,6 +28,14 @@ consumption.
 Join key: `locus` (dnm0/dnm1 site tables) ↔ `element_id` (feature tables) —
 see `analyze_individual_feature_effects.py:15,20` for the exact merge.
 
+**Validation target, not a subsampling input**:
+`genomic_features/dnm01_10x_ft_logit_regularized_coef_z_3mer_context_flnk_1k-1M.txt`
+(124.8 KB) is the *published output* of `analyze_individual_feature_effects.py:29`
+run on the full, unmodified files above — confirmed by exact path match. Before
+subsampling anything, re-run the script unmodified and diff its output against this
+file; only trust a resized-training-set refit once that baseline reproduction checks
+out. See [pipeline](pipeline.md) step 0.
+
 `analyze_individual_feature_effects.py:18` drops all `chrX` sites from dnm0
 before fitting (autosomes only) — replicate this when subsampling.
 

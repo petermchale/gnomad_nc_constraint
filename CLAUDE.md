@@ -347,6 +347,19 @@ mutation status (0/1) on that one z-scored feature
 Bonferroni-selects the significant ones (lines 61–68) — this *is* the feature-selection
 step, and it's directly reproducible and directly subsample-able as-is.
 
+**A ready-made validation target for this step**: line 29 writes its pre-Bonferroni,
+per-`(context, window, feature)` coefficient table to exactly
+`genomic_features/dnm01_10x_ft_logit_regularized_coef_z_3mer_context_flnk_1k-1M.txt`
+(124.8 KB) — and that exact path exists in the bucket. So this file is the *actual
+published output* of running this univariate fit on the full, unmodified dnm0/dnm1
+training set, before any resizing. Before trusting a refit on resized (subsampled or
+densified) training data, first re-run `analyze_individual_feature_effects.py` unmodified
+and confirm the output matches this file — a concrete check that the fitting code
+correctly reproduces the pipeline before touching training-set size at all. (The
+`.selected.txt` version line 67 additionally writes is *not* separately published under
+this name in the bucket — per the script's own trailing comment, that output corresponds
+to `misc/genomic_features13_sel.txt` instead.)
+
 **But this is not the final model.** The regional-adjustment factor `r(w)` that
 `run_nc_constraint_gnomad_v31_main.py` actually computes (lines 209–249) comes from a
 **multivariate**, **PCA-reduced** logistic regression per context — one fitted
