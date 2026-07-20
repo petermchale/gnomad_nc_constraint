@@ -9,18 +9,19 @@ descend into every subdirectory instead, and -prefix to scope the listing to
 one subdirectory (recursive listing without -prefix will enumerate the whole
 bucket, which is slow and produces a very long listing).
 
-Each directory entry also reports its total recursive size (not just its
-immediate children's), which needs a full recursive listing of that
-directory regardless of whether -recursive was passed for the outer listing
--- for huge directories like context_prepared.ht/ (~578 GB, 38,000+ objects)
-this alone takes 100+ paginated API calls, so a plain top-level listing of
-the bucket root is noticeably slower than it looks.
+Pass -size to also report each directory's total recursive size (not just
+its immediate children's). Off by default because it needs a full recursive
+listing of that directory regardless of whether -recursive was passed for
+the outer listing -- for huge directories like context_prepared.ht/
+(~578 GB, 38,000+ objects) this alone takes 100+ paginated API calls, so
+-size can make even a plain top-level listing very slow.
 
 Examples:
     python list_bucket_files.py                              # top-level only
     python list_bucket_files.py -prefix fig_tables/           # one dir, top-level
     python list_bucket_files.py -prefix fig_tables/ -recursive
     python list_bucket_files.py -recursive                    # whole bucket (slow)
+    python list_bucket_files.py -size                         # top-level + dir sizes (slow)
 """
 import argparse
 import json
@@ -114,6 +115,10 @@ def main():
     parser.add_argument(
         "-recursive", action="store_true",
         help="descend into subdirectories instead of stopping at the first '/' (default: off)")
+    parser.add_argument(
+        "-size", action="store_true",
+        help="also report each directory's total recursive size -- slow, needs a full "
+             "recursive listing per directory (default: off)")
     args = parser.parse_args()
 
     n_files = 0
@@ -121,10 +126,12 @@ def main():
     for name, size in list_objects(args.prefix, args.recursive):
         if size is None:
             n_child_files, n_child_subdirs = count_immediate_children(name)
-            child_total_size = dir_total_size(name)
+            size_note = ""
+            if args.size:
+                child_total_size = dir_total_size(name)
+                size_note = f", {RESET}{SIZE}{human_size(child_total_size)}{COUNT} total"
             print(f"{DIR}{name}{RESET}  {COUNT}(directory: {n_child_files} files, "
-                  f"{n_child_subdirs} subdirs, {RESET}{SIZE}{human_size(child_total_size)}"
-                  f"{COUNT} total){RESET}")
+                  f"{n_child_subdirs} subdirs{size_note}){RESET}")
         else:
             print(f"{name}\t{SIZE}{human_size(size)}{RESET}")
             n_files += 1
