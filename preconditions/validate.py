@@ -1,13 +1,14 @@
 """
 Does this repo's reimplementation of Chen et al.'s fitting pipeline reproduce theirs?
 
-    .venv/bin/python validate_reimplementation/validate.py [-check {both,coefficients,expected}]
+    .venv/bin/python preconditions/validate.py [-check {both,coefficients,expected}]
 
 Everything downstream -- fig5/ and dnm_training_size/ alike -- rests on the claim that
 `gnocchi_bias/dnm_model.py` reproduces the published pipeline, because the multivariate
 PCA+logit step that produces r(w) has NO published source anywhere (the bucket ships the
 fitted .pkl models and the apply-side code, never the fitting code). This directory holds
-the two checks that claim rests on, kept separate from the experiments that assume it.
+the two checks that claim rests on, kept separate from the experiments that assume it. Its siblings here check the other
+direction -- whether what we believe about Chen et al.'s artifact is true at all.
 
   coefficients  The UNIVARIATE feature-selection stage, against Chen et al.'s own fitted
                 coefficient table. This is the only check anywhere in the repo against a

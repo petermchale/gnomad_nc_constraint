@@ -14,6 +14,13 @@ import os
 import pandas as pd
 import statsmodels.api as sm
 
+# tmp/ is the repo-root download cache shared with every other script here.
+# Resolved from __file__, not as the relative "tmp", so running this from inside
+# preconditions/ reuses the cache instead of re-downloading multi-GB files into
+# preconditions/tmp/.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "tmp")
+
 BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
 
 
@@ -34,7 +41,7 @@ def main():
         "-context", default="AAA",
         help="trinucleotide context whose fitted model to test (default: AAA)")
     parser.add_argument(
-        "-dest_dir", default="tmp",
+        "-dest_dir", default=DEFAULT_DEST_DIR,
         help="local directory to download the pickle into (default: ./tmp)")
     args = parser.parse_args()
 

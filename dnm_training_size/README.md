@@ -51,7 +51,7 @@ regardless of whether one exists. Read from `output/selected.dnm_refit_*.txt` an
 
 ## Not here any more
 
-- **Validation of the reimplementation** moved to `validate_reimplementation/`. It is a
+- **Validation of the reimplementation** moved to `preconditions/`. It is a
   precondition for this experiment, not a finding of it.
 - **The training-set reliability diagram and calibration gap** are superseded by `fig5/`
   panel D, which is the same diagram on the populations that matter. The gap in

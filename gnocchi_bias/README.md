@@ -25,7 +25,7 @@ place.
   1,843,559-window path before and after.
 - `dnm_model.py` was extracted verbatim from `dnm_training_size/run_dnm_training_experiment.py`.
   Validation of the reimplementation against Chen et al.'s own published outputs
-  lives in `validate_reimplementation/`.
+  lives in `preconditions/`.
 - The only genuinely new code is the N-curve generalization of the z/rank computation
   (`add_z_column`, `add_rank_columns`, `binned_rank_curves`), lifted from what
   the training-set-size experiment had already worked out.

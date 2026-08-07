@@ -33,6 +33,13 @@ import urllib.request
 
 import duckdb
 
+# tmp/ is the repo-root download cache shared with every other script here.
+# Resolved from __file__, not as the relative "tmp", so running this from inside
+# preconditions/ reuses the cache instead of re-downloading multi-GB files into
+# preconditions/tmp/.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "tmp")
+
 BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
 BUCKET_JSON_API = "https://storage.googleapis.com/storage/v1/b/gnomad-nc-constraint-v31-paper/o"
 
@@ -106,7 +113,7 @@ def download(fname: str, dest_dir: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        "-dest_dir", default="tmp",
+        "-dest_dir", default=DEFAULT_DEST_DIR,
         help="local directory to download into (default: ./tmp)")
     args = parser.parse_args()
 

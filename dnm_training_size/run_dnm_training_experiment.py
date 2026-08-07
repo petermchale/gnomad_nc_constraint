@@ -35,7 +35,8 @@ frequency):
 
 The FULL-scale refit is not run from here -- `fig5/refit.py -population full` produces it
 into the shared repo-root refits/, which is where the notebook reads it from.
-Validation of the reimplementation itself lives in validate_reimplementation/.
+Validation of the reimplementation itself, and of the claims about Chen et al.'s
+pipeline that everything here assumes, lives in preconditions/.
 """
 
 import argparse

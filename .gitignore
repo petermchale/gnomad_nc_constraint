@@ -31,3 +31,5 @@ fig3/output/training_reliability_predictions.*
 # tables themselves live in refits/, ignored above). Regenerated in ~5 s from the
 # cached bucket files. The panel PDFs and the small binned tables ARE tracked.
 fig5/output/r_eff_components.*.parquet
+
+.trash

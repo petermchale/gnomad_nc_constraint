@@ -9,7 +9,7 @@ same fitting code:
                      evaluates each on its own sites (predict_training_set), for
                      panels B, D and E.
   dnm_training_size/ the same refit under a randomly shrunk training set.
-  validate_reimplementation/  fit_univariate + validate_against_published.
+  preconditions/     fit_univariate + validate_against_published.
 
 Provenance, unchanged from the original and load-bearing for the manuscript:
 fit_univariate + bonferroni_select reimplement the published feature-selection
