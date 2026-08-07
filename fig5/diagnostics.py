@@ -118,6 +118,37 @@ def dnm_rate_by_stratum(edges: np.ndarray, cache_dir: str = D.CACHE_DIR,
     return df.with_columns((pl.col("k") / pl.col("n")).alias("p")).sort(["stratum", "gc_bin"])
 
 
+def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl.DataFrame:
+    """
+    dnm_rate_by_stratum() reshaped to the two ratios panel C plots: each excluded
+    stratum's non-CpG DNM rate over the noncoding stratum's, per GC bin.
+
+    Ratios rather than raw rates because the question is comparative -- is the excluded
+    territory DIFFERENT from the territory Gnocchi is scored on -- and because the
+    noncoding rate itself drifts mildly with GC, which a ratio divides out.
+
+    Error bars are the delta-method SE of log(ratio), SE = sqrt((1-p_a)/k_a +
+    (1-p_b)/k_b), i.e. binomial noise in both strata. min_n drops bins where either
+    stratum holds fewer than that many sites.
+
+    Columns: gc_bin, gc_mid, and {coding,no_coverage}_{ratio,se_log}.
+    """
+    keep = st.filter(pl.col("n") >= min_n)
+    base = keep.filter(pl.col("stratum") == "noncoding").select(
+        ["gc_bin", pl.col("p").alias("p_nc"), pl.col("k").alias("k_nc")])
+    out = base
+    for stratum in ("coding", "no_coverage"):
+        s = keep.filter(pl.col("stratum") == stratum).select(
+            ["gc_bin", pl.col("p").alias("p_s"), pl.col("k").alias("k_s")])
+        out = out.join(s, on="gc_bin", how="inner").with_columns([
+            (pl.col("p_s") / pl.col("p_nc")).alias(f"{stratum}_ratio"),
+            (((1 - pl.col("p_s")) / pl.col("k_s")
+              + (1 - pl.col("p_nc")) / pl.col("k_nc")).sqrt()).alias(f"{stratum}_se_log"),
+        ]).drop(["p_s", "k_s"])
+    out = out.drop(["p_nc", "k_nc"]).sort("gc_bin")
+    return out.with_columns(D.bin_centres(edges, out["gc_bin"]))
+
+
 def cpg_methylation_by_gc(edges: np.ndarray, cache_dir: str = D.CACHE_DIR,
                           force: bool = False, memory_limit: str = "10GB") -> pl.DataFrame:
     """

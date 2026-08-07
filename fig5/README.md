@@ -1,7 +1,21 @@
 # Fig. 5 — Gnocchi's GC bias comes from its regional adjustment, fit on the wrong population
 
 `fig5.ipynb` builds the figure and writes each panel to `output/fig5{A..E}.pdf` as a
-standalone vector file for assembly in Illustrator. Run it top to bottom.
+standalone vector file for assembly in Illustrator, plus one supporting figure,
+`output/fig5_supp_cpg.pdf`. Run it top to bottom.
+
+**Panel C is two rows** sharing a GC axis: the composition of the background training
+sites (how much of the training set is outside the scored population), and each
+excluded stratum's DNM rate relative to the noncoding one (whether the excluded
+territory is also *different*). The upper row alone shows only an absence.
+
+**The supporting figure** backs panel B's claim that `r_CpG ~ 1` is *correct*: the
+methylation effect step 1 absorbs (3.0-4.3x within one trinucleotide, against 9.7-15.2x
+pre-saturation), the CpG-island character of high-GC CpGs (2.5% hypomethylated in the
+GC bulk rising to 90-100% above GC 0.70), and the resulting DNM-rate collapse
+(0.53 -> 0.195, a 2.7x fall). Its bin floor is 100 sites, not the main figure's 500:
+the top two GC bins hold 356 and 169 sites and they ARE the claim, so they are drawn
+with error bars rather than dropped.
 
 ```
 fig5.ipynb          the figure: LaTeX derivation of each plotted quantity, then the panels
@@ -11,8 +25,8 @@ diagnostics.py      the measurements panels B and C state in prose but do not pl
 panels.py           the five panels as ax-accepting functions (no figure, no file I/O)
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)
-output/             panel PDFs and this figure's own caches
-../refits/          the refit tables, shared with fig3/ and dnm_training_size/
+output/             panel PDFs, the supporting figure, and this figure's own caches
+../refits/          the refit tables, shared with dnm_training_size/
 ```
 
 Shared with `dnm_training_size/`, so deliberately outside this directory:
@@ -29,7 +43,7 @@ Shared with `dnm_training_size/`, so deliberately outside this directory:
 
 Each writes ~4 GB into the **repo-root `refits/`** (gitignored) as
 `{table}.{population}.txt`. That directory holds one copy of each table, read directly by
-`fig5/`, `fig3/` and `dnm_training_size/`.
+`fig5/` and `dnm_training_size/`.
 
 `data.refit_path` raises with the exact command if one is missing. The `full` refit is
 needed even though it changes nothing:
@@ -78,9 +92,9 @@ file**. Check its printed summary the first time it runs.
   and the notebook prints them: the no-coverage stratum's non-CpG DNM rate (1.55x the
   noncoding rate in the GC bulk, **4.06x by GC 0.61**, while coding/noncoding stays at
   0.90–0.99 and flat), and the CpG-island character of high-GC CpGs (90–100%
-  hypomethylated above GC 0.70, DNM rate 2.8x lower than the bulk, against a 3.0–4.3x
+  hypomethylated above GC 0.70, DNM rate 2.7x lower than the bulk, against a 3.0–4.3x
   methylation effect that step 1 already absorbs). Migrated from `fig3/` when that
-  directory was retired.
+  directory was retired, and drawn in `output/fig5_supp_cpg.pdf`.
 - **Panel D measures a level error**, and levels cancel in `r = sigma(b0+b.z)/sigma(b0)`.
   It diagnoses the fit; panel E is the measurement of the bias. Its y-axis is also not a
   mutation rate — the ~0.07 baseline reflects the 10:1 case-control design.

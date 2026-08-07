@@ -154,6 +154,46 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
             legend_loc="lower left", grid_axis="y")
 
 
+# Same hue for the same stratum as the composition stack above it, so the two rows of
+# panel C read together: orange is the coding/failed-QC band either way, dark grey the
+# uncovered one. (The stack's grey is lighter because it is a filled area, not a line.)
+STRATUM_STYLE = {
+    "coding": {"color": "#eb6834", "marker": "s", "label": "Excluded: coding / failed QC"},
+    "no_coverage": {"color": "#4a4a4a", "marker": "v", "label": "Excluded: no gnomAD coverage"},
+}
+
+
+def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = True) -> None:
+    """
+    Panel C, lower row. Each excluded stratum's non-CpG P(DNM) relative to the noncoding
+    stratum's, per GC bin. `ratios` is diagnostics.stratum_ratios() output.
+
+    THE CLAIM, and why the two rows belong together. The row above shows that the
+    training set leaves the scored population at high GC; on its own that is only an
+    absence. This row shows the excluded territory is also DIFFERENT: the coding stratum
+    tracks the noncoding one within ~10% and flat across the whole GC range, while the
+    uncovered stratum runs 1.55x in the GC bulk and 4.06x by GC 0.61. So the steep GC
+    dependence the model learns comes from sequence gnomAD cannot call -- which is also
+    where trio DNM calling is least reliable, making part of that excess plausibly
+    false-positive calls rather than real mutation.
+
+    A ratio of 1 is the reference: the excluded sites would then be exchangeable with
+    the scored ones as far as mutation rate is concerned.
+    """
+    df = ratios.to_pandas() if hasattr(ratios, "to_pandas") else ratios
+    df = df.sort_values("gc_mid")
+    for stratum, style in STRATUM_STYLE.items():
+        r, se = df[f"{stratum}_ratio"], df[f"{stratum}_se_log"]
+        # Symmetric in log space -> asymmetric in linear space, correct for a ratio.
+        ax.errorbar(df["gc_mid"], r, yerr=[r - r * np.exp(-se), r * np.exp(se) - r],
+                    marker=style["marker"], color=style["color"], markersize=5,
+                    linewidth=2, capsize=3, elinewidth=1, label=style["label"])
+    ax.axhline(1.0, **REF_LINE_KW)
+    _log_ratio_axis(ax, df[[f"{s}_ratio" for s in STRATUM_STYLE]].to_numpy(),
+                    ticks=(0.8, 0.9, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0))
+    _finish(ax, "P(DNM) relative to the\nnoncoding stratum (non-CpG)", xrange, show_xlabel)
+
+
 PAIR_STYLE = {
     "full": {"key": "step2", "label": "original training set"},
     "scored": {"key": "scored", "label": "scored-population training set"},
@@ -161,6 +201,136 @@ PAIR_STYLE = {
     # should track `full`, and that it does is what rules out sample size.
     "sizematched": {"key": "control", "label": "size-matched random control"},
 }
+
+
+# --------------------------------------------------------- supporting CpG figure
+# One hue per CpG trinucleotide context. These are a fourth axis of the figure (not a
+# population, model or stratum), so they get their own qualitative set rather than
+# reusing the main palette's role-coded slots.
+CPG_COLORS = {"ACG": "#2a78d6", "CCG": "#eb6834", "GCG": "#1baf7a", "TCG": "#4a3aa7"}
+
+
+def panel_cpg_methylation_effect(ax, ct, show_mu: bool = True) -> None:
+    """
+    Supporting figure, top. The CpG C>T rate against methylation level, per context,
+    each curve divided by its own value at level 0. `ct` is
+    diagnostics.cpg_rate_by_methyl() output.
+
+    PLOTTED AS A FOLD-CHANGE, not an absolute rate, for two reasons: the claim being
+    visualized is a span ("3.0-4.3x across methylation 0 to 15"), which is then read
+    directly off the y-axis; and it puts fitted_po and mu on one honest axis. Rescaling
+    the absolute curves to share an axis would push mu above 1, which is impossible for
+    the probability the axis would then be labelled with.
+
+    Solid: `fitted_po`, the probability step 1 actually applies -- a 3.0-4.3x range
+    within a SINGLE trinucleotide context, the largest single rate effect in the model,
+    and the reason step 1 already absorbs the CpG-island signal that r_CpG would
+    otherwise have to correct.
+
+    Dashed: `mu`, the independent pre-saturation estimate, spanning 9.7-15.2x over the
+    same range. The gap between solid and dashed is the saturation of fitted_po, which
+    is a polymorphism probability and so compresses hardest where the true rate is
+    highest. It is why a naive DNM-count-over-E1 ratio understates the CpG rate at high
+    methylation.
+    """
+    df = ct.to_pandas() if hasattr(ct, "to_pandas") else ct
+    for context, sub in df.groupby("context"):
+        sub = sub.sort_values("methylation_level")
+        color = CPG_COLORS.get(context, "0.4")
+        ax.plot(sub["methylation_level"], sub["fitted_po"] / sub["fitted_po"].iloc[0],
+                marker="o", color=color, markersize=4, linewidth=2, label=context)
+        if show_mu:
+            ax.plot(sub["methylation_level"], sub["mu"] / sub["mu"].iloc[0],
+                    linestyle="--", linewidth=1.5, color=color, alpha=0.5)
+
+    # Spans are measured from the data, never hardcoded, so the annotation cannot drift
+    # from the curves it describes.
+    span = lambda col: (df.groupby("context")[col].max()  # noqa: E731
+                        / df.groupby("context")[col].min())
+    po, mu = span("fitted_po"), span("mu")
+    ax.axhline(1.0, **REF_LINE_KW)
+    _log_ratio_axis(ax, np.array([1.0, float(mu.max())]),
+                    ticks=(1, 1.5, 2, 3, 4, 6, 8, 10, 15, 20))
+    ax.set_xlabel("Methylation level", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.set_ylabel("CpG C>T rate, relative to\nmethylation level 0",
+                  fontsize=AXIS_LABEL_FONTSIZE)
+    ax.set_title(f"fitted (solid) spans {po.min():.1f}-{po.max():.1f}$\\times$;  "
+                 f"pre-saturation (dashed), {mu.min():.1f}-{mu.max():.1f}$\\times$",
+                 fontsize=LEGEND_FONTSIZE, color="0.3")
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.legend(fontsize=LEGEND_FONTSIZE, frameon=False, loc="lower right", ncol=2)
+
+
+def panel_cpg_hypomethylation(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
+                              show_xlabel: bool = True) -> None:
+    """
+    Supporting figure, middle. The fraction of CpG training sites that are
+    hypomethylated (level <= 1) against GC content, with mean methylation level on a
+    right-hand axis. `cpg` is diagnostics.cpg_methylation_by_gc() output.
+
+    High-GC CpGs are CpG islands: the hypomethylated fraction runs ~2.5% through the GC
+    bulk and rises to 90-100% above GC 0.70, with mean methylation falling from ~6.5 to
+    near 0 over the same range.
+    """
+    df = cpg.to_pandas() if hasattr(cpg, "to_pandas") else cpg
+    df = df[df["n"] >= min_n].sort_values("gc_pct") if min_n else df.sort_values("gc_pct")
+    gc = df["gc_pct"] / 100.0
+
+    ax.plot(gc, df["frac_hypomethylated"], marker="o", color=SERIES_COLORS["step1"],
+            markersize=5, linewidth=2, label="Hypomethylated fraction (level $\\leq$ 1)")
+    ax.set_ylim(0, 1.02)
+    ax.yaxis.label.set_color(SERIES_COLORS["step1"])
+    ax.tick_params(axis="y", colors=SERIES_COLORS["step1"])
+
+    rax = ax.twinx()
+    rax.plot(gc, df["mean_methyl"], marker="^", color="0.45", markersize=5,
+             linewidth=2, linestyle="--", label="Mean methylation level")
+    rax.set_ylabel("Mean methylation level", fontsize=AXIS_LABEL_FONTSIZE, color="0.35")
+    rax.tick_params(axis="y", labelsize=TICK_LABEL_FONTSIZE, colors="0.35")
+    rax.spines["top"].set_visible(False)
+
+    handles = ax.get_lines() + rax.get_lines()
+    _finish(ax, "Fraction of CpG sites\nthat are hypomethylated", xrange, show_xlabel)
+    # Not "upper left": the mean-methylation curve is flat and high across the whole
+    # left half, so a legend there sits on top of it. Mid-left is the empty region.
+    ax.legend(handles, [h.get_label() for h in handles], fontsize=LEGEND_FONTSIZE,
+              frameon=False, loc="center left")
+
+
+def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
+                       show_xlabel: bool = True) -> None:
+    """
+    Supporting figure, bottom. The empirical DNM rate over CpG training sites against GC
+    content, with binomial error bars.
+
+    It is flat at ~0.53 through the GC bulk and collapses to ~0.195 in the top GC bin --
+    a 2.7x fall, tracking the hypomethylation above. This is the effect step 1 models
+    (via fitted_po's methylation key) and step 2 does not need to: it is why
+    r_CpG ~ 1 in panel B is correct rather than a failure.
+
+    The level is not a genome-wide mutation rate -- these are case-control-sampled
+    training sites at ~10:1, and CpG contexts are the mutable ones.
+    """
+    df = cpg.to_pandas() if hasattr(cpg, "to_pandas") else cpg
+    df = df[df["n"] >= min_n].sort_values("gc_pct") if min_n else df.sort_values("gc_pct")
+    se = np.sqrt(df["p"] * (1 - df["p"]) / df["n"])
+
+    ax.errorbar(df["gc_pct"] / 100.0, df["p"], yerr=se, marker="o",
+                color=SERIES_COLORS["dr"], markersize=5, linewidth=2, capsize=3,
+                elinewidth=1, label="Empirical P(DNM), CpG contexts")
+    _finish(ax, "P(DNM) in the training set\n(CpG contexts)", xrange, show_xlabel,
+            legend_loc="lower left")
+
+
+def label_panels(axes, labels=("A", "B", "C"), x: float = -0.1, y: float = 1.02) -> None:
+    """Bold panel letters in axes coordinates, for figures saved as a single file."""
+    for ax, letter in zip(axes, labels):
+        ax.text(x, y, letter, transform=ax.transAxes, fontsize=14,
+                fontweight="bold", va="bottom", ha="right")
 
 
 def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: bool = True,
