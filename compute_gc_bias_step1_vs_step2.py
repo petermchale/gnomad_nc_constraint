@@ -64,309 +64,36 @@ Pipeline:
      x-range) -- PDF output only, no CSV is written (the binned summary table
      is still printed to stdout).
 """
+
 import argparse
 import os
-import subprocess
 
-import duckdb
 import matplotlib
-matplotlib.use("Agg")
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
-BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
-
-REMOTE_FILES = {
-    "step1_expected": "expected_counts_by_context_methyl_genome_1kb.txt",  # element_id, possible, expected  (step-1, r==1)
-    "features": "misc/genomic_features13_genome_1kb.txt",                 # element_id, GC_content_1k, + 51 other cols
-    "annot": "fig_tables/constraint_z_genome_1kb.annot.txt",              # element_id, possible, expected (step-2, r-adjusted), observed, oe, z, pass_qc, coding_prop, ...
-}
-
-
-def download(relpath: str, dest_dir: str) -> str:
-    """
-    curl `relpath` from BUCKET_URL into dest_dir if not already present locally.
-    Return the local path. Streams straight to disk (curl, not a buffered
-    Python download) given the file sizes involved (up to 1.44 GB), downloads
-    to a .part sidecar first and renames on success so a half-finished
-    download is never mistaken for a complete one on a later run.
-    """
-    local_path = os.path.join(dest_dir, os.path.basename(relpath))
-    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
-        return local_path
-
-    url = f"{BUCKET_URL}/{relpath}"
-    tmp_path = local_path + ".part"
-    subprocess.run(["curl", "-fL", "-o", tmp_path, url], check=True)
-    os.rename(tmp_path, local_path)
-    return local_path
-
-
-def load_joined_table(local_paths: dict) -> pl.DataFrame:
-    """
-    Use duckdb to build the analysis table without loading full files into
-    memory at once: column-pruned scans of the 1.44 GB features file and the
-    325 MB annot file, inner-joined with the (already small) step-1 expected
-    file on element_id, pulled out as polars via `.pl()` (not `.df()`).
-
-    Return a polars DataFrame with columns:
-      element_id, possible_step1, expected_step1, possible_step2,
-      expected_step2, observed, pass_qc, coding_prop, GC_content_1k,
-      z_published (the official, already-computed Gnocchi z, used only as a
-      sanity check against this script's own from-scratch z_step2 -- see
-      add_z_columns())
-    """
-    query = f"""
-        SELECT
-            s1.element_id      AS element_id,
-            s1.possible         AS possible_step1,
-            s1.expected         AS expected_step1,
-            an.possible         AS possible_step2,
-            an.expected         AS expected_step2,
-            an.observed         AS observed,
-            an.pass_qc          AS pass_qc,
-            an.coding_prop      AS coding_prop,
-            an.z                AS z_published,
-            ft.GC_content_1k    AS GC_content_1k
-        FROM read_csv_auto('{local_paths["step1_expected"]}', header=True) s1
-        INNER JOIN (
-            SELECT element_id, possible, expected, observed, pass_qc, coding_prop, z
-            FROM read_csv_auto('{local_paths["annot"]}', header=True)
-        ) an USING (element_id)
-        INNER JOIN (
-            SELECT element_id, GC_content_1k
-            FROM read_csv_auto('{local_paths["features"]}', header=True)
-        ) ft USING (element_id)
-    """
-    con = duckdb.connect()
-    return con.execute(query).pl()
-
-
-def exclude_sex_chromosomes(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Drop chrX/chrY windows (in practice, 2,497 chrX pseudoautosomal-region
-    rows; chrY is already absent). See CLAUDE.md, "Chromosome filtering", for
-    the Methods citation and why PAR-on-chrX is the only remnant possible.
-    """
-    chrom = df["element_id"].str.extract(r"^(chr[^-]+)-")
-    return df.filter(~chrom.is_in(["chrX", "chrY"]))
-
-
-def add_gc_content_fraction(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Add GC_content = GC_content_1k / 100 (this repo's 0-100 percentage ->
-    McHale et al.'s 0-1 fraction). See CLAUDE.md, "GC content units", for the
-    citation trail (bedtools nuc's pct_gc column).
-    """
-    return df.with_columns((pl.col("GC_content_1k") / 100.0).alias("GC_content"))
-
-
-def restrict_to_noncoding(df: pl.DataFrame, coding_prop_threshold: float = 0.0) -> pl.DataFrame:
-    """
-    Filter to noncoding 1kb windows (coding_prop <= threshold) -- half of
-    McHale et al.'s "neutral" window definition. See
-    restrict_to_neutral_genehancer() for the other half, and CLAUDE.md,
-    "Noncoding restriction", for the Methods citation and the still-unconfirmed
-    exact threshold.
-    """
-    return df.filter(pl.col("coding_prop") <= coding_prop_threshold)
-
-
-def restrict_to_neutral_genehancer(
-    df: pl.DataFrame,
-    genehancer_bed_path: str | None,
-    min_frac_overlap: float | None = None,
-) -> pl.DataFrame:
-    """
-    Exclude windows overlapping a GeneHancer enhancer -- the other half of
-    McHale et al.'s "neutral" definition. No-op (with a printed warning)
-    unless genehancer_bed_path is given: GeneHancer isn't freely
-    downloadable, so this can't run end-to-end automatically. See CLAUDE.md,
-    "GeneHancer enhancer exclusion", for the full citation trail and why.
-
-    genehancer_bed_path: a standard BED file (tab-separated, no header,
-    chrom/start/end in the first three columns; extra columns ignored).
-    min_frac_overlap: bedtools -f semantics; None (default) excludes on any
-    overlap. UNTESTED -- no GeneHancer file is available in this environment;
-    verify directly before relying on it for the rebuttal/paper.
-    """
-    if genehancer_bed_path is None:
-        print(
-            "WARNING: -genehancer_bed not given -- 'neutral' here is only "
-            "noncoding + pass_qc (+ non-sex-chromosome), NOT excluding "
-            "GeneHancer-enhancer-overlapping windows. See CLAUDE.md, "
-            "'GeneHancer enhancer exclusion'."
-        )
-        return df
-
-    windows = df.with_columns([
-        pl.col("element_id").str.extract(r"^(chr[^-]+)-").alias("_chrom"),
-        pl.col("element_id").str.extract(r"^chr[^-]+-(\d+)-").cast(pl.Int64).alias("_start"),
-        pl.col("element_id").str.extract(r"^chr[^-]+-\d+-(\d+)$").cast(pl.Int64).alias("_end"),
-    ])
-
-    con = duckdb.connect()
-    con.register("windows", windows.to_pandas())
-
-    overlap_condition = "w._chrom = g.column0 AND w._start < g.column2 AND w._end > g.column1"
-    if min_frac_overlap is not None:
-        overlap_condition += f"""
-            AND (LEAST(w._end, g.column2) - GREATEST(w._start, g.column1))::DOUBLE
-                / (w._end - w._start) >= {min_frac_overlap}
-        """
-
-    query = f"""
-        SELECT w.* EXCLUDE (_chrom, _start, _end)
-        FROM windows w
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM read_csv_auto('{genehancer_bed_path}', header=False) g
-            WHERE {overlap_condition}
-        )
-    """
-    return con.execute(query).pl()
-
-
-def maybe_downsample(df: pl.DataFrame, frac: float | None, n: int | None, seed: int) -> pl.DataFrame:
-    """
-    Escape hatch for compute: if `frac` or `n` is given, randomly (uniformly)
-    subsample `df` before binning; otherwise return df unchanged. At most one
-    of frac/n may be set.
-    """
-    if frac is not None and n is not None:
-        raise ValueError("specify at most one of -downsample_frac / -downsample_n")
-    if frac is not None:
-        return df.sample(fraction=frac, seed=seed)
-    if n is not None:
-        return df.sample(n=n, seed=seed)
-    return df
-
-
-def add_bias_columns(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Add per-window bias_step1 = expected_step1 - observed and
-    bias_step2 = expected_step2 - observed, matching McHale et al.'s residual
-    sign convention (predicted - y, not y - predicted). Used by bin_by_gc()
-    for -bias_metric residual.
-    """
-    return df.with_columns([
-        (pl.col("expected_step1") - pl.col("observed")).alias("bias_step1"),
-        (pl.col("expected_step2") - pl.col("observed")).alias("bias_step2"),
-    ])
-
-
-def add_z_columns(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Compute step-1 and step-2 z-scores from (expected, observed), using the
-    *exact* formula in run_nc_constraint_gnomad_v31_main.py lines 278-280:
-        oe = observed / expected
-        chisq = (observed - expected)**2 / expected
-        z = -sqrt(chisq) if oe >= 1 else sqrt(chisq)
-    Adds z_step1 (from expected_step1, i.e. r==1) and z_step2 (from
-    expected_step2, i.e. the real, r-adjusted Gnocchi expected count -- the
-    official pipeline never computes a step-1-only z, so z_step1 is entirely
-    self-computed here).
-
-    Sanity check: prints the max |z_step2 - z_published| across all windows,
-    where z_published is the official z column already in
-    fig_tables/constraint_z_genome_1kb.annot.txt -- if this formula is right,
-    the two should match almost exactly (up to floating-point/export-rounding
-    noise), since both start from the same (expected_step2, observed) pair.
-
-    Also replicates run_nc_constraint_gnomad_v31_main.py line 281's filtering
-    (`df_z[df_z['z'].between(-10,10)].dropna()`): drops any window where
-    EITHER z_step1 or z_step2 is outside [-10, 10] or non-finite, so step 1
-    and step 2 are compared on an identical window population (apples-to-
-    apples), not two differently-filtered sets.
-    """
-    def _z(expected_col: str, observed_col: str) -> pl.Expr:
-        oe = pl.col(observed_col) / pl.col(expected_col)
-        chisq = (pl.col(observed_col) - pl.col(expected_col)) ** 2 / pl.col(expected_col)
-        return pl.when(oe >= 1).then(-chisq.sqrt()).otherwise(chisq.sqrt())
-
-    df = df.with_columns([
-        _z("expected_step1", "observed").alias("z_step1"),
-        _z("expected_step2", "observed").alias("z_step2"),
-    ])
-
-    max_diff = (df["z_step2"] - df["z_published"]).abs().max()
-    print(f"sanity check: self-computed z_step2 vs published z, "
-          f"max |diff| across {df.height:,} windows = {max_diff}")
-
-    df = df.filter(
-        pl.col("z_step1").is_between(-10, 10) & pl.col("z_step1").is_finite()
-        & pl.col("z_step2").is_between(-10, 10) & pl.col("z_step2").is_finite()
-    )
-    return df
+# The download/join/filter/z/rank/bin machinery, and the shared plot-style
+# constants, now live in gnocchi_bias.windows so that the Fig. 3 notebook
+# (fig5/) and the training-set-size experiment (dnm_training_size/) can import
+# the same code instead of copying it. This script is unchanged as a CLI: it
+# still owns the argument parsing and the plotting below.
+from gnocchi_bias.windows import (  # noqa: F401  (re-exported for existing importers)
+    BUCKET_URL, REMOTE_FILES,
+    download, load_joined_table,
+    exclude_sex_chromosomes, add_gc_content_fraction,
+    restrict_to_noncoding, restrict_to_neutral_genehancer,
+    maybe_downsample, add_bias_columns, add_z_columns, bin_by_gc,
+    HEATMAP_LINE_COLOR, RANK_YLABEL, AXIS_LABEL_FONTSIZE,
+    TICK_LABEL_FONTSIZE, TITLE_FONTSIZE, LEGEND_FONTSIZE,
+)
+from gnocchi_bias.windows import add_rank_columns as _add_rank_columns
 
 
 def add_rank_columns(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Standardized rank of z_step1 and z_step2, each in (0, 1) with mean
-    exactly 0.5: rank = (rank(z) - 0.5) / n -- matches Figure 2's y-axis
-    definition (see CLAUDE.md for the exact quoted caption text). Requires
-    z_step1/z_step2 (see add_z_columns()).
-    """
-    n = df.height
-    return df.with_columns([
-        ((pl.col("z_step1").rank() - 0.5) / n).alias("rank_step1"),
-        ((pl.col("z_step2").rank() - 0.5) / n).alias("rank_step2"),
-    ])
-
-
-def bin_by_gc(df: pl.DataFrame, gc_col: str, n_bins: int, bin_method: str, value_cols: dict[str, str]) -> pl.DataFrame:
-    """
-    Assign each window to a GC-content bin (fixed-width edges spanning the
-    observed range of `gc_col`, or equal-count quantile edges), via
-    numpy.digitize -- avoids depending on a specific polars cut()/qcut() API
-    version.
-
-    gc_col is the column to bin on: "GC_content" (0-1 fraction, paper units)
-    in rank mode, or "GC_content_1k" (0-100 percentage, this repo's native
-    units) in residual mode -- see add_gc_content_fraction().
-
-    value_cols maps an output suffix to the per-window column to average
-    within each bin -- e.g. {"bias_step1": "bias_step1", "bias_step2":
-    "bias_step2"} for -bias_metric residual (see add_bias_columns()), or
-    {"rank_step1": "rank_step1", "rank_step2": "rank_step2"} for
-    -bias_metric rank (see add_rank_columns()). This lets one binning
-    implementation serve both metrics without duplicating the digitize/
-    group_by logic.
-
-    Per bin, computes:
-      - n      = window count
-      - gc_mid = mean gc_col value in the bin (x-axis value for plotting)
-      - for each (suffix, col) in value_cols:
-          mean_{suffix} = mean(col) in the bin
-          se_{suffix}   = std(col) / sqrt(n) in the bin
-    (per-window value averaged, not a difference of per-bin averages, so the
-    residual metric matches the "local bias" definition used in Supp Fig 1 /
-    the simulation script; the rank metric matches Figure 2A's conditional-
-    mean-rank line)
-
-    Return the binned summary DataFrame (polars), one row per GC bin, sorted
-    by gc_mid.
-    """
-    gc = df[gc_col].to_numpy()
-    if bin_method == "quantile":
-        edges = np.quantile(gc, np.linspace(0, 1, n_bins + 1))
-    else:
-        edges = np.linspace(gc.min(), gc.max(), n_bins + 1)
-    edges = np.unique(edges)
-    edges[-1] += 1e-9  # make the max value fall inside the last bin
-
-    bin_idx = np.digitize(gc, edges[1:-1], right=False)
-    df = df.with_columns(pl.Series("gc_bin", bin_idx))
-
-    aggs = [pl.len().alias("n"), pl.col(gc_col).mean().alias("gc_mid")]
-    for suffix, col in value_cols.items():
-        aggs.append(pl.col(col).mean().alias(f"mean_{suffix}"))
-        aggs.append((pl.col(col).std() / pl.len().sqrt()).alias(f"se_{suffix}"))
-
-    binned = df.group_by("gc_bin").agg(aggs).sort("gc_mid")
-    return binned
+    """Two-curve wrapper: adds rank_step1/rank_step2 (see gnocchi_bias.windows)."""
+    return _add_rank_columns(df, ["step1", "step2"])
 
 
 def plot_bias_residual(binned: pl.DataFrame, output_path: str) -> None:
@@ -390,17 +117,6 @@ def plot_bias_residual(binned: pl.DataFrame, output_path: str) -> None:
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
-
-
-HEATMAP_LINE_COLOR = "0.9"  # light grey/near-white -- closer than plain dark grey to how
-                             # the paper's line actually reads over its mostly dark
-                             # hexbin cells; see CLAUDE.md, "Heat map".
-
-RANK_YLABEL = "Standardized rank of constraint metric"
-AXIS_LABEL_FONTSIZE = 13
-TICK_LABEL_FONTSIZE = 14
-TITLE_FONTSIZE = 16
-LEGEND_FONTSIZE = 13
 
 
 def _plot_rank_heatmap_panel(ax, gc: np.ndarray, rank: np.ndarray, binned_gc: np.ndarray,
@@ -496,6 +212,11 @@ def plot_bias_rank(df: pl.DataFrame, binned: pl.DataFrame, output_path: str,
 
 
 def main():
+    # Set the non-interactive backend here rather than at import time: this
+    # module's plotters are imported by fig5/'s notebook, which needs its own
+    # interactive backend to render inline.
+    matplotlib.use("Agg")
+
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-dest_dir", default="tmp",
                          help="local directory to download bucket files into")

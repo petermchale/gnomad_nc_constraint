@@ -5,7 +5,7 @@ Extracted verbatim (2026-08-04) from dnm_training_experiment/
 run_dnm_training_experiment.py, so that both figure directories can import the
 same fitting code:
 
-  fig3/              needs fit_multivariate_context + predict_training_set, for
+  fig5/              needs fit_multivariate_context + predict_training_set, for
                      the training-set reliability/calibration gap (panel B).
   dnm_training_size/ needs all of it, plus apply_genome_wide_context /
                      combine_and_predict, to refit under a resized training set
@@ -88,6 +88,73 @@ def subsample_regime1(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, frac: float,
     """training-data.md regime 1: shrink both dnm0 and dnm1, independently, at the same rate."""
     return (df_dnm1.sample(frac=frac, random_state=seed),
             df_dnm0.sample(frac=frac, random_state=seed))
+
+
+def locus_to_element_id(locus: pd.Series) -> pd.Series:
+    """
+    1-based "chr1:137548" -> the 0-based 1kb tile id "chr1-137000-138000" that the
+    window table, the features file and the expected-count exports are all keyed by.
+    Mirrors empirical_r.ELEMENT_ID_FROM_LOCUS's SQL exactly, including the -1 for the
+    1-based to 0-based conversion (which only moves sites at position = 1 mod 1000).
+    """
+    chrom = locus.str.split(':').str[0]
+    pos = locus.str.split(':').str[1].astype('int64')
+    start = ((pos - 1) // 1000) * 1000
+    return chrom + '-' + start.astype(str) + '-' + (start + 1000).astype(str)
+
+
+def restrict_to_analyzed_windows(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame,
+                                  element_ids) -> tuple:
+    """
+    Keep only training sites whose containing 1kb window is in the analyzed set --
+    i.e. make the training population match the population the model is applied to
+    and scored on.
+
+    WHY. The published models are fit on the whole genome but r(w) is applied to,
+    and judged on, noncoding pass_qc autosome/PAR windows. Measured directly
+    (fig5/diagnostics.py), those two populations agree in the GC bulk
+    and come apart in the GC-rich tail: the fraction of background training sites
+    inside the analyzed set falls from 0.83 at GC 0.37 to 0.30 by GC 0.68, as GC-rich
+    sequence turns coding or loses gnomAD coverage. Restricting here is the
+    intervention that tests whether that mismatch is what makes the fitted non-CpG
+    adjustment climb with GC.
+
+    `element_ids` is any iterable of analyzed element_ids -- in practice
+    windows.build_window_table(...)["element_id"]. Sites whose window is absent from
+    the constraint table (no gnomAD coverage) are dropped too, since they are absent
+    from that set.
+
+    Returns the filtered (df_dnm1, df_dnm0) and prints the retained fractions, which
+    are worth reading: they are not equal, because DNMs and background sites are not
+    distributed the same way across the excluded territory.
+    """
+    keep = set(element_ids)
+
+    def _filter(df, name):
+        eid = locus_to_element_id(df['locus'])
+        mask = eid.isin(keep)
+        print(f"  {name}: {int(mask.sum()):,} / {len(df):,} sites retained "
+              f"({mask.mean():.1%})")
+        return df[mask.values].copy()
+
+    print("restricting training set to the analyzed window population:")
+    return _filter(df_dnm1, "dnm1 (DNMs)"), _filter(df_dnm0, "dnm0 (background)")
+
+
+def count_in_analyzed_windows(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame,
+                               element_ids) -> tuple[int, int]:
+    """
+    How many sites restrict_to_analyzed_windows would keep, without doing the filter.
+
+    Exists so the size-matched control can draw exactly that many sites uniformly at
+    random from the WHOLE genome -- separating "less training data" from "training
+    data drawn from the population the model is applied to", which is the obvious
+    alternative explanation for anything the restriction improves.
+    """
+    keep = set(element_ids)
+    n1 = int(locus_to_element_id(df_dnm1['locus']).isin(keep).sum())
+    n0 = int(locus_to_element_id(df_dnm0['locus']).isin(keep).sum())
+    return n1, n0
 
 
 def fit_univariate(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, contexts: list) -> pd.DataFrame:

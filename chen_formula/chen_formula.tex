@@ -186,6 +186,283 @@ Together these experiments lend support to our hypothesis that
 the sparseness of the DNM training set is responsible for the large bias 
 observed in Gnocchi as a function of GC content. 
 
+\section{Derivation of the quantities plotted in Figure 3}
+\label{sec:fig3}
+
+Figure~3 plots three quantities, all binned on the GC content of a 1\,kb window.
+This section derives each of them from the model above, and states exactly which
+approximations enter and which do not.
+
+\subsection{Notation}
+
+Write the context $c = (t, m)$, where $t$ is the trinucleotide and $m$ the
+methylation level. This distinction matters here, and is not cosmetic: step~1
+conditions on both $t$ and $m$, whereas the fitted adjustment of step~2 conditions
+on $t$ only. Chen et al.\ fit one model per trinucleotide, pooling all methylation
+levels.
+
+Let $W$ be the analyzed set of $N$ windows (noncoding, passing quality control,
+autosomes and pseudoautosomal regions), let $g$ index a GC bin, and let
+$W_g \subset W$ be the windows falling in bin $g$. For a window $w$, let $O(w)$ be
+the observed number of polymorphic sites in the cohort, and $n_c^{(w)}$ the number
+of callable sites of context $c$ in $w$, as before.
+
+Two further points of fact about the fitted model, both confirmed against Chen et
+al.'s code rather than their text. First, the operative adjustment is
+\begin{equation}
+    r_t(x) = \frac{\sigma\!\left(\beta_{t,0} + \beta_t \cdot z(x)\right)}
+                  {\sigma\!\left(\beta_{t,0}\right)},
+    \label{eq:r_operative}
+\end{equation}
+a ratio of two \emph{predicted probabilities} from the same fitted model, with
+$z(x)$ the standardized, PCA-rotated feature vector and $z(\bar{x}) = 0$ by
+construction. (Their Methods state a ratio of linear predictors instead; the code
+computes Eq.~\eqref{eq:r_operative}.) Second, and consequentially, $r_t$ is a
+\emph{ratio}: any error in $\hat{p}_t$ that is a pure level shift, common to
+numerator and denominator, cancels exactly and never reaches the constraint score.
+Only feature-driven \emph{variation} in $\hat{p}_t$ survives. Everything below is
+organized around that fact.
+
+\subsection{The two expected counts}
+
+The context-only (``step~1'') expected count of a window is
+Eq.~\eqref{eq:expected_snvs} with the adjustment set to unity:
+\begin{equation}
+    E_1(w) = \sum_c n_c^{(w)}\, p_c(\bar{x}),
+    \qquad
+    E_1^{t}(w) = \sum_{c\,:\,t(c)=t} n_c^{(w)}\, p_c(\bar{x}),
+    \label{eq:E1}
+\end{equation}
+so that $E_1 = \sum_t E_1^t$. The adjusted (``step~2'', published Gnocchi)
+expected count applies $r$ per trinucleotide:
+\begin{equation}
+    E_2(w) = \sum_t E_1^{t}(w)\, r_t(x_w).
+    \label{eq:E2}
+\end{equation}
+Both are available per window and per $(w,t)$ from the pipeline's own exports, so
+neither is reconstructed here.
+
+\subsection{Panel A: the mean standardized rank}
+
+For a model $M \in \{1, 2\}$ Chen et al.\ summarize a window by the signed
+chi statistic
+$z_M(w) = -\operatorname{sign}(O - E_M)\,\sqrt{(O-E_M)^2/E_M}$,
+which is just
+\begin{equation}
+    z_M(w) = \frac{E_M(w) - O(w)}{\sqrt{E_M(w)}},
+    \label{eq:z}
+\end{equation}
+positive when a window carries less variation than expected. Windows are retained
+only if $z_M \in [-10,10]$ for every $M$ plotted, so all curves describe one
+identical window set. Each $z_M$ is then converted to a standardized rank within
+that set,
+\begin{equation}
+    u_M(w) = \frac{\operatorname{rank}_M(w) - \tfrac{1}{2}}{N} \in (0,1),
+\end{equation}
+which is uniform on $(0,1)$ by construction, with mean exactly $1/2$. Panel~A
+plots the conditional mean
+\begin{equation}
+    \bar{u}_M(g) = \frac{1}{|W_g|}\sum_{w\in W_g} u_M(w),
+    \label{eq:panelA}
+\end{equation}
+with error bars $\operatorname{sd}(u_M)/\sqrt{|W_g|}$. Because the marginal
+distribution of $u_M$ is uniform regardless of the model, $\bar{u}_M(g) = 1/2$ for
+every $g$ is exactly the statement that the model has no GC-dependent bias, and
+departures from $1/2$ measure that bias on a scale that is comparable across
+models with entirely different units. This is also why the third curve, depletion
+rank, can be overlaid despite being defined on a different (Halldorsson) window
+set: it is ranked within itself, and the sign convention is opposite, so its
+complement $1 - \mathrm{DR}$ is plotted.
+
+\subsection{Why panel A is so sensitive to the adjustment}
+
+It is worth recording how strongly Eq.~\eqref{eq:panelA} responds to $r$, because
+this is what licenses reading panel~B as the cause of panel~A. Suppose a window's
+adjustment is a uniform inflation, $E_2 = f E_1$, and write the observed count as
+$O = E_1(1+\epsilon)$. Then from Eq.~\eqref{eq:z},
+\begin{equation}
+    z_2 - z_1 = \sqrt{E_1}\left[\frac{f - 1 - \epsilon}{\sqrt{f}} + \epsilon\right]
+              \;\approx\; \sqrt{E_1}\,(f-1)
+    \qquad (f \to 1,\ \epsilon \to 0).
+    \label{eq:sensitivity}
+\end{equation}
+The $\sqrt{E_1}$ prefactor is the point. A typical analyzed window has
+$E_1 \approx 174$, so $\sqrt{E_1} \approx 13$, and a mere $10\%$ inflation
+displaces $z$ by more than one unit --- comparable to the spread of $z$ itself.
+Measured directly by re-ranking the real genome-wide $z$ distribution under a
+uniform inflation $f$, the mean rank moves from $0.500$ at $f=1$ to $0.687$ at
+$f=1.10$ and $0.302$ at $f=0.90$. Small multiplicative errors in $r$ are therefore
+not a second-order concern; they are the whole effect.
+
+\subsection{Panel B, first form: the adjustment Gnocchi applies}
+
+Dividing Eq.~\eqref{eq:E2} by Eq.~\eqref{eq:E1} gives the single multiplicative
+factor each window actually receives,
+\begin{equation}
+    \bar{r}(w) = \frac{E_2(w)}{E_1(w)}
+               = \sum_t \frac{E_1^{t}(w)}{E_1(w)}\, r_t(x_w),
+\end{equation}
+an $E_1$-weighted mean of the per-trinucleotide adjustments. Aggregating to a GC
+bin as a ratio of sums rather than a mean of ratios,
+\begin{equation}
+    R(g) = \frac{\sum_{w \in W_g} E_2(w)}{\sum_{w \in W_g} E_1(w)},
+    \label{eq:Rg}
+\end{equation}
+which is the adjustment the bin receives in aggregate, and which keeps the
+following decomposition exact.
+
+Let $K = \{\mathrm{ACG},\mathrm{CCG},\mathrm{GCG},\mathrm{TCG}\}$ be the CpG
+trinucleotides. Define the CpG share of the step-1 expectation and the two
+group-wise adjustments,
+\begin{equation}
+    \Pi(g) = \frac{\sum_{w\in W_g}\sum_{t\in K} E_1^{t}(w)}{\sum_{w\in W_g} E_1(w)},
+    \qquad
+    R_{\mathrm{CpG}}(g) = \frac{\sum_{w\in W_g}\sum_{t\in K} E_1^{t}(w)\, r_t(x_w)}
+                    {\sum_{w\in W_g}\sum_{t\in K} E_1^{t}(w)},
+\end{equation}
+and $R_{\mathrm{non}}$ likewise over $t \notin K$. Splitting the numerator and
+denominator of Eq.~\eqref{eq:Rg} at $K$ gives, with no approximation whatsoever,
+\begin{equation}
+    R(g) = \Pi(g)\, R_{\mathrm{CpG}}(g) + \bigl(1 - \Pi(g)\bigr) R_{\mathrm{non}}(g).
+    \label{eq:decomposition}
+\end{equation}
+The first form of panel~B plots the three curves of
+Eq.~\eqref{eq:decomposition} against $g$, together with the counterfactual
+obtained by holding the non-CpG adjustment at unity,
+\begin{equation}
+    R^{\mathrm{cf}}(g) = \Pi(g)\, R_{\mathrm{CpG}}(g) + \bigl(1 - \Pi(g)\bigr).
+\end{equation}
+Empirically $R_{\mathrm{CpG}}(g)$ is flat at $0.99$--$1.00$ across the entire GC range while
+$R_{\mathrm{non}}(g)$ climbs from $0.96$ to $1.79$, and $R^{\mathrm{cf}}(g)$ is flat to
+within $0.6\%$ even though $\Pi$ reaches $0.43$ at the highest GC. Since
+Eq.~\eqref{eq:decomposition} is an identity, this is not a fit but a bookkeeping
+statement: the GC dependence of what Gnocchi applies is carried entirely by the
+non-CpG contexts.
+
+That CpG models are inert is a direct consequence of the ratio structure noted
+after Eq.~\eqref{eq:r_operative}. Chen et al.\ deliberately strip GC content, CpG
+island status, and three correlated features from the CpG-context models; what
+remains barely varies with GC, so the numerator and denominator of
+Eq.~\eqref{eq:r_operative} move together and $r_t \approx 1$. Their large level
+miscalibration --- these models cannot represent methylation, and hypomethylated
+CpG islands in GC-rich sequence mutate at roughly a third the rate of methylated
+CpGs --- cancels, and never reaches the score. Methylation is thus \emph{ruled
+out} as a cause of the bias, not implicated in it.
+
+\subsection{Panel B, second form: the adjustment the DNMs support}
+
+Establishing that the non-CpG adjustment drives the bias does not establish that
+it is \emph{wrong}. For that we need an empirical counterpart of $r_t$ computed
+from data the model was meant to describe. Since $r_t$ is by definition the factor
+by which the true mutation rate departs from its context-average value, the
+empirical target is a rate, measurable per trinucleotide and GC bin:
+\begin{equation}
+    \tilde{p}_t(g) = \frac{D_t(g)}{A_t(g)},
+    \label{eq:emp_rate}
+\end{equation}
+where $D_t(g)$ is the number of observed de novo mutations of context $t$ falling
+in $W_g$, and $A_t(g)$ is the number of \emph{opportunities} --- possible SNVs of
+context $t$ --- in the same windows. Numerator and denominator are restricted to
+the same window set, and DNMs are assigned to windows by position, so the
+denominator counts exactly the territory the numerator was counted over.
+
+\paragraph{Normalization is forced, not chosen.} Chen et al.'s own assumption
+(Sec.~6) is that the polymorphism and DNM probabilities are proportional,
+$\hat{p}_t(x) = \lambda_t\, p_t(x)$, with $\lambda_t$ unknown and
+\emph{context-specific}: it absorbs both the cohort-size scaling and the fact that
+$p_t(\bar{x})$ saturates by different amounts in different contexts. The
+proportionality constant cancels in a within-context ratio,
+\begin{equation}
+    \frac{\hat{p}_t(x)}{\hat{p}_t(\bar{x})}
+    = \frac{\lambda_t\, p_t(x)}{\lambda_t\, p_t(\bar{x})}
+    = r_t(x),
+\end{equation}
+and only there. So the empirical adjustment must be formed as the same ratio,
+each context normalized by its own $E_1$-weighted average over bins,
+\begin{equation}
+    \hat{r}^{\mathrm{obs}}_t(g) = \frac{\tilde{p}_t(g)}{\langle \tilde{p}_t\rangle},
+    \qquad
+    \langle \tilde{p}_t\rangle
+      = \frac{\sum_{g'} E_1^{t}(g')\, \tilde{p}_t(g')}{\sum_{g'} E_1^{t}(g')},
+    \label{eq:emp_norm}
+\end{equation}
+where $E_1^t(g) = \sum_{w \in W_g} E_1^t(w)$. No free constant is introduced and
+none is fitted; $\lambda_t$ never has to be estimated.
+
+The model side must then be normalized \emph{identically},
+$\hat{r}^{\mathrm{mod}}_t(g) = r_t(g) / \langle r_t \rangle$ with
+$r_t(g) = E_2^{t}(g)/E_1^{t}(g)$. This is not symmetry for its own sake. As GC
+increases the trinucleotide composition of windows shifts; if only the empirical
+side were normalized, the residual between-context level differences on the model
+side would be reweighted bin by bin and would appear in the aggregate as GC
+dependence that no model actually asserts.
+
+The two curves of the second form of panel~B are then the same $E_1$-weighted
+aggregate over non-CpG contexts,
+\begin{equation}
+    R^{\bullet}_{\mathrm{non}}(g)
+      = \frac{\sum_{t \notin K} E_1^{t}(g)\, \hat{r}^{\bullet}_t(g)}
+             {\sum_{t \notin K} E_1^{t}(g)},
+    \qquad \bullet \in \{\mathrm{mod}, \mathrm{obs}\},
+\end{equation}
+and the lower sub-panel plots their ratio, the over-adjustment
+\begin{equation}
+    \Phi(g) = \frac{R^{\mathrm{mod}}_{\mathrm{non}}(g)}{R^{\mathrm{obs}}_{\mathrm{non}}(g)}.
+    \label{eq:inflation}
+\end{equation}
+A bin's contribution is used only if it carries enough observed DNMs to estimate
+Eq.~\eqref{eq:emp_rate}, and a bin is reported only if the usable contexts still
+account for at least $90\%$ of its non-CpG $E_1$ weight, so that no bin is built
+from an unrepresentative minority of contexts. The error bar is Poisson on
+$D_t(g)$, propagated through Eqs.~\eqref{eq:emp_norm}--\eqref{eq:inflation}; the
+model curve carries none, being a deterministic function of already-fixed feature
+values.
+
+Measured this way, $R^{\mathrm{mod}}_{\mathrm{non}}$ climbs monotonically from $0.95$
+to $1.55$ while $R^{\mathrm{obs}}_{\mathrm{non}}$ stays near unity until
+$\mathrm{GC}\approx0.55$, so $\Phi$ crosses $1$ near $\mathrm{GC}=0.40$ and
+reaches $1.22$--$1.26$, many standard errors from unity. By
+Eq.~\eqref{eq:sensitivity} an over-adjustment of that size is more than enough to
+produce the rank displacement in panel~A.
+
+\paragraph{Why opportunities, and not expected counts, in Eq.~\eqref{eq:emp_rate}.}
+A rate needs a count of opportunities in its denominator. It happens that the
+step-1 expected count would serve equally well here, because a non-CpG
+trinucleotide has a single methylation level and therefore a single set of fitted
+per-site rates:
+\begin{equation}
+    E_1^{t}(g) = \sum_{\mathrm{alt}} A_t^{\mathrm{alt}}(g)\, \pi_t^{\mathrm{alt}}
+               = A_t(g)\, \mu_t ,
+    \qquad
+    \mu_t = \tfrac{1}{3}\textstyle\sum_{\mathrm{alt}} \pi_t^{\mathrm{alt}},
+\end{equation}
+with $\pi_t^{\mathrm{alt}} = p_c(\bar{x})$ the fitted per-site rate, and where the
+second equality uses $A_t^{\mathrm{alt}}(g) = A_t(g)/3$: every callable position
+of context $t$ contributes one opportunity per alternative allele, so each of the
+three alleles carries the same site count. The
+per-context constant $\mu_t$ is absorbed by the normalization
+Eq.~\eqref{eq:emp_norm}, so the two denominators give the same curve --- verified
+to agree within $0.1\%$ at every bin. Replacing $A_t(g)$ instead by a real sample
+of matched background sites from the DNM training set, which removes the fitted
+model from the denominator altogether, changes the curve by $1$--$2\%$. The result
+does not rest on the choice.
+
+\paragraph{The one assumption that does bite: callability.} $D_t(g)$ counts DNMs
+anywhere in a window, whereas $A_t(g)$ counts only positions gnomAD can call. That
+fraction is not flat in GC --- short-read coverage degrades in GC-rich sequence,
+and the callable fraction $\gamma(g)$ falls from $0.91$ at $\mathrm{GC}=0.30$ to
+$0.75$ at $\mathrm{GC}=0.61$. If trio DNM ascertainment tracks gnomAD's, the two
+are matched and no correction applies. If instead the trio call sets are closer to
+complete, the matched denominator is $A_t(g)/\gamma(g)$, so the corrected
+empirical rate is $\gamma(g)\,\tilde{p}_t(g)$: since $\gamma$ decreases with GC,
+the corrected empirical curve falls further in the tail and $\Phi$ \emph{grows},
+from $1.22$ to $1.44$ at $\mathrm{GC}=0.61$. The finding survives either way and
+the correction only strengthens it, so the honest statement is a range,
+$\Phi \in [1.22, 1.44]$, rather than a point estimate. The residual, untestable
+possibility runs the other way: if trio DNM calling is itself \emph{less}
+sensitive in GC-rich sequence than gnomAD is, part of the measured
+over-adjustment is technical rather than a property of the model.
+
 \section{A proposal for Gnocchi 2.0}
 Though DNMs ameliorate the effect of selection contamination of the training set, 
 the trade-off is that the sparseness of DNMs introduces bias into the constraint metric, 
