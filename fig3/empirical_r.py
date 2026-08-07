@@ -453,6 +453,98 @@ def combine_non_cpg(genome: pl.DataFrame, empirical: pl.DataFrame,
     return binned.drop(["num_model", "num_emp", "var_num", "e1_all"])
 
 
+CPG_METHYL_WEIGHTS_SQL = """
+    WITH ft AS (SELECT element_id, GC_content_1k
+                FROM read_csv_auto('{features}', delim='\t', header=True)),
+    an AS (SELECT element_id FROM read_csv_auto('{annot}', delim='\t', header=True)
+           WHERE pass_qc AND coding_prop <= {coding}),
+    d0 AS (SELECT context, methyl_level, {eid} AS element_id
+           FROM read_csv_auto('{sites}', delim='\t', header=True)
+           WHERE locus NOT LIKE 'chrX:%')
+    SELECT d0.context AS context, d0.methyl_level AS methyl_level,
+           {bin_expr} AS gc_bin, COUNT(*) AS n
+    FROM d0 JOIN ft ON d0.element_id = ft.element_id
+            JOIN an ON ft.element_id = an.element_id
+    WHERE d0.context IN ({ctx})
+      AND ft.element_id NOT LIKE 'chrX-%' AND ft.element_id NOT LIKE 'chrY-%'
+    GROUP BY 1, 2, 3
+"""
+
+
+def cpg_saturation_artifact(edges: np.ndarray,
+                            mutation_rate: str = "tmp/mutation_rate_by_context_methyl.txt",
+                            control_sites: str = TRAIN_DNM0_SITES,
+                            features: str = FEATURES_GENOME,
+                            annot: str = ANNOT_GENOME,
+                            coding_prop_threshold: float = 0.0,
+                            ref_bin: int | None = None,
+                            memory_limit: str = "8GB") -> pl.DataFrame:
+    """
+    How much of the CpG contexts' apparent GC-dependent adjustment is an artifact of
+    fitted_po saturation rather than a real departure from r = 1.
+
+    WHY THIS IS NEEDED, and why it does NOT arise for non-CpG contexts. The empirical
+    adjustment is D_c(g) / E1_c(g), and E1 is built from `fitted_po`, the gnomAD
+    polymorphism probability. For a NON-CpG context there is a single methylation level,
+    so fitted_po is one constant that cancels in the per-context normalization. For a CpG
+    context E1 mixes 16 methylation levels whose fitted_po values are saturated to wildly
+    different degrees: across methyl 0 -> 15 the C>T `fitted_po` ratio is only 3.0-4.3x
+    while the pre-saturation rate `mu` ratio is 9.7-15.2x. So E1 is a COMPRESSED proxy
+    for DNM opportunity, compressed most where methylation is highest.
+
+    CpG methylation composition swings hard with GC (mean level ~6.4 in the bulk falling
+    to ~1.5 by GC 0.645, since high-GC CpGs are hypomethylated CpG islands), so the
+    compression varies with GC and manufactures a spurious decline in D/E1.
+
+    This function quantifies that. Per GC bin it computes
+
+        artifact(g) = weighted_mean_m(mu) / weighted_mean_m(fitted_po)
+
+    over CpG contexts, with weights = the number of dnm0 background sites at each
+    (context, methylation level) inside the analyzed windows. Dividing a measured
+    D/E1 curve by this leaves the part attributable to a genuine r != 1.
+
+    LIMITS. The weights are dnm0 site counts standing in for per-(context, methylation)
+    `possible` counts, which no flat file in the bucket provides -- the per-context
+    expected export is already summed over methylation, so the exact weights would need
+    the Hail table. And `mu` is itself a downsampled-1000-genome estimate rescaled to a
+    fixed total, the best available pre-saturation proxy rather than ground truth. Treat
+    the correction as an order-of-magnitude control, not a precise deconfounding.
+
+    ref_bin normalizes the output to 1 at that bin (default: the most populated one).
+    """
+    query = CPG_METHYL_WEIGHTS_SQL.format(
+        features=features, annot=annot, coding=coding_prop_threshold,
+        sites=control_sites, eid=ELEMENT_ID_FROM_LOCUS,
+        bin_expr=sql_bin_expr("ft.GC_content_1k / 100.0", edges),
+        ctx=", ".join(f"'{c}'" for c in CPG_CONTEXTS))
+    comp = _connect(memory_limit).execute(query).pl()
+
+    rate = pl.read_csv(mutation_rate, separator="\t")
+    agg = (rate.filter(pl.col("context").is_in(CPG_CONTEXTS))
+               .group_by(["context", "methylation_level"])
+               .agg([pl.col("mu").sum(), pl.col("fitted_po").sum()])
+               .rename({"methylation_level": "methyl_level"}))
+
+    m = comp.join(agg, on=["context", "methyl_level"], how="inner")
+    out = (m.group_by("gc_bin").agg([
+        pl.col("n").sum().alias("n"),
+        ((pl.col("methyl_level") * pl.col("n")).sum() / pl.col("n").sum()).alias("mean_methyl"),
+        ((pl.col("mu") * pl.col("n")).sum() / pl.col("n").sum()).alias("mu_bar"),
+        ((pl.col("fitted_po") * pl.col("n")).sum() / pl.col("n").sum()).alias("po_bar"),
+    ]).with_columns((pl.col("mu_bar") / pl.col("po_bar")).alias("artifact")).sort("gc_bin"))
+
+    if ref_bin is None:
+        ref_bin = int(out.filter(pl.col("n") == out["n"].max())["gc_bin"][0])
+    ref = float(out.filter(pl.col("gc_bin") == ref_bin)["artifact"][0])
+    out = out.with_columns((pl.col("artifact") / ref).alias("artifact_rel"))
+    print(f"CpG saturation artifact: mean methyl {out['mean_methyl'].max():.1f} -> "
+          f"{out['mean_methyl'].min():.1f}, artifact_rel "
+          f"{out['artifact_rel'].max():.3f} -> {out['artifact_rel'].min():.3f} "
+          f"(normalized at bin {ref_bin})")
+    return out.select(["gc_bin", "n", "mean_methyl", "artifact", "artifact_rel"])
+
+
 def attach_gc_mid(binned: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
     """Bin centres from the shared edges, for plotting on the panel-A axis."""
     centres = 0.5 * (edges[:-1] + edges[1:])

@@ -425,6 +425,291 @@ def panel_r_non_vs_empirical(ax, binned, min_dnm: int = 200,
         ax.set_xlabel("GC content", fontsize=AXIS_LABEL_FONTSIZE)
 
 
+def panel_dnm_probability(ax, binned, group: str = "non-CpG", min_n: int = 500,
+                           gc_as_fraction: bool = True,
+                           xrange: tuple[float, float] = (0.2, 0.73),
+                           show_xlabel: bool = True, logy: bool = False) -> None:
+    """
+    The DNM model's reliability diagram on its own training set: mean fitted
+    P(DNM) from the per-context logistic regressions against the empirical
+    fraction of training examples in that GC bin that are DNMs.
+
+    `binned` is dnm_model.bin_training_calibration(..., stratify_cpg=True)
+    output (pandas); `group` selects which stratum to draw ("non-CpG" by
+    default -- the contexts that retain GC_content and that r_eff.py shows
+    carry the entire GC trend in the applied adjustment).
+
+    Both curves are on the same case-control-sampled population (dnm0:dnm1 ~
+    10:1 genome-wide), so their absolute level is NOT the genome-wide DNM
+    rate. That is fine here because the comparison is within one population:
+    the intercept bias the sampling induces is common to both curves and
+    cancels in their difference. Do not read the y-axis as a mutation rate.
+
+    Only the empirical curve carries error bars (binomial). mean_pred is a
+    deterministic function of already-fixed feature vectors, not resampled.
+
+    min_n drops GC bins holding fewer than that many training sites. The
+    extreme bins hold as few as 1 site, where the empirical fraction is 0 or 1
+    and carries no information.
+
+    READ THIS BEFORE USING IT AS EVIDENCE OF GNOCCHI'S BIAS. This panel
+    measures a LEVEL error in P(DNM). Gnocchi applies the RATIO
+    r = sigma(b0 + b.z)/sigma(b0), in which a level error common to numerator
+    and denominator cancels exactly and never reaches the constraint score --
+    see CLAUDE.md, "Methylation, and why the training-set calibration panel
+    measures the wrong thing". It is also measured over the WHOLE training
+    population, whereas the E1 weights and per-context normalization used by
+    panel_r_non_vs_empirical are computed over the analyzed window set; the two
+    populations give materially different answers in the high-GC tail. This is
+    a diagnostic of the fit, not a measurement of the bias.
+    """
+    df = binned[binned["group"] == group] if "group" in binned.columns else binned
+    if min_n:
+        n_before = len(df)
+        df = df[df["n"] >= min_n]
+        print(f"DNM probability panel: dropped {n_before - len(df)} GC bin(s) with n < {min_n:,}")
+    df = df.sort_values("gc_mid")
+    gc = df["gc_mid"] / 100.0 if gc_as_fraction else df["gc_mid"]
+
+    ax.plot(gc, df["mean_pred"], marker=SERIES_MARKERS["step2"],
+            color=SERIES_COLORS["step2"], markersize=5, linewidth=2,
+            label="Fitted: logistic-regression P(DNM)")
+    ax.errorbar(gc, df["empirical_prop"], yerr=df["se"],
+                marker=SERIES_MARKERS["step1"], color=SERIES_COLORS["step1"],
+                markersize=5, linewidth=2, capsize=3, elinewidth=1,
+                label="Empirical: fraction of examples that are DNMs")
+
+    if logy:
+        ax.set_yscale("log")
+        ax.yaxis.set_minor_formatter(mticker.NullFormatter())
+    ax.set_xlim(xrange)
+    ax.set_ylabel("P(DNM) in the training set\n(non-CpG contexts)"
+                  if group == "non-CpG" else "P(DNM) in the training set",
+                  fontsize=AXIS_LABEL_FONTSIZE)
+    if show_xlabel:
+        ax.set_xlabel("GC content", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.legend(fontsize=LEGEND_FONTSIZE, frameon=False, loc="upper left")
+
+
+# Panel-A rungs of the representativeness figure. The two "analyzed windows" rungs
+# share a hue and the two "whole genome" rungs share another, so the eye groups them
+# by POPULATION -- which is the variable that turns out to matter -- rather than by
+# denominator or aggregation, which do not.
+LADDER_STYLE = {
+    "model":    {"color": "#eb6834", "marker": "s"},   # orange, as in the other panels
+    "analyzed": {"color": "#2a78d6", "marker": "o"},   # blue
+    "genome":   {"color": "#4a3aa7", "marker": "D"},   # violet
+}
+
+
+def panel_population_ladder(ax, ladder, series, xrange: tuple[float, float] = (0.2, 0.73),
+                            show_xlabel: bool = True) -> None:
+    """
+    The empirical non-CpG DNM probability built four ways, changing one ingredient
+    at a time: denominator, window population, aggregation.
+
+    `ladder` is training_representativeness.build_ladder() output (polars); `series`
+    is its LADDER_SERIES list of (column, style key, dashed, label).
+
+    Every curve is normalized to E1-weighted mean 1, so the y-axis is shape only.
+    A log axis is used because these are ratios -- a 25% over- and under-statement
+    should read as equal departures from 1.
+
+    The figure's claim is carried by which curves superimpose: the two blue rungs
+    differ only in denominator and the two violet rungs differ only in aggregation,
+    while blue and violet differ only in which windows are measured.
+    """
+    df = ladder.to_pandas() if hasattr(ladder, "to_pandas") else ladder
+    df = df.sort_values("gc_mid")
+
+    for col, key, dashed, label in series:
+        style = LADDER_STYLE[key]
+        ax.plot(df["gc_mid"], df[col],
+                marker=style["marker"], color=style["color"],
+                markersize=5, linewidth=2,
+                linestyle="--" if dashed else "-",
+                markerfacecolor="white" if dashed else style["color"],
+                label=label)
+
+    ax.axhline(1.0, **REF_LINE_KW)
+    _log_ratio_axis(ax, df[[c for c, *_ in series]].to_numpy(),
+                    ticks=(0.8, 0.9, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0))
+    ax.set_xlim(xrange)
+    ax.set_ylabel("Empirical DNM probability\n(non-CpG, relative to its own mean)",
+                  fontsize=AXIS_LABEL_FONTSIZE)
+    if show_xlabel:
+        ax.set_xlabel("GC content", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.legend(fontsize=LEGEND_FONTSIZE - 1, frameon=False, loc="upper left")
+
+
+COMPOSITION_STYLE = [
+    ("frac_analyzed", "#1baf7a", "In the analyzed noncoding genome"),
+    ("frac_coding",   "#eb6834", "Excluded: coding / failed QC"),
+    ("frac_noannot",  "0.72",    "Excluded: no gnomAD coverage"),
+]
+
+
+def panel_training_composition(ax, comp, min_n: int = 500,
+                               xrange: tuple[float, float] = (0.2, 0.73),
+                               show_xlabel: bool = True) -> None:
+    """
+    Where the DNM training set's background sites actually sit, as a stacked
+    composition per GC bin: inside the analyzed noncoding genome, or excluded from it
+    for being coding / failing QC, or absent from the constraint table altogether.
+
+    `comp` is training_representativeness.dnm0_window_composition() output (polars).
+    The three fractions partition each bin exactly, so the stack fills to 1.
+
+    This is the explanation for panel A: the training population and the scored
+    population coincide in the GC bulk and come apart in the GC-rich tail, so a model
+    fit on the former and applied to the latter is extrapolating there.
+    """
+    df = comp.to_pandas() if hasattr(comp, "to_pandas") else comp
+    if min_n:
+        df = df[df["n_total"] >= min_n]
+    # Clip to the plotted range rather than letting stackplot interpolate in from an
+    # out-of-range bin: the lowest-GC bins are almost entirely uncovered sequence,
+    # which would draw a steep edge artifact at x = xrange[0] where there is no bin.
+    df = df[(df["gc_mid"] >= xrange[0]) & (df["gc_mid"] <= xrange[1])]
+    df = df.sort_values("gc_mid")
+
+    ax.stackplot(df["gc_mid"], *[df[c] for c, _, _ in COMPOSITION_STYLE],
+                 colors=[c for _, c, _ in COMPOSITION_STYLE],
+                 labels=[lab for _, _, lab in COMPOSITION_STYLE], alpha=0.9)
+
+    ax.set_xlim(xrange)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("Fraction of background\ntraining sites", fontsize=AXIS_LABEL_FONTSIZE)
+    if show_xlabel:
+        ax.set_xlabel("GC content", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, axis="y", **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.legend(fontsize=LEGEND_FONTSIZE, frameon=False, loc="lower left")
+
+
+def panel_r_fitted_vs_observed(ax, binned, fits, xrange: tuple[float, float] = (0.2, 0.73),
+                               show_xlabel: bool = True) -> None:
+    """
+    Several fitted non-CpG adjustments against the adjustment the observed de novo
+    mutations support.
+
+    `binned` is compare_restricted.build_panel_b() output (polars); `fits` is a list of
+    (label, style key, dashed, legend text), one per fitted curve, where label matches
+    the r_non_model_{label} column.
+
+    The observed curve is identical for every fit by construction -- same DNMs, same
+    opportunities, same windows -- which the caller asserts rather than assumes, so the
+    only thing that moves between fitted curves is the model. Including a SIZE-MATCHED
+    fit here is what separates "trained on a better-matched population" from "trained
+    on less data"; without it the comparison is confounded.
+
+    Only the observed curve carries error bars; the fitted curves are deterministic
+    functions of already-fixed feature values.
+    """
+    df = binned.to_pandas() if hasattr(binned, "to_pandas") else binned
+    df = df.sort_values("gc_mid")
+
+    for label, key, dashed, text in fits:
+        ax.plot(df["gc_mid"], df[f"r_non_model_{label}"], marker=SERIES_MARKERS[key],
+                color=SERIES_COLORS[key], markersize=5, linewidth=2,
+                linestyle="--" if dashed else "-",
+                markerfacecolor="white" if dashed else SERIES_COLORS[key], label=text)
+    ax.errorbar(df["gc_mid"], df["r_non_empirical"], yerr=df["se_r_non_empirical"],
+                marker=SERIES_MARKERS["step1"], color=SERIES_COLORS["step1"],
+                markersize=5, linewidth=2, capsize=3, elinewidth=1,
+                label="Observed de novo mutations")
+
+    ax.axhline(1.0, **REF_LINE_KW)
+    _log_ratio_axis(ax, df[[f"r_non_model_{lab}" for lab, *_ in fits]
+                           + ["r_non_empirical"]].to_numpy())
+    ax.set_xlim(xrange)
+    ax.set_ylabel("Non-CpG adjustment factor, $r$", fontsize=AXIS_LABEL_FONTSIZE)
+    if show_xlabel:
+        ax.set_xlabel("GC content", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.legend(fontsize=LEGEND_FONTSIZE - 1, frameon=False, loc="upper left")
+
+
+PAIR_STYLE = {
+    "original":    {"color": "#eb6834", "fitted_marker": "s", "label": "original training set"},
+    "scored":      {"color": "#1baf7a", "fitted_marker": "^", "label": "scored-population training set"},
+    # The size-matched random control: same number of sites as "scored", drawn from the
+    # same population as "original". It should track "original", and that it does is
+    # what rules out sample size as the explanation.
+    "sizematched": {"color": "#4a3aa7", "fitted_marker": "D", "label": "size-matched random control"},
+}
+
+
+def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500,
+                                gc_as_fraction: bool = True, normalize: bool = False,
+                                xrange: tuple[float, float] = (0.2, 0.76),
+                                show_xlabel: bool = True) -> None:
+    """
+    Fitted and empirical P(DNM) vs GC for two training populations at once, non-CpG.
+
+    `binned` maps population name -> a table with n, gc_mid, mean_pred,
+    empirical_prop, se (plot_dnm_probability_pairs.non_cpg_binned output). Color
+    encodes the population, line style encodes fitted (solid, filled) vs empirical
+    (dashed, open, with binomial error bars) -- so each pair reads as one reliability
+    diagram and the two pairs are visually separable.
+
+    LEVELS ARE NOT COMPARABLE ACROSS POPULATIONS unless normalize=True: the two sets
+    have different case-control ratios (10.0 vs 11.3 background per DNM), which shifts
+    P(DNM) by that factor for reasons unrelated to GC. Within a pair the comparison is
+    exact, because the fitted and empirical curves come from the very same sites.
+    """
+    for name, df in binned.items():
+        style = PAIR_STYLE[name]
+        d = df[df["n"] >= min_n] if min_n else df
+        d = d[(d["gc_mid"] / 100.0 >= xrange[0]) & (d["gc_mid"] / 100.0 <= xrange[1])]
+        d = d.sort_values("gc_mid")
+        gc = d["gc_mid"] / 100.0 if gc_as_fraction else d["gc_mid"]
+
+        pred, emp, se = d["mean_pred"], d["empirical_prop"], d["se"]
+        if normalize:
+            wpred = np.average(pred, weights=d["n"])
+            wemp = np.average(emp, weights=d["n"])
+            pred, emp, se = pred / wpred, emp / wemp, se / wemp
+
+        ax.plot(gc, pred, marker=style["fitted_marker"], color=style["color"],
+                markersize=5, linewidth=2, label=f"fitted, {style['label']}")
+        ax.errorbar(gc, emp, yerr=se, marker="o", color=style["color"],
+                    markersize=5, linewidth=2, linestyle="--", markerfacecolor="white",
+                    capsize=3, elinewidth=1, label=f"empirical, {style['label']}")
+
+    ax.set_xlim(xrange)
+    ax.set_ylabel("P(DNM) relative to its own mean\n(non-CpG contexts)" if normalize
+                  else "P(DNM) in the training set\n(non-CpG contexts)",
+                  fontsize=AXIS_LABEL_FONTSIZE)
+    if normalize:
+        ax.axhline(1.0, **REF_LINE_KW)
+    if show_xlabel:
+        ax.set_xlabel("GC content", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.legend(fontsize=LEGEND_FONTSIZE - 1, frameon=False, loc="upper left")
+
+
 def label_panels(axes, labels=("A", "B"), x: float = -0.09, y: float = 1.02) -> None:
     """Bold A/B panel letters in axes coordinates, journal-style."""
     for ax, letter in zip(axes, labels):

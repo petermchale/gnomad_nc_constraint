@@ -48,9 +48,8 @@ from gnocchi_bias.dnm_model import CPG_CONTEXTS
 # expected file, so the two are exactly consistent).
 DEFAULT_STEP1_EXPECTED = "tmp/expected_counts_by_context_methyl_genome_1kb.txt"
 DEFAULT_PERCONTEXT_EXPECTED = "tmp/expected_counts_per_context_methyl_genome_1kb.txt"
-DEFAULT_REFIT_EXPECTED = ("dnm_training_size/output/"
-                          "expected_counts_by_context_methyl_genome_1kb.dnm_refit_full.txt")
-DEFAULT_RR_BY_CONTEXT = "dnm_training_size/output/rr_by_context.dnm_refit_full.txt"
+DEFAULT_REFIT_EXPECTED = "refits/expected_counts_by_context_methyl_genome_1kb.full.txt"
+DEFAULT_RR_BY_CONTEXT = "refits/rr_by_context.full.txt"
 
 
 # ------------------------------------------------------------- shared GC bins

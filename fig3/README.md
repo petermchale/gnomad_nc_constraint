@@ -10,8 +10,35 @@ depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel 
 r_eff.py            genome-wide r_eff = E2/E1, decomposed by CpG status
 empirical_r.py      the adjustment the observed de novo mutations actually support
 make_r_figures.py   driver: builds both adjustment-factor figures end to end
+training_representativeness.py
+                    is the DNM training set representative of the scored genome?
+plot_training_representativeness.py, plot_dnm_probability.py
+                    drivers for the two training-set diagnostics
+refit_restricted.py, compare_restricted.py
+                    the intervention: retrain the adjustment on the scored population
+plot_dnm_probability_pairs.py
+                    P(DNM) fitted vs empirical, on both training populations
 output/             figures, plus cached binned/intermediate tables
 ```
+
+## Training-set diagnostics (added 2026-08-06)
+
+**`dnm_probability_non_cpg.pdf`** (`plot_dnm_probability.py`) — the reliability diagram
+for non-CpG contexts: mean fitted P(DNM) against the empirical fraction of each GC bin's
+training examples that are DNMs. Tracks within 2% through GC 0.55, then under-predicts by
+26% at GC 0.66 and over-predicts by 29% at GC 0.74. It measures a *level* error, which
+cancels in `r`, so it is a diagnostic of the fit and **not** a measurement of Gnocchi's
+bias — see the panel docstring.
+
+**`training_representativeness.pdf`** (`plot_training_representativeness.py`) — why that
+curve's shape differs from `r_non_vs_empirical.pdf`'s. Panel A rebuilds the same
+empirical curve four ways, one ingredient at a time: the denominator moves it 2.4%, the
+aggregation 4.3%, and the **window population 37.6%**. So the choice of background sites
+is not responsible. Panel B gives the reason — the fraction of background training sites
+lying in the analyzed noncoding genome falls from 0.83 in the GC bulk to 0.30 by GC 0.68,
+as GC-rich sequence turns coding (43%) or loses gnomAD coverage (27%). The fitted curve
+sits between the two populations at every high-GC bin. Full numbers in CLAUDE.md, "Why
+the non-CpG models inflate r".
 
 ## The two adjustment-factor figures (added 2026-08-05)
 
@@ -32,6 +59,58 @@ sides are normalized per context to mean 1, mirroring `r`'s own definition as
 "rate here / rate at the average", so only GC *shape* is compared. The fitted
 curve climbs to 1.55; the observed one is flat near 1.0 until GC ≈ 0.55. Panel B is their
 ratio: it crosses 1 at GC ≈ 0.40 and reaches **1.22–1.26** by GC 0.61–0.68.
+
+## The intervention (added 2026-08-06)
+
+**`restricted_refit.pdf`** (`refit_restricted.py` then `compare_restricted.py`, ~8 min
+total). Retrains the per-context adjustment on training sites restricted to the analyzed
+window set — the population r is applied to — changing nothing else in the pipeline.
+
+Panel B: the fitted non-CpG `r` stops climbing (0.95→1.55 becomes 1.02→1.08) and the
+over-adjustment falls from 1.22–1.25 to 0.92–0.97 at GC 0.61–0.65. Panel A: Gnocchi's own
+GC bias, `mean |rank − 0.5|`, drops from **0.221 to 0.079** — below the context-only
+model's 0.130, because the retrained adjustment also repairs that model's droop at both
+GC extremes.
+
+**Size-matching.** The restricted set is smaller (292,646 vs 410,542 DNMs), so every
+original-vs-scored comparison is confounded with sample size unless the size-matched
+random control travels with it. It now does, *inside* both figures: panel B carries it as
+a dashed violet curve (which lies on top of the published one, agreeing to ~0.1% at every
+bin), and `dnm_probability_pairs.pdf` carries it as a third pair (which overlays the
+original pair). Panel A's control is printed rather than plotted — a fourth curve
+indistinguishable from published Gnocchi is clutter, not information.
+`training_representativeness.pdf` needs no such control: no model is fit there.
+
+Two controls make this a result rather than an anecdote, and `compare_restricted.py`
+prints both:
+
+| curve | `mean \|rank − 0.5\|` |
+|---|---|
+| context-only (`r ≡ 1`) | 0.130 |
+| Gnocchi as published | 0.221 |
+| reimplementation, full training set | 0.221 — so it is not the reimplementation |
+| size-matched random subsample | 0.217 — so it is not just less data |
+| retrained on the scored population | **0.079** |
+
+**`dnm_probability_pairs.pdf`** (`-normalize` for shape only) puts all four reliability
+curves on one axis. Restricting the training set does two things at once: the empirical
+GC dependence shrinks from 2.4x-and-non-monotonic (P(DNM) peaks at 0.177 at GC 0.66 then
+collapses to 0.121) to a smooth 1.57x rise, *and* the logistic regression can then track
+it to within a few percent instead of missing by 26% and 29% in opposite directions.
+The size-matched random control (violet) overlays the original pair in both fitted and
+empirical curves, so neither effect is about sample size. In the **raw** figure it sits
+~11% lower at every GC: that is pure class balance (the restriction drops 28.7% of DNMs
+but only 19.6% of background, so count-matching down-samples positives harder), it has no
+GC trend, and it cancels in `r`. `-per_context` normalizes each trinucleotide to its own
+mean before pooling, which removes the composition term and makes the curve track
+`empirical_r`'s genome-level `r_non` to within 1% through the GC bulk. Levels are not comparable across
+pairs — the class balance differs (12.2 / 13.5 / 13.8 background per DNM for
+original / scored / size-matched) — only within.
+
+**Panel B is in-sample** (fit on DNMs in those windows, scored against DNMs in those
+windows; its observed curve is the 292,646-DNM scored subset, not the original 410,542). Panel A is the out-of-sample confirmation — gnomAD polymorphism counts, which
+the DNM model never sees. A held-out DNM split would make panel B airtight and has not
+been run. The 0.84 under-adjustment in the top GC bin rests on 203 DNMs; don't quote it.
 
 ## What the panels show
 
