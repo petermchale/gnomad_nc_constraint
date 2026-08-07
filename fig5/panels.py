@@ -120,10 +120,31 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
     _finish(ax, "Adjustment factor applied\nto expected counts, $r$", xrange, show_xlabel)
 
 
+# Panel C's two rows share one colour per stratum, defined once here so the band in the
+# upper row and the line in the lower row cannot drift apart.
+#
+# `analyzed` is deliberately neutral grey for two reasons: it is the reference the lower
+# row divides by, and it is the one stratum with no line there, so a saturated hue would
+# promise a curve that does not exist. That also puts the colour on the two bands whose
+# growth is the point.
+#
+# NOT violet for `no_coverage`, though it reads well here: violet already carries the
+# scored-population intervention through panels B, D and E, and a fourth meaning would
+# undo that thread. Aqua is the slot `analyzed` just vacated, so it collides only with
+# panel A's depletion-rank curve -- a different panel with its own legend, and not part
+# of a thread that runs across several.
+STRATUM_COLORS = {"analyzed": "0.78", "coding": "#eb6834", "no_coverage": "#1baf7a"}
+STRATUM_LABELS = {
+    "analyzed": "In the analyzed noncoding genome",
+    "coding": "Excluded: coding / failed QC",
+    "no_coverage": "Excluded: no gnomAD coverage",
+}
+# The composition table names the third category `noannot` (no row in the constraint
+# table at all), which is the same thing as `no_coverage` in the ratio table.
 COMPOSITION_STYLE = [
-    ("frac_analyzed", "#1baf7a", "In the analyzed noncoding genome"),
-    ("frac_coding", "#eb6834", "Excluded: coding / failed QC"),
-    ("frac_noannot", "0.72", "Excluded: no gnomAD coverage"),
+    (f"frac_{col}", STRATUM_COLORS[key], STRATUM_LABELS[key])
+    for key, col in (("analyzed", "analyzed"), ("coding", "coding"),
+                     ("no_coverage", "noannot"))
 ]
 
 
@@ -146,20 +167,21 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     # which would draw a steep edge artifact at x = xrange[0] where there is no bin.
     df = df[(df["gc_mid"] >= xrange[0]) & (df["gc_mid"] <= xrange[1])].sort_values("gc_mid")
 
+    # alpha=1: the lower row draws these same colours as solid lines, and any
+    # transparency here would make the band read as a slightly different hue.
     ax.stackplot(df["gc_mid"], *[df[c] for c, _, _ in COMPOSITION_STYLE],
                  colors=[c for _, c, _ in COMPOSITION_STYLE],
-                 labels=[lab for _, _, lab in COMPOSITION_STYLE], alpha=0.9)
+                 labels=[lab for _, _, lab in COMPOSITION_STYLE], alpha=1.0)
     ax.set_ylim(0, 1)
     _finish(ax, "Fraction of background\ntraining sites", xrange, show_xlabel,
             legend_loc="lower left", grid_axis="y")
 
 
-# Same hue for the same stratum as the composition stack above it, so the two rows of
-# panel C read together: orange is the coding/failed-QC band either way, dark grey the
-# uncovered one. (The stack's grey is lighter because it is a filled area, not a line.)
+# Exactly the colours and labels of the composition stack above, taken from the same
+# dicts rather than repeated, so the band and the line for a stratum always match.
 STRATUM_STYLE = {
-    "coding": {"color": "#eb6834", "marker": "s", "label": "Excluded: coding / failed QC"},
-    "no_coverage": {"color": "#4a4a4a", "marker": "v", "label": "Excluded: no gnomAD coverage"},
+    key: {"color": STRATUM_COLORS[key], "marker": marker, "label": STRATUM_LABELS[key]}
+    for key, marker in (("coding", "s"), ("no_coverage", "v"))
 }
 
 
