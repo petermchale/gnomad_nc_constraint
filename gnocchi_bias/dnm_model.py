@@ -5,11 +5,11 @@ Extracted verbatim (2026-08-04) from dnm_training_experiment/
 run_dnm_training_experiment.py, so that both figure directories can import the
 same fitting code:
 
-  fig5/              needs fit_multivariate_context + predict_training_set, for
-                     the training-set reliability/calibration gap (panel B).
-  dnm_training_size/ needs all of it, plus apply_genome_wide_context /
-                     combine_and_predict, to refit under a resized training set
-                     and re-derive genome-wide expected counts.
+  fig5/              refits on three training populations (refit_and_apply) and
+                     evaluates each on its own sites (predict_training_set), for
+                     panels B, D and E.
+  dnm_training_size/ the same refit under a randomly shrunk training set.
+  validate_reimplementation/  fit_univariate + validate_against_published.
 
 Provenance, unchanged from the original and load-bearing for the manuscript:
 fit_univariate + bonferroni_select reimplement the published feature-selection
@@ -405,109 +405,6 @@ def predict_training_set(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, contexts:
     if not rows:
         return pd.DataFrame(columns=['context', 'gc', 'label', 'pred'])
     return pd.concat(rows, ignore_index=True)
-
-
-def bin_training_reliability(df_pred: pd.DataFrame, n_bins: int = 20) -> pd.DataFrame:
-    """
-    Bin per-site predictions (from predict_training_set) by the site's own GC
-    content, and compare mean FITTED probability against the mean EMPIRICAL
-    label rate, with binomial standard error on the empirical side.
-
-    No possible-weighting needed here, unlike a genome-wide window-level
-    comparison -- each row is one real training-set site, the natural unit,
-    not a window standing in for many possible sites.
-
-    This is the binning half of what used to be
-    plot_training_reliability_diagram(); the plotting half now lives with the
-    figure that uses it. Returns columns:
-      bin, n, n1, gc_mid, mean_pred, empirical_prop, se
-    """
-    if df_pred.empty:
-        return pd.DataFrame(columns=['bin', 'n', 'n1', 'gc_mid', 'mean_pred', 'empirical_prop', 'se'])
-
-    bins = np.linspace(df_pred['gc'].min(), df_pred['gc'].max(), n_bins + 1)
-    bin_idx = np.clip(np.digitize(df_pred['gc'], bins[1:-1]), 0, n_bins - 1)
-    df = df_pred.assign(bin=bin_idx)
-    summary = df.groupby('bin').agg(
-        n=('label', 'size'), n1=('label', 'sum'),
-        gc_mid=('gc', 'mean'), mean_pred=('pred', 'mean'),
-    ).reset_index()
-    summary['empirical_prop'] = summary['n1'] / summary['n']
-    summary['se'] = np.sqrt(summary['empirical_prop'] * (1 - summary['empirical_prop']) / summary['n'])
-    return summary
-
-
-def bin_training_calibration(df_pred: pd.DataFrame, n_bins: int = 20,
-                              stratify_cpg: bool = True) -> pd.DataFrame:
-    """
-    Per-GC-bin calibration of the DNM model, optionally split by whether the
-    site's trinucleotide context is a CpG context (ACG/CCG/GCG/TCG).
-
-    WHY STRATIFY. bin_training_reliability() pools all 32 per-context models.
-    That pooling is not a naive composition artifact -- the pooled gap is
-    exactly the n-weighted mean of within-context gaps, since composition
-    scales the fitted and empirical sides identically -- but it hides that the
-    high-GC signal is almost entirely a CpG effect. CpG contexts are 0.9% of
-    sites at GC 0.25 and 32% at GC 0.74, and they are the only contexts whose
-    models are forbidden GC_content (FT_CORR_MET, applied in
-    select_features_for_context) despite it clearing Bonferroni selection in
-    all four of them.
-
-    Note also that every per-context model is exactly calibrated IN THE MEAN
-    on its own training data (max |mean(pred) - mean(label)| measured at 1e-7)
-    -- that is the logistic-regression intercept score equation, not a
-    result. So all structure here is within-context, GC-conditional
-    miscalibration; none of it is between-context.
-
-    WHY THE INFLATION FACTOR. `gap` (mean_pred - empirical_prop) is on an
-    absolute probability scale, where a context with a ~0.5 baseline rate can
-    show a large gap for the same relative error as a tiny gap in a context
-    with a ~0.09 baseline. But the quantity the pipeline actually applies to
-    expected counts is the RATIO r(w) = sigma(b0 + b.z(w)) / sigma(b0). Its
-    multiplicative error is
-
-        inflation = r_model / r_true
-                  = [mean_pred / sigma(b0)] / [empirical_prop / sigma(b0)]
-                  = mean_pred / empirical_prop
-
-    -- sigma(b0) cancels exactly, so `inflation` is scale-free, directly
-    comparable across contexts with different baseline rates, and reads
-    straight off as "expected counts here are inflated by this factor".
-    inflation > 1 inflates expected, depresses observed/expected, and pushes
-    Gnocchi's z (and hence its rank) up.
-
-    Returns one row per (group, bin) with: group, bin, n, n1, gc_mid,
-    mean_pred, empirical_prop, gap, se (binomial SE of empirical_prop),
-    inflation, se_log_inflation (delta-method SE of log inflation, treating
-    mean_pred as fixed -- it is a deterministic function of already-fixed
-    feature vectors, not resampled).
-    """
-    if df_pred.empty:
-        return pd.DataFrame(columns=['group', 'bin', 'n', 'n1', 'gc_mid', 'mean_pred',
-                                      'empirical_prop', 'gap', 'se', 'inflation',
-                                      'se_log_inflation'])
-
-    bins = np.linspace(df_pred['gc'].min(), df_pred['gc'].max(), n_bins + 1)
-    df = df_pred.assign(bin=np.clip(np.digitize(df_pred['gc'], bins[1:-1]), 0, n_bins - 1))
-    if stratify_cpg:
-        df = df.assign(group=np.where(df['context'].isin(CPG_CONTEXTS), 'CpG', 'non-CpG'))
-    else:
-        df = df.assign(group='all')
-
-    summary = df.groupby(['group', 'bin']).agg(
-        n=('label', 'size'), n1=('label', 'sum'),
-        gc_mid=('gc', 'mean'), mean_pred=('pred', 'mean'),
-    ).reset_index()
-    summary['empirical_prop'] = summary['n1'] / summary['n']
-    summary['gap'] = summary['mean_pred'] - summary['empirical_prop']
-    summary['se'] = np.sqrt(summary['empirical_prop'] * (1 - summary['empirical_prop']) / summary['n'])
-
-    # inflation is undefined where no site in the bin is a DNM
-    with np.errstate(divide='ignore', invalid='ignore'):
-        summary['inflation'] = summary['mean_pred'] / summary['empirical_prop']
-        summary['se_log_inflation'] = summary['se'] / summary['empirical_prop']
-    summary.loc[summary['empirical_prop'] == 0, ['inflation', 'se_log_inflation']] = np.nan
-    return summary
 
 
 def refit_and_apply(df_dnm1, df_dnm0, contexts, df_ft_genome,

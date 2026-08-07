@@ -23,7 +23,7 @@ gnocchi_bias/            shared library -- imported by BOTH figure directories
                          shared plot-style constants
   dnm_model.py           the DNM training set + per-context mutation model: loading, regime-1
                          subsampling, univariate selection, the (unpublished) multivariate
-                         PCA+logit fit, genome-wide apply, training-set prediction/reliability
+                         PCA+logit fit, genome-wide apply, training-set prediction
 
 fig5/                    the manuscript figure -- see its own section below
   fig5.ipynb             the figure; config.py, data.py, diagnostics.py, panels.py,
