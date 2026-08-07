@@ -25,17 +25,24 @@ gnocchi_bias/            shared library -- imported by BOTH figure directories
                          subsampling, univariate selection, the (unpublished) multivariate
                          PCA+logit fit, genome-wide apply, training-set prediction/reliability
 
-fig3/                    NEW Fig. 3 for the McHale et al. manuscript
-  fig3.ipynb             the figure
-  panels.py              the two panels as ax-accepting functions
-  depletion_rank.py      Halldorsson depletion-rank window loader (panel A, third curve)
+fig5/                    the manuscript figure -- see its own section below
+  fig5.ipynb             the figure; config.py, data.py, diagnostics.py, panels.py,
+                         refit.py, depletion_rank.py
 
-dnm_training_size/       the DNM training-set-size experiment (renamed from dnm_training_experiment/)
-  dnm_training_set_size.ipynb
-  run_dnm_training_experiment.py, plot_dnm_bias_comparison.py, plot_reliability_gap.py
+dnm_training_size/       the DNM training-set-SIZE dose-response, and only that
+  dnm_training_set_size.ipynb, run_dnm_training_experiment.py
 
+validate_reimplementation/  is the reimplemented fitting pipeline faithful to Chen et
+  validate.py               al.'s? A precondition for both directories above, so it is
+                            kept out of either.
+
+refits/                  one copy of each regional-adjustment refit (gitignored, ~12 GB)
 compute_gc_bias_step1_vs_step2.py   unchanged CLI, now importing from gnocchi_bias.windows
 ```
+
+(`fig3/` was deleted 2026-08-07, preserved at commit 070fee9. The layout above is
+current; sections further down that describe `fig3/` outputs are the historical record of
+how the result was reached.)
 
 **Neither `gnocchi_bias` module sets a matplotlib backend** (the CLIs call
 `matplotlib.use("Agg")` inside their own `main()` instead) — that is what lets the
@@ -44,8 +51,9 @@ scope.
 
 **The refactor was verified behavior-preserving, not assumed**: on the full genome-wide
 path, `compute_gc_bias_step1_vs_step2.py` produces byte-identical binned output before
-and after (1,843,559 windows), and `-mode reliability -subsample_frac 1.0` reproduces
-`training_reliability_binned.dnm_refit_full.txt` byte-identically.
+and after (1,843,559 windows). Validation of the reimplemented FITTING pipeline against
+Chen et al.'s published outputs is a separate matter and lives in
+`validate_reimplementation/`.
 
 **Known pre-existing bug found during that verification**: `-downsample_frac` /
 `-downsample_n` are **not reproducible across runs even with a fixed `-random_seed`**.
@@ -489,6 +497,18 @@ Use `list_bucket_files.py -prefix genomic_features/` or `-prefix <name>.ht/` to 
 any of these directly.
 
 ### Implementation and results (2026-07-21)
+
+> **Pared down 2026-08-07.** `dnm_training_size/` now holds only the training-set-SIZE
+> dose-response: the 1%/10%/100% bias curves and the `GC_content` selection-frequency
+> table (0/4 -> 7/21 -> 23/32 contexts). Its value alongside `fig5/` is the *contrast* --
+> shrinking the training set moves Gnocchi toward the context-only model but never past
+> it, whereas `fig5/`'s population intervention does go past it (0.046 vs 0.093), so the
+> two differ in kind. Removed as superseded: `plot_dnm_bias_comparison.py` (the notebook
+> does it), `plot_reliability_gap.py` and `-mode reliability` (fig5 panel D is the same
+> diagram on the populations that matter, and the gap measures a level error that cancels
+> in r), the pooled GC-only diagnostic, and 2.4 GB of `rr` tables nothing read. `-mode
+> validate` moved to `validate_reimplementation/`. The narrative below is the record of
+> how these results were obtained and names files that no longer exist.
 
 The plan above (regime 1 only — shrink both dnm0+dnm1 by the same random rate; regime 3,
 densifying background-only, still needs Hail access to `context_prepared.ht` and wasn't

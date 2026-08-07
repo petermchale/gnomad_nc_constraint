@@ -24,11 +24,11 @@ place.
   and now imports from here. Verified behavior-preserving: byte-identical binned output on the full
   1,843,559-window path before and after.
 - `dnm_model.py` was extracted verbatim from `dnm_training_size/run_dnm_training_experiment.py`.
-  Verified the same way: `-mode reliability -subsample_frac 1.0` reproduces
-  `training_reliability_binned.dnm_refit_full.txt` byte-identically.
+  Validation of the reimplementation against Chen et al.'s own published outputs
+  lives in `validate_reimplementation/`.
 - The only genuinely new code is the N-curve generalization of the z/rank computation
   (`add_z_column`, `add_rank_columns`, `binned_rank_curves`), lifted from what
-  `plot_dnm_bias_comparison.py` had already worked out.
+  the training-set-size experiment had already worked out.
 
 `fit_multivariate_context` in `dnm_model.py` is the one step with **no published source anywhere** —
 reconstructed from the apply-side code in `run_nc_constraint_gnomad_v31_main.py:231–249`. It is

@@ -10,7 +10,7 @@ of this code, so do not trim them.
 
 The only NEW code here is the N-curve generalization of the z/rank computation
 (add_z_column, add_rank_columns, binned_rank_curves), lifted from what
-plot_dnm_bias_comparison.py had already worked out for the training-set-size
+the training-set-size experiment had already worked out for
 experiment. The two-curve helpers (add_z_columns, add_rank_columns_step1_step2)
 are kept as thin wrappers so the original CLI is unchanged.
 
