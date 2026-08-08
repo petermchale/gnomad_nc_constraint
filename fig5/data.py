@@ -4,7 +4,7 @@ fig5/output/, so the notebook is instant after the first pass.
 
 Inputs, in three groups:
 
-  * the public gnomAD-NC-constraint bucket, downloaded on demand into tmp/ by
+  * the public gnomAD-NC-constraint bucket, downloaded on demand into published/ by
     gnocchi_bias.windows.download;
   * the three refits fig5/refit.py produces (full / scored / sizematched), which live in
     the repo-root refits/ -- ONE copy, also read directly by dnm_training_size/;
@@ -27,7 +27,7 @@ from gnocchi_bias import windows as W
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 OUTPUT_DIR = os.path.join(HERE, "output")     # figures and this figure's own caches
-CACHE_DIR = os.path.join(REPO_ROOT, "tmp")    # downloaded bucket files
+CACHE_DIR = os.path.join(REPO_ROOT, "published")    # downloaded bucket files
 REFITS_DIR = os.path.join(REPO_ROOT, "refits")  # the shared refit outputs
 
 N_BINS = 20

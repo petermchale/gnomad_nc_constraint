@@ -47,7 +47,7 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-population", required=True,
                     choices=["full", "scored", "sizematched"])
-    ap.add_argument("-cache_dir", default="tmp")
+    ap.add_argument("-cache_dir", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "published"))
     ap.add_argument("-output_dir", default=os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "refits"))
     ap.add_argument("-seed", type=int, default=0)

@@ -218,7 +218,7 @@ def main():
     matplotlib.use("Agg")
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("-dest_dir", default="tmp",
+    parser.add_argument("-dest_dir", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "published"),
                          help="local directory to download bucket files into")
     parser.add_argument("-bias_metric", choices=["rank", "residual"], default="rank",
                          help="'rank' (default): standardized rank of each window's own z-score per "

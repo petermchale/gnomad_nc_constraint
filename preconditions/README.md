@@ -37,7 +37,7 @@ that reimplementation was necessary at all.
 .venv/bin/python preconditions/validate.py -check coefficients    # ~10 min
 ```
 
-All default `-dest_dir` to the repo-root `tmp/`, resolved from `__file__` rather than as a
+All default `-dest_dir` to the repo-root `published/`, resolved from `__file__` rather than as a
 relative path, so running one from inside this directory reuses the shared download cache
 instead of fetching multi-GB files again.
 

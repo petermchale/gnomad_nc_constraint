@@ -21,12 +21,12 @@ import argparse
 import os
 import re
 
-# tmp/ is the repo-root download cache shared with every other script here.
-# Resolved from __file__, not as the relative "tmp", so running this from inside
-# preconditions/ reuses the cache instead of re-downloading multi-GB files into
-# preconditions/tmp/.
+# published/ is the repo-root cache of Chen et al.'s downloaded data, shared with
+# every other script here. Resolved from __file__, not as a relative path, so
+# running this from inside preconditions/ reuses the cache instead of
+# re-downloading multi-GB files into preconditions/published/.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "tmp")
+DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "published")
 
 BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
 FILES = ["generic.py", "constraint_basics.py", "nc_constraint_utils.py"]

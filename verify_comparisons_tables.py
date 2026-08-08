@@ -36,7 +36,7 @@ def download(dest_dir: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "-dest_dir", default="tmp",
+        "-dest_dir", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "published"),
         help="local directory to download/extract into (default: ./tmp)")
     args = parser.parse_args()
 
