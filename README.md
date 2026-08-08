@@ -29,3 +29,84 @@ will generate Figure_1a.pdf and Figure_1b.pdf in the current directory. Similarl
 python generate_manuscript_efigures.py -efig x
 ```
 where x can be a single number from 1-8 or “all”.
+
+---
+
+# Fork addendum — Figure 5 of McHale, Goldberg & Quinlan
+
+Everything above this line is Chen et al.'s. This section describes what was added in the
+fork [`petermchale/gnomad_nc_constraint`](https://github.com/petermchale/gnomad_nc_constraint)
+to produce **Figure 5** of McHale, Goldberg & Quinlan, *"The performance of
+genetic-constraint metrics varies significantly across the human noncoding genome"*, which
+dissects the mechanism behind Gnocchi's GC-content bias.
+
+**All eight of Chen et al.'s original files are byte-unchanged** (`README.md` — apart from
+this addendum — `run_nc_constraint_gnomad_v31_main.py`, `analyze_individual_feature_effects.py`,
+`generate_manuscript_figures.py`, `generate_manuscript_efigures.py`, `fig_utils.py`,
+`efig_utils.py`, `generate_genomic_features.sh`). Verify with
+`git diff upstream/main HEAD -- <file>`. Every addition is a new file, so the reviewable
+surface is exactly what is listed below.
+
+## What Figure 5 shows
+
+Five panels, one argument, each written as a standalone vector PDF for assembly:
+
+| panel | claim |
+|---|---|
+| **A** | The GC bias is *introduced by* the regional adjustment `r`, not inherited from the context-only model underneath it |
+| **B** | That adjustment's GC dependence is wholly non-CpG — and `r_CpG ≈ 1` is *correct*, because methylation is already handled in step 1 |
+| **C** | The DNM training set is not the population Gnocchi is scored on, and the excluded territory is *different*, not merely absent |
+| **D** | Restricting the training set to the scored population flattens the empirical DNM rate, and the model can then fit it |
+| **E** | Refitting `r` on the scored population removes Gnocchi's bias — below the context-only model's own |
+
+Plus one supporting figure on why `r_CpG ≈ 1` is the right behaviour.
+
+The analysis uses only public data from `gs://gnomad-nc-constraint-v31-paper`, plus the
+published constraint scores. It reimplements the per-context multivariate PCA + L1-logit
+fit behind `r`, because **that fitting code is not published anywhere** — the bucket ships
+the fitted `.pkl` models and the apply-side code only.
+
+## Directories and files unique to this fork
+
+Listed in review order: the shared library first, then the checks that license it, then
+the figure.
+
+| path | lines | what it is |
+|---|---|---|
+| `gnocchi_bias/` | 946 | Shared library. `windows.py` — the genome-wide 1 kb window table, z-scores, standardized ranks, GC binning. `dnm_model.py` — the DNM training set and the reimplemented per-context refit pipeline. |
+| `preconditions/` | 527 | The claims about Chen et al.'s pipeline that everything else assumes. `verify_*.py` — is what we believe about their published artifact true? `validate.py` — is our reimplementation faithful to theirs? **Read this directory first.** |
+| `fig5/` | 1,951 + notebook | The figure. `fig5.ipynb` (578 source lines, 23 cells) carries the mathematical derivation of every plotted quantity and calls the code; `make_fig5_nb.py` generates it. `data.py`, `panels.py`, `diagnostics.py`, `refit.py`, `depletion_rank.py`, `config.py`. |
+| `dnm_training_size/` | 119 | A separate experiment: Gnocchi's bias as a function of DNM training-set *size*, which is what distinguishes "less data" from "wrong data". |
+| `verify_comparisons_tables.py` | 95 | Why Extended Data Fig. 6's underlying data cannot answer the GC-bias question. A recorded dead end. |
+| `list_bucket_files.py` | 231 | Utility for browsing the public bucket without `gsutil`. |
+| `generic.py`, `constraint_basics.py`, `nc_constraint_utils.py` | — | **Not written here.** Copied verbatim from `misc/` in Chen et al.'s public bucket, where `run_nc_constraint_gnomad_v31_main.py` imports them from. Present so that script is importable. |
+| `CLAUDE.md` | 411 | Working notes: the bucket data inventory, a recipe for reading the Hail tables locally, the methods narrative, and the settled findings. |
+| `fig5/output/`, `dnm_training_size/output/`, `preconditions/output/` | — | Figure PDFs and small cached tables. Large regenerable intermediates are gitignored. |
+
+## Reproducing Figure 5
+
+```bash
+pip install -r requirements.txt
+
+# 1. Confirm the reimplementation reproduces Chen et al.'s pipeline (~10 min)
+python preconditions/validate.py
+
+# 2. Fit the regional adjustment on three training populations (~6 min each, ~4 GB each)
+python fig5/refit.py -population full          # reproduces published Gnocchi; the control
+python fig5/refit.py -population scored        # the intervention
+python fig5/refit.py -population sizematched   # the sample-size control
+
+# 3. Build the figure
+jupyter nbconvert --to notebook --execute --inplace fig5/fig5.ipynb
+```
+
+Panels land in `fig5/output/fig5{A..E}.pdf`. Downloads are cached in `published/` (~7 GB)
+and refits in `refits/` (~12 GB); both are gitignored and regenerable.
+
+Two inputs are **not** obtainable from public sources and are set to `None` in
+`fig5/config.py`: a depletion-rank BED (panel A's third curve) and a GeneHancer BED (the
+enhancer half of the "neutral" window definition, which is licensed). The figure builds
+without either; see `fig5/README.md` for what changes.
+
+Each directory has its own `README.md` with the methodological detail, the caveats that
+belong in the caption, and the numbers each claim rests on.
