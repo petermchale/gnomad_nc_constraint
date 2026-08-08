@@ -64,7 +64,8 @@ regardless of whether one exists. Read from `output/selected.dnm_refit_*.txt` an
 
 ## Known issue, still live elsewhere
 
-`-downsample_frac` / `-downsample_n` in `compute_gc_bias_step1_vs_step2.py` are **not
+`-downsample_frac` / `-downsample_n` (in the deleted `compute_gc_bias_step1_vs_step2.py`, and any
+future `polars.sample()` over a duckdb result) are **not
 reproducible across runs even with a fixed `-random_seed`**: duckdb's parallel join emits
 rows in a nondeterministic order, so `polars.sample()` picks a different subset each time.
 Verified directly — two identical invocations of the unmodified pre-refactor script gave

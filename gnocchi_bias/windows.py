@@ -3,7 +3,8 @@ Genome-wide 1kb window table for the GC-bias analyses, plus the Figure-2A-style
 rank statistic computed on it.
 
 Extracted verbatim (2026-08-04) from the repo-root
-compute_gc_bias_step1_vs_step2.py, which remains the command-line entry point
+compute_gc_bias_step1_vs_step2.py, which was the command-line entry point until it
+was deleted (2026-08-07, superseded by fig5 panel A; recoverable from git history)
 and now imports from here. Every docstring below keeps its original citation
 trail into CLAUDE.md / McHale et al.'s Methods -- those citations are the point
 of this code, so do not trim them.
@@ -290,7 +291,7 @@ def add_rank_columns(df: pl.DataFrame, labels: list[str]) -> pl.DataFrame:
 def add_z_columns(df: pl.DataFrame) -> pl.DataFrame:
     """
     Two-curve (step1/step2) wrapper over add_z_column/filter_z_in_range, kept
-    so compute_gc_bias_step1_vs_step2.py's CLI path is unchanged. Adds
+    so the original CLI path was unchanged by the extraction. Adds
     z_step1 (from expected_step1, i.e. r==1) and z_step2 (from expected_step2,
     the real r-adjusted Gnocchi expected count -- the official pipeline never
     computes a step-1-only z, so z_step1 is entirely self-computed here).
@@ -379,7 +380,7 @@ def build_window_table(cache_dir: str, exclude_sex: bool = True,
     returning it with a GC_content (0-1 fraction) column ready for binning.
 
     This is the download -> join -> filter -> GC-units chain that used to live
-    inline in compute_gc_bias_step1_vs_step2.py's main(); extracting it is
+    inline in compute_gc_bias_step1_vs_step2.py's main() (since deleted); extracting it is
     what makes the analysis usable from a notebook. Defaults match that
     script's own defaults, i.e. McHale et al.'s window definition as far as it
     is reproducible here (see restrict_to_neutral_genehancer for the part that

@@ -20,9 +20,10 @@ place.
 
 ## Provenance of the code itself
 
-- `windows.py` was extracted verbatim from `compute_gc_bias_step1_vs_step2.py`, which remains the CLI
-  and now imports from here. Verified behavior-preserving: byte-identical binned output on the full
-  1,843,559-window path before and after.
+- `windows.py` was extracted verbatim from `compute_gc_bias_step1_vs_step2.py`, which was the CLI
+  entry point until it was deleted (2026-08-07, superseded by fig5 panel A; recoverable from git).
+  The extraction was verified behavior-preserving at the time: byte-identical binned output on the
+  full 1,843,559-window path before and after.
 - `dnm_model.py` was extracted verbatim from `dnm_training_size/run_dnm_training_experiment.py`.
   Validation of the reimplementation against Chen et al.'s own published outputs
   lives in `preconditions/`.

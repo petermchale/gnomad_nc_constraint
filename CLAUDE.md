@@ -43,7 +43,6 @@ preconditions/           what had to be true about Chen et al.'s pipeline before
 published/               Chen et al.'s data as downloaded -- inputs, never edited
                          (gitignored, ~7 GB; was `tmp/` until 2026-08-07)
 refits/                  one copy of each regional-adjustment refit (gitignored, ~12 GB)
-compute_gc_bias_step1_vs_step2.py   unchanged CLI, now importing from gnocchi_bias.windows
 ```
 
 (`fig3/` was deleted 2026-08-07, preserved at commit 070fee9. The layout above is
@@ -673,10 +672,21 @@ a plausible direct explanation for why Gnocchi's r(w) adjustment runs high speci
 in high-GC windows genome-wide. Full per-bin numbers and rejected-alternatives reasoning:
 `okf/dnm-training-set-experiment/log.md`, "2026-07-21 (reliability diagram)".
 
-## `compute_gc_bias_step1_vs_step2.py` — Figure 2A-style rank-based bias analysis
+## The Figure 2A-style rank statistic — canonical methods narrative
 
-The script's own docstrings are kept short and point back here; this section is the
-canonical, extractable methods narrative for the rebuttal/revised paper. Every
+This section is the canonical, extractable methods narrative for the rebuttal/revised
+paper. It was written for `compute_gc_bias_step1_vs_step2.py`, **deleted 2026-08-07**
+(recoverable from git history) once fig5 panel A superseded its headline result on the
+same window set with the same statistic. Every methodological choice recorded below is
+still live: they are implemented in `gnocchi_bias/windows.py`, which was extracted
+verbatim from that script, and fig5 inherits all of them. Read `windows.py` for the code.
+
+TWO CAPABILITIES WENT WITH THE SCRIPT and exist nowhere else, both concerning comparison
+against McHale et al.'s *existing published* figures rather than producing Fig. 5:
+the 2D hexbin density heat map of (GC, rank) that reproduces Fig. 2A's visual form
+(fig5 draws only the conditional-mean line), and `-bias_metric residual`, the
+`expected − observed` metric Supp. Fig. 1 is defined on (fig5 uses the rank statistic
+only). Recover them from git if either is wanted. Every
 methodological choice below that mirrors, deviates from, or could not be replicated from
 McHale, Goldberg & Quinlan 2026 ("The performance of genetic-constraint metrics varies
 significantly across the human noncoding genome", `mchale_et_al_250115.pdf` + supporting

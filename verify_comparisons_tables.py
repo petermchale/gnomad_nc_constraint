@@ -86,7 +86,7 @@ def main():
         "element_id. Stratifying z/z_trimer/z_heptamer from these files by GC "
         "content would measure model behavior on this curated, functionally- and "
         "AF-enriched variant sample, not genome-wide local bias -- a different "
-        "question from the one 'compute_gc_bias_step1_vs_step2.py' already answers "
+        "question from the one fig5 panel A already answers "
         "correctly using every 1kb window genome-wide."
     )
 
