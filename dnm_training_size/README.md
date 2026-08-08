@@ -24,9 +24,11 @@ the shared repo-root `refits/`, which is where the notebook reads it from.
 
 **1. A dose-response in training-set size.** The 1% curve is indistinguishable from the
 context-only (step 1) model at every GC bin; the 10% curve sits smoothly between; the
-full-data curve reproduces published Gnocchi. This tests `chen_formula.tex`'s original
-prediction — that sparse feature tails collapse `r_c(x)` toward 1 — and it holds across
-the *entire* GC range, not just at the endpoints the tex described.
+full-data curve reproduces published Gnocchi. This tests the original prediction of the hypothesis that motivated the whole
+investigation — that sparse feature tails collapse `r_c(x)` toward 1 — and it holds
+across the *entire* GC range, not just at the endpoints. (That hypothesis was written up
+in `chen_formula/chen_formula.tex`, deleted 2026-08-07 with §§1–5 migrated into
+`fig5/fig5.ipynb`; the rest is in git history.)
 
 **The contrast with `fig5/` is the point of keeping both.** Shrinking the training set
 moves Gnocchi *toward* the context-only model but **never past it**. `fig5/`'s

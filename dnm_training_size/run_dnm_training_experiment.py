@@ -11,9 +11,10 @@ data differs. Everything downstream is the identical pipeline -- univariate Bonf
 selection -> standardize -> IncrementalPCA -> L1 logit per context -> genome-wide apply.
 
 WHAT THIS TESTS, and how it differs from fig5's size-matched control.
-chen_formula.tex ("Predictions of the hypothesis") predicts that as the training set
-shrinks, sparse feature tails collapse r_c(x) toward 1, so Gnocchi's GC bias should
-collapse toward the context-only model's. It does, smoothly and monotonically across the
+The hypothesis that motivated this work predicts that as the training set shrinks,
+sparse feature tails collapse r_c(x) toward 1, so Gnocchi's GC bias should collapse
+toward the context-only model's. (Written up in chen_formula/chen_formula.tex, deleted
+2026-08-07 -- SS1-5 migrated into fig5/fig5.ipynb, the rest in git history.) It does, smoothly and monotonically across the
 whole GC range -- but it never goes PAST the context-only model. fig5's intervention,
 which changes the training POPULATION at fixed size, does go past it (0.046 vs the
 context-only 0.093). Having both is what shows the population fix differs in kind from

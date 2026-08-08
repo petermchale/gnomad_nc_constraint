@@ -1667,7 +1667,34 @@ for judging r on the scored population, and it is also why panel B is in-sample.
 - This is not a proposal for a corrected Gnocchi. It is a demonstration that the bias is
   attributable to the training/scoring population mismatch. A real Gnocchi 2.0 would have
   to decide what the scored population is *before* fitting, and the choice is not
-  obvious (chen_formula.tex §9 argues for a different route entirely).
+  obvious (a different route entirely — train the x-dependence directly on dense gnomAD
+  rather than factorizing — is migrated into fig5.ipynb's closing caveats).
+
+## `chen_formula/` was deleted 2026-08-07 — and one of its claims is unsupported
+
+`chen_formula/chen_formula.tex` ("How bias arises in Gnocchi") is gone; recover from git
+history. §§1–5 — the derivation of the expected-SNV model, the within-window uniformity
+assumption, the naive fit, the selection-contamination problem, and Chen et al.'s
+two-stage fix — are migrated verbatim-in-substance into `fig5/fig5.ipynb` as "Where the
+model comes from, and where bias can enter", which is where they belong: they are the
+motivation the figure's Notation section presupposes. §8's sensitivity relation
+(`z2 − z1 ≈ √E1·(f−1)`) went into panel A, and §9's Gnocchi 2.0 proposal into the closing
+caveats.
+
+**§§6–7 are superseded, and §7 contains a claim this repo cannot support.** The
+hypothesis was that bias comes from *sparsity* of the DNM training set in the tails of x.
+The measurements since say otherwise: the population ladder puts the window-population
+effect at 37.6% against 2.4% for the denominator and 4.3% for the aggregation, and the
+fix that works is restricting the training set to the scored population, not densifying
+tails. Prediction 1 (shrink the set → r → 1 → Gnocchi reduces to context-only) is real and
+is what `dnm_training_size/` confirms.
+
+But §7's third red claim — *"We approximated this regime by increasing the number of
+background sites (only) in the DNM training set, retrained r_c(x), and observed that bias
+below the level we reported in our paper"* — **was never run.** That is regime 3, which
+needs Hail access to `context_prepared.ht`; this document records it as "wasn't
+attempted", and there is no code or output for a background-densified refit anywhere in
+the repo. If that sentence is in the rebuttal, it needs either the experiment or removal.
 
 ## `fig5/` — the manuscript figure, and the intended endpoint of all the above (2026-08-07)
 
