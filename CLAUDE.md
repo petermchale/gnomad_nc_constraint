@@ -37,7 +37,8 @@ the paper, and the settled findings below.
 
 Deleted, recoverable from git history: `fig3/` (superseded by fig5; preserved wholesale at
 `070fee9`), `compute_gc_bias_step1_vs_step2.py` (its reusable logic is `gnocchi_bias/
-windows.py`), `chen_formula/` (see below).
+windows.py`), and `chen_formula/` (the LaTeX write-up of the model; its
+sections 1-5 are migrated into `fig5/fig5.ipynb`).
 
 ## Settled findings — do not re-derive these
 
@@ -114,33 +115,6 @@ range. Code for this figure went with `fig3/`; it is at `070fee9`.
   fine-mapped / pathogenic positives against AF-matched TOPMed negatives), keyed by
   `locus` not `element_id`, with no GC column, and scored in `z` rather than the residual.
   Ascertainment alone disqualifies it. `verify_comparisons_tables.py` reproduces this.
-
-## `chen_formula/` was deleted 2026-08-07 — and one of its claims is unsupported
-
-`chen_formula/chen_formula.tex` ("How bias arises in Gnocchi") is gone; recover from git
-history. §§1–5 — the derivation of the expected-SNV model, the within-window uniformity
-assumption, the naive fit, the selection-contamination problem, and Chen et al.'s
-two-stage fix — are migrated verbatim-in-substance into `fig5/fig5.ipynb` as "Where the
-model comes from, and where bias can enter", which is where they belong: they are the
-motivation the figure's Notation section presupposes. §8's sensitivity relation
-(`z2 − z1 ≈ √E1·(f−1)`) went into panel A, and §9's Gnocchi 2.0 proposal into the closing
-caveats.
-
-**§§6–7 are superseded, and §7 contains a claim this repo cannot support.** The
-hypothesis was that bias comes from *sparsity* of the DNM training set in the tails of x.
-The measurements since say otherwise: the population ladder puts the window-population
-effect at 37.6% against 2.4% for the denominator and 4.3% for the aggregation, and the
-fix that works is restricting the training set to the scored population, not densifying
-tails. Prediction 1 (shrink the set → r → 1 → Gnocchi reduces to context-only) is real and
-is what `dnm_training_size/` confirms.
-
-But §7's third red claim — *"We approximated this regime by increasing the number of
-background sites (only) in the DNM training set, retrained r_c(x), and observed that bias
-below the level we reported in our paper"* — **was never run.** That is regime 3, which
-needs Hail access to `context_prepared.ht`; this document records it as "wasn't
-attempted", and there is no code or output for a background-densified refit anywhere in
-the repo. If that sentence is in the rebuttal, it needs either the experiment or removal.
-
 
 ## The paper's Methods do not match the code — and the code is what ran
 
@@ -432,5 +406,6 @@ Likely, only partially confirmed causes of the 2.66x gap:
    constraint-tools HPC path) and `GENEHANCER_BED` (licensed). Both are `None` in
    `fig5/config.py`; the figure builds without them, and `depletion_rank.py` has never
    been run against the real file.
-4. **Before quoting anything in the rebuttal**, re-read the callability caveat above and
-   the unsupported regime-3 claim recorded above.
+4. **Before quoting anything in the rebuttal**, re-read the callability caveat above:
+   it brackets the over-adjustment across 1.22-1.44, so the figure must not be
+   captioned with 1.22 as though it were tight.
