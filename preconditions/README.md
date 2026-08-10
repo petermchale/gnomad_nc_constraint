@@ -27,12 +27,16 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 ## Running them
 
 ```bash
-.venv/bin/python preconditions/verify_expected_r1.py              # ~8 min, 3.3 GB download
+.venv/bin/python preconditions/verify_expected_r1.py              # ~8 min cold (3.3 GB), 3s cached
 .venv/bin/python preconditions/verify_logit_predict_behavior.py   # seconds
 .venv/bin/python preconditions/verify_missing_utils_files.py      # seconds
 .venv/bin/python preconditions/validate.py -check expected        # seconds
-.venv/bin/python preconditions/validate.py -check coefficients    # ~10 min
+.venv/bin/python preconditions/validate.py -check coefficients    # ~2 min cached (2.5 GB)
 ```
+
+Timings measured 2026-08-10. "Cached" means the inputs are already in `published/`; the
+first run of anything pays its download instead. `-check coefficients` is compute, not
+I/O — 1,664 L1-logit fits, 77s of the 109s total.
 
 All default `-dest_dir` to the repo-root `published/`, resolved from `__file__`, so running
 one from inside this directory reuses the shared cache instead of refetching multi-GB files.

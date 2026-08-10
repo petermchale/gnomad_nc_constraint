@@ -11,7 +11,8 @@ fitting code). This script holds the two checks that claim rests on:
   coefficients  The UNIVARIATE stage against Chen et al.'s own fitted coefficient
                 table -- the repo's only check against published FITTED PARAMETERS
                 rather than a downstream output, so the one that says the fitting code
-                agrees rather than that the numbers come out the same. ~10 min.
+                agrees rather than that the numbers come out the same. ~2 min with the
+                2.5 GB of training tables cached; the fitting itself is 77s.
 
   expected      END-TO-END: the full-population refit's genome-wide expected counts
                 against the published `expected` column. The only way to validate the
