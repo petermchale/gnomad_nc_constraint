@@ -48,7 +48,10 @@ _PROVENANCE = "provenance.json"
 
 def _read(refits_dir: str) -> dict:
     path = os.path.join(refits_dir, _PROVENANCE)
-    return json.load(open(path)) if os.path.exists(path) else {}
+    if not os.path.exists(path):
+        return {}
+    with open(path) as fh:
+        return json.load(fh)
 
 
 def record(refits_dir: str, population: str, genehancer_bed: str | None) -> None:

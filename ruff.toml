@@ -1,0 +1,31 @@
+# Two facts about this repo, told to ruff so its autofixes stop getting them wrong.
+# No rule selection or ignores here on purpose: this encodes layout and provenance, not a
+# house style. Lint with whatever --select you like.
+
+line-length = 100
+
+# 1. These are Chen et al.'s, not ours. The fork's headline claim is that all of them are
+#    byte-unchanged from upstream (see README, "All eight of Chen et al.'s original
+#    files"), plus three modules copied verbatim from the bucket's misc/. A stray
+#    `ruff check --fix .` would rewrite them and quietly break that guarantee.
+exclude = [
+    "run_nc_constraint_gnomad_v31_main.py",
+    "analyze_individual_feature_effects.py",
+    "generate_manuscript_figures.py",
+    "generate_manuscript_efigures.py",
+    "fig_utils.py",
+    "efig_utils.py",
+    "generic.py",
+    "constraint_basics.py",
+    "nc_constraint_utils.py",
+]
+
+[lint.isort]
+# 2. These modules are OURS. fig5/ and dnm_training_size/ put their own directory on
+#    sys.path rather than being packages, so their siblings are imported bare -- and
+#    without this, isort sorts them into the third-party block. That autofix has been
+#    applied by accident before.
+known-first-party = [
+    "gnocchi_bias",
+    "config", "data", "panels", "diagnostics", "depletion_rank", "refit",
+]

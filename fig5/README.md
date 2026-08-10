@@ -61,15 +61,12 @@ the notebook.
 | `DEPLETION_RANK_BED` | `41586_2022_4965_MOESM3_ESM.noncoding.enhancer.BGS.gBGC.GC_content.bed` from the constraint-tools `CONSTRAINT_TOOLS_DATA` path | Panel A builds with two curves instead of three |
 | `GENEHANCER_BED` | A licensed GeneHancer BED | "Neutral" is noncoding + `pass_qc` + autosome/PAR without the enhancer exclusion |
 
-`GENEHANCER_BED` is in a module rather than the notebook because it defines the analyzed
-window set, and that set is used by two separate processes: `refit.py -population scored`
-uses it to decide what the model is **fit** on, the notebook uses it to decide what the
-panels are **evaluated** on. Disagreement means training on one population and scoring on
-another — the defect this figure is about. Both read `config.py`, so they cannot disagree
-within a run; and because refits persist on disk across edits, `refit.py` stamps the
-value it used into `refits/provenance.json` and `data.refit_path` refuses a refit built
-under a different setting. Edit `config.py` and you get a loud error naming the refit to
-rerun, rather than a silent mismatch.
+`GENEHANCER_BED` lives in a module, not the notebook, because it defines the analyzed
+window set — which `refit.py` uses to decide what the model is **fit** on and the notebook
+uses to decide what the panels are **evaluated** on. Disagreement would train on one
+population and score on another, the defect this figure is about. `config.py`'s docstring
+has the full argument, including how `refits/provenance.json` turns a post-refit edit into
+a loud error rather than a silent mismatch.
 
 `depletion_rank.py` has been exercised against synthetic input (column resolution, GC
 unit detection, the `1 - DR` complement, error paths) but **never against the real

@@ -8,10 +8,11 @@ Inputs, in three groups:
     gnocchi_bias.windows.download;
   * the three refits fig5/refit.py produces (full / scored / sizematched), which live in
     the repo-root refits/ -- ONE copy, also read directly by dnm_training_size/;
-  * two files that are NOT in this repo and are passed in from the notebook's config
-    cell -- a depletion-rank BED (panel A's third curve) and a GeneHancer BED (the
-    enhancer half of the "neutral" window definition). Both default to None, and the
-    figure builds without them.
+  * two files that are NOT in this repo, read from fig5/config.py (NOT set in the
+    notebook -- refit.py reads the same module, and the two must agree) -- a
+    depletion-rank BED (panel A's third curve) and a GeneHancer BED (the enhancer half
+    of the "neutral" window definition). Both default to None; the figure builds
+    without them.
 """
 import os
 
@@ -20,6 +21,8 @@ import numpy as np
 import pandas as pd
 import polars as pl
 
+# First-party. `config` is a sibling module, not a third-party package -- keep it
+# grouped with gnocchi_bias, and do not let an isort autofix hoist it above.
 import config
 from gnocchi_bias import dnm_model as M
 from gnocchi_bias import windows as W
@@ -75,7 +78,8 @@ def cached(name: str, build, force: bool = False) -> pl.DataFrame:
     return df
 
 
-def _duck(memory_limit: str = "8GB") -> duckdb.DuckDBPyConnection:
+def duck(memory_limit: str = "8GB") -> duckdb.DuckDBPyConnection:
+    """A memory-capped duckdb connection. Public because diagnostics.py uses it too."""
     con = duckdb.connect()
     con.execute(f"SET memory_limit='{memory_limit}'")
     return con
@@ -204,7 +208,7 @@ def _r_eff_components(pop: str, cache_dir: str, refits_dir: str,
           ON t1.element_id = t2.element_id
         LEFT JOIN cpg ON t1.element_id = cpg.element_id
     """
-    return _duck(memory_limit).execute(query).pl()
+    return duck(memory_limit).execute(query).pl()
 
 
 def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
@@ -297,7 +301,7 @@ def dnm0_composition(edges: np.ndarray, cache_dir: str = CACHE_DIR,
             WHERE d0.context NOT IN ({ctx})
             GROUP BY 1
         """
-        df = _duck(memory_limit).execute(query).pl().sort("gc_bin")
+        df = duck(memory_limit).execute(query).pl().sort("gc_bin")
         resid = df["n_total"] - df["n_analyzed"] - df["n_coding"] - df["n_noannot"]
         assert int(resid.abs().sum()) == 0, "composition categories do not partition the total"
         return df.with_columns([

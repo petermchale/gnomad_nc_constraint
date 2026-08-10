@@ -23,8 +23,8 @@ SERIES_COLORS = {"step1": "#2a78d6", "step2": "#eb6834",
                  "dr": "#1baf7a", "scored": "#4a3aa7", "control": "0.55"}
 SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "D", "control": "v"}
 
-GRID_KW = dict(color="0.85", linewidth=0.6)
-REF_LINE_KW = dict(color="0.45", linewidth=0.8, linestyle="--")
+GRID_KW = {"color": "0.85", "linewidth": 0.6}
+REF_LINE_KW = {"color": "0.45", "linewidth": 0.8, "linestyle": "--"}
 AXIS_LABEL_FONTSIZE = 12
 TICK_LABEL_FONTSIZE = 11
 LEGEND_FONTSIZE = 10
@@ -350,7 +350,7 @@ def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
 
 def label_panels(axes, labels=("A", "B", "C"), x: float = -0.1, y: float = 1.02) -> None:
     """Bold panel letters in axes coordinates, for figures saved as a single file."""
-    for ax, letter in zip(axes, labels):
+    for ax, letter in zip(axes, labels, strict=True):
         ax.text(x, y, letter, transform=ax.transAxes, fontsize=14,
                 fontweight="bold", va="bottom", ha="right")
 

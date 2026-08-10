@@ -37,8 +37,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gnocchi_bias import windows as W  # noqa: E402
 from gnocchi_bias.dnm_model import (  # noqa: E402
-    PUBLISHED_COEF_FILE, PUBLISHED_SEL_FILE, fit_univariate, load_contexts,
-    load_training_data, validate_against_published,
+    PUBLISHED_COEF_FILE,
+    PUBLISHED_SEL_FILE,
+    fit_univariate,
+    load_contexts,
+    load_training_data,
+    validate_against_published,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))

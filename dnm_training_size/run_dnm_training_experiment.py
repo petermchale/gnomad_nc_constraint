@@ -55,8 +55,12 @@ if _REPO_ROOT not in sys.path:
 # The training data, the fitting core, and the genome-wide apply step live in
 # gnocchi_bias.dnm_model, shared with fig5/. This script is only the size sweep.
 from gnocchi_bias.dnm_model import (  # noqa: E402
-    GENOME_EXPECTED_PERCONTEXT_FILE, GENOME_FEATURES_FILE, load_contexts,
-    load_training_data, refit_and_apply, subsample_regime1,
+    GENOME_EXPECTED_PERCONTEXT_FILE,
+    GENOME_FEATURES_FILE,
+    load_contexts,
+    load_training_data,
+    refit_and_apply,
+    subsample_regime1,
 )
 from gnocchi_bias.windows import download  # noqa: E402
 

@@ -2,7 +2,8 @@
 The measurements behind claims panels B and C state in prose but do not plot.
 
 Migrated out of fig3/ (training_representativeness.py, empirical_r.py) when that
-directory was retired, so that no number asserted in the figure's text is unregenerable.
+directory was retired at c913d87 -- readable in full at 070fee9 -- so that no number
+asserted in the figure's text is unregenerable.
 Three questions, three functions:
 
   dnm_rate_by_stratum   Panel C: is the training territory excluded from the scored
@@ -11,8 +12,9 @@ Three questions, three functions:
                         set's GC dependence (4.1x the noncoding rate by GC 0.61).
 
   cpg_methylation_by_gc Panel B: are high-GC CpGs really hypomethylated, and does their
-                        DNM rate really collapse? -> 94-98% hypomethylated above GC 0.7,
-                        with the empirical rate ~2.6x lower than in the GC bulk.
+                        DNM rate really collapse? -> 90-100% hypomethylated above GC 0.70
+                        (the three bins with n >= 100 are 89.6 / 96.9 / 100%), with the
+                        rate falling 0.535 in the GC bulk to 0.195 in the top bin, 2.7x.
 
   cpg_rate_by_methyl    Panel B: how large is the methylation effect step 1 already
                         absorbs? -> a 4.3-fold range in fitted_po within one
@@ -24,6 +26,8 @@ None of these is plotted. They exist so the caption can be checked.
 import numpy as np
 import polars as pl
 
+# First-party. `data` is a sibling module, not a third-party package -- keep it grouped
+# with gnocchi_bias, and do not let an isort autofix hoist it above.
 import data as D
 from gnocchi_bias import dnm_model as M
 from gnocchi_bias import windows as W
@@ -112,7 +116,7 @@ def dnm_rate_by_stratum(edges: np.ndarray, cache_dir: str = D.CACHE_DIR,
         q = _binned_training_query(
             cache_dir, edges, dims=[(_STRATUM, "stratum")],
             where=f"s.context NOT IN ({', '.join(repr(c) for c in M.CPG_CONTEXTS)})")
-        return D._duck(memory_limit).execute(q).pl()
+        return D.duck(memory_limit).execute(q).pl()
 
     df = D.cached(f"dnm_rate_by_stratum.{len(edges) - 1}bins.parquet", build, force)
     return df.with_columns((pl.col("k") / pl.col("n")).alias("p")).sort(["stratum", "gc_bin"])
@@ -174,7 +178,7 @@ def cpg_methylation_by_gc(edges: np.ndarray, cache_dir: str = D.CACHE_DIR,
                   "AVG(CASE WHEN s.methyl_level <= 1 THEN 1.0 ELSE 0.0 END) "
                   "AS frac_hypomethylated"),
             where=f"s.context IN ({', '.join(repr(c) for c in M.CPG_CONTEXTS)})")
-        return D._duck(memory_limit).execute(q).pl()
+        return D.duck(memory_limit).execute(q).pl()
 
     df = D.cached(f"cpg_methylation_by_gc.{len(edges) - 1}bins.parquet", build, force)
     return df.with_columns((pl.col("k") / pl.col("n")).alias("p")).sort("gc_bin")
