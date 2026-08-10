@@ -133,6 +133,18 @@ the real published artifact. The load-bearing one: the operative adjustment is
 state — confirmed on a fitted model, where `predict(zero_row)` returns `0.0394` against an
 intercept of `-3.1948`.
 
+**Is the training set the one the paper describes?** This matters because the argument is
+about *what the regional adjustment was fit on*, so the identity of that training set is a
+precondition for panels C–E. `preconditions/verify_training_set_counts.py` reproduces both
+published counts from the shipped tables: the **413,304** DNMs and the **4,104,879**
+non-mutated background sites. Each is reproduced by a different table of the pair — the DNM
+count by the *feature* table (413,273 rows plus the 31 loci carrying two DNMs each, which a
+locus-keyed table collapses), the background by the *site* table (4,107,802 minus its 2,924
+chrX rows, to within one row) — so a count checked against the wrong one of the four files
+makes a correct table look short by thousands. The same script confirms the join we perform
+loses nothing (0 of 410,542 DNM sites lack features) and that the tables' `3mer` column is
+the step-1 context-only mutation rate to 2.2e-16.
+
 **Is our reimplementation faithful to theirs?** `preconditions/validate.py`: end-to-end expected
 counts at Pearson r = 1.000000 over 1,984,900 windows, and all 1,664 `(context, window, feature)`
 coefficient rows agreeing to within 0.021 of their own published standard errors — the

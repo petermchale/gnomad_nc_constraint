@@ -40,6 +40,50 @@ from sklearn.decomposition import IncrementalPCA
 
 from .windows import download
 
+# Chen et al.'s step-2 training set, as published. Four files: the mutated (dnm1) and
+# non-mutated (dnm0) SITE tables, each paired with a FEATURE table joined on locus.
+# Sizes/row counts measured from the bucket; none of the four carries a GCS customTime,
+# so unlike the expected-count tables there is no creation-date provenance to check.
+#
+# Paper's Methods, "Adjustment of the effects of regional genomic features": 413,304
+# unique DNMs "compiled from two large-scale family-based whole-genome sequencing
+# studies" -- deCODE (Halldorsson et al., recombination/sequence-level genetic map) and
+# PsychENCODE (An et al., de novo risk score in autism), hence the filename -- against
+# "an exclusive set of 4,104,879 genomic sites (~10x the DNMs) randomly drew from the
+# genome" as the non-mutated background.
+#
+#   dnm1_sites     24.7 MB,   410,542 rows. locus, alleles, context, ref, alt,
+#                  methyl_level, sid, 3mer. No chrX rows. `sid` is
+#                  "{context}-{methyl_level}"; `3mer` is the step-1 context-only
+#                  per-site mutation probability, i.e. fitted_po summed over the three
+#                  alt alleles for that (context, methyl_level) -- verified to 15 digits
+#                  against fig_tables/mutation_rate_by_context_methyl.txt
+#                  (CCC-0: 0.2625636943172292).
+#   dnm0_sites    190.2 MB, 4,107,802 rows. Same columns minus alleles/ref/alt, which do
+#                  not apply to an unmutated site. Ratio to dnm1: 10.006:1.
+#   *_features    206.4 MB / 2.05 GB, 413,273 / 4,105,163 rows, 53 columns = key +
+#                  13 features x 4 scales (1k/10k/100k/1M), the panel and method of
+#                  generate_genomic_features.sh (UCSC tools, bedtools, CrossMap) but
+#                  centred on each training site rather than on genome tiles. NOTE the
+#                  key column is named `element_id` yet holds a LOCUS ("chr10:100003712"),
+#                  not a 1 kb tile id -- which is why load_training_data renames it.
+#
+# BOTH published counts are reproduced by these files exactly, though by different
+# tables of the pair -- check against the right one before concluding an N is wrong:
+#
+#   413,304 DNMs        = the dnm1 FEATURE table's 413,273 rows + the 31 loci that carry
+#                         two DNMs each (different alleles, so they collapse to one row
+#                         in a locus-keyed feature table). 413,273 + 31 = 413,304.
+#   4,104,879 background = the dnm0 SITE table's 4,107,802 rows minus its 2,924 chrX
+#                         rows, which load_training_data drops below (upstream line 18):
+#                         4,104,878, i.e. the published figure to within one row.
+#
+# The other table of each pair does not match, for reasons that are not defects: the
+# dnm1 site table holds 410,542 rows, 2,762 fewer loci than the feature table (all
+# autosomal, so not the chrX filter -- presumably sites where trinucleotide context or
+# methylation could not be assigned), and since load_training_data left-joins features
+# ONTO sites, 410,542 is the effective training N. Every one of them finds a feature
+# row; nothing is dropped by the join itself.
 TRAINING_FILES = {
     "dnm1_sites": "genomic_features/DNM_decode_psychencode_site_context.mutation_rate.txt",
     "dnm1_features": "genomic_features/genomic_features13_dnm1_flnk_1k-1M.txt",

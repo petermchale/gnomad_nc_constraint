@@ -22,6 +22,7 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 | verify | `verify_expected_r1.py` | `expected_counts_by_context_methyl_genome_1kb.txt` really is the context-only, pre-adjustment (r ≡ 1) table | **everything** — fig5's step-1 curve (panel A), E₁ denominator (B), context-only baseline (E) |
 | verify | `verify_logit_predict_behavior.py` | the operative adjustment is `r = σ(β₀+β·z)/σ(β₀)`, a ratio of *probabilities*, not the logit ratio the Methods state | fig5's Notation cell; panel B's "a level error cancels" argument |
 | verify | `verify_missing_utils_files.py` | the PCA+logit fit behind `r(w)` is genuinely absent from the bucket (only the apply side is published), and `misc/generic.py` et al. are *not* missing | the premise of `validate.py` |
+| verify | `verify_training_set_counts.py` | the four shipped training tables really are the training set the paper describes — both published counts reproduced, and the join `load_training_data` performs loses nothing | every fig5 claim about *what step 2 was fit on*: panels C, D and E, and the whole population argument. Also `dnm_training_size/` |
 | validate | `validate.py` | the reimplementation reproduces Chen et al.'s, at the univariate parameters and end to end | fig5 and dnm_training_size both refit; if this fails, both measure their own bug |
 
 ## Running them
@@ -30,6 +31,7 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 .venv/bin/python preconditions/verify_expected_r1.py              # ~8 min cold (3.3 GB), 3s cached
 .venv/bin/python preconditions/verify_logit_predict_behavior.py   # seconds
 .venv/bin/python preconditions/verify_missing_utils_files.py      # seconds
+.venv/bin/python preconditions/verify_training_set_counts.py      # 5s cached (421 MB)
 .venv/bin/python preconditions/validate.py -check expected        # seconds
 .venv/bin/python preconditions/validate.py -check coefficients    # ~2 min cached (2.5 GB)
 ```
@@ -57,6 +59,13 @@ empty file read as a passing check.
 - **`verify_missing_utils_files`** — the three modules exist at `misc/*.py`, are exactly what
   `run_nc_constraint_gnomad_v31_main.py:23–25` imports, and contain no `PCA`,
   `IncrementalPCA` or `fit_regularized`. The gap is real.
+- **`verify_training_set_counts`** — both published counts reproduced, by different tables
+  of the pair. The paper's **413,304** DNMs = the dnm1 *feature* table's 413,273 rows plus
+  the 31 loci carrying two DNMs each (a locus-keyed table collapses those pairs). The
+  **4,104,879** background = the dnm0 *site* table's 4,107,802 rows minus its 2,924 chrX
+  rows, to within one row. The join loses nothing: 0 of 410,542 sites lack features. And
+  `3mer` is the step-1 context-only rate — `fitted_po` summed over the three alts — to
+  2.2e-16 across all 92 (context, methylation) combinations.
 - **`validate -check expected`** — Pearson r = 1.000000 over 1,984,900 windows, median
   relative difference 3.8e-6.
 - **`validate -check coefficients`** — **our feature selection reproduces theirs exactly**,
