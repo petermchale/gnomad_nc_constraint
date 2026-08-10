@@ -36,8 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gnocchi_bias import windows as W  # noqa: E402
 from gnocchi_bias.dnm_model import (  # noqa: E402
-    PUBLISHED_COEF_FILE, fit_univariate, load_contexts, load_training_data,
-    validate_against_published,
+    PUBLISHED_COEF_FILE, PUBLISHED_SEL_FILE, fit_univariate, load_contexts,
+    load_training_data, validate_against_published,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -60,7 +60,9 @@ def check_coefficients(cache_dir: str, output_dir: str) -> None:
     out = os.path.join(output_dir, "coef_univariate.txt")
     df_coef.to_csv(out, sep="\t", index=False)
     print(f"wrote {out}")
-    validate_against_published(df_coef, W.download(PUBLISHED_COEF_FILE, cache_dir))
+    validate_against_published(df_coef,
+                               W.download(PUBLISHED_COEF_FILE, cache_dir),
+                               W.download(PUBLISHED_SEL_FILE, cache_dir))
 
 
 def check_expected(cache_dir: str, refit_expected: str, memory_limit: str = "8GB") -> None:

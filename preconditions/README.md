@@ -55,9 +55,20 @@ empty file read as a passing check.
   `IncrementalPCA` or `fit_regularized`. The gap is real.
 - **`validate -check expected`** — Pearson r = 1.000000 over 1,984,900 windows, median
   relative difference 3.8e-6.
-- **`validate -check coefficients`** — all 1,664 `(context, window, feature)` rows comparable,
-  max |coef diff| 2.6e-4, 100% agreeing to <1e-3. Plausibly solver-tolerance and
-  library-version noise against a 2022 `statsmodels` L1 logit.
+- **`validate -check coefficients`** — **our feature selection reproduces theirs exactly**,
+  against Chen et al.'s own published selected-feature file
+  (`misc/genomic_features13_sel.txt`): 239 rows each, none
+  in one and not the other, no significance verdict flipped, though 249 rows sit within a
+  decade of the Bonferroni threshold. That is the result to quote — it is a comparison
+  against their selection *output*, and the selected set is what each context's multivariate
+  model is then fit on.
+  On the coefficients themselves, all 1,664 rows agree to within **0.021 of that row's own
+  published standard error** (median 0.0008). Prefer that to the absolute figure (max |coef
+  diff| 2.6e-4, 100% under 1e-3), which cannot be read without knowing the scale — the
+  coefficients are not order 1, median |coef| is 0.027. Relative error is no better,
+  reaching 172% on coefficients of order 1e-5 that are indistinguishable from zero.
+  All consistent with solver-tolerance and library-version noise against a 2022
+  `statsmodels` L1 logit.
 
 ## Two further checks live in `fig5/`, deliberately
 

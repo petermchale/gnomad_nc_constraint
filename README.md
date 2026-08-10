@@ -135,8 +135,13 @@ intercept of `-3.1948`.
 
 **Is our reimplementation faithful to theirs?** `preconditions/validate.py`: end-to-end expected
 counts at Pearson r = 1.000000 over 1,984,900 windows, and all 1,664 `(context, window, feature)`
-coefficient rows agreeing to <1e-3. Per GC bin, the refit's `r_eff` matches the published `E2/E1`
-to 1.0e-4 — printed by `fig5/data.py` on every run, not a recorded number.
+coefficient rows agreeing to within 0.021 of their own published standard errors — the
+scale-free comparison, since median |coef| is 0.027 and an absolute tolerance would not be
+interpretable. **Our feature selection reproduces theirs exactly**: 239 rows against Chen
+et al.'s own published `misc/genomic_features13_sel.txt`, with none on either side alone
+and no significance verdict flipped, and that selection is what propagates into the
+multivariate fit. Per GC bin, the refit's `r_eff` matches the published `E2/E1` to 1.0e-4 —
+printed by `fig5/data.py` on every run, not a recorded number.
 
 **Is the improvement attributable to the intervention?** Two controls in panel E, both routed
 through the same code as the intervention itself:

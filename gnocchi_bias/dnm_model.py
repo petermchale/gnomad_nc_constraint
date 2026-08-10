@@ -14,7 +14,12 @@ same fitting code:
 Provenance, unchanged from the original and load-bearing for the manuscript:
 fit_univariate + bonferroni_select reimplement the published feature-selection
 step (analyze_individual_feature_effects.py) and validate against the published
-coefficient table to max |coef diff| = 2.6e-4. fit_multivariate_context is the
+coefficient table: every one of the 1,664 rows agrees to within 0.021 of its own
+published standard error (max |coef diff| 2.6e-4 in absolute terms, against a
+median |coef| of 0.027 -- quote the SE-normalized figure, since the absolute one
+cannot be read without knowing that scale), and the selection those coefficients
+drive reproduces Chen et al.'s own misc/genomic_features13_sel.txt exactly, 239
+rows with none on either side alone. fit_multivariate_context is the
 one step with NO published source anywhere -- reconstructed from the apply-side
 code in run_nc_constraint_gnomad_v31_main.py:231-249 -- and is validated
 end-to-end instead: at frac=1.0 it reproduces the published Gnocchi `expected`
@@ -42,6 +47,9 @@ TRAINING_FILES = {
     "dnm0_features": "genomic_features/genomic_features13_dnm0_10x_flnk_1k-1M.txt",
 }
 PUBLISHED_COEF_FILE = "genomic_features/dnm01_10x_ft_logit_regularized_coef_z_3mer_context_flnk_1k-1M.txt"
+# Chen et al.'s own Bonferroni-surviving rows -- their selection output, not our
+# recomputation of it. 239 rows of (context, feature, window, coef, se, pval).
+PUBLISHED_SEL_FILE = "misc/genomic_features13_sel.txt"
 MUTATION_RATE_FILE = "fig_tables/mutation_rate_by_context_methyl.txt"
 GENOME_FEATURES_FILE = "misc/genomic_features13_genome_1kb.txt"
 GENOME_EXPECTED_PERCONTEXT_FILE = "expected_counts_per_context_methyl_genome_1kb.txt"
@@ -482,7 +490,8 @@ def refit_and_apply(df_dnm1, df_dnm0, contexts, df_ft_genome,
     return df_out
 
 
-def validate_against_published(df_coef: pd.DataFrame, published_path: str):
+def validate_against_published(df_coef: pd.DataFrame, published_path: str,
+                                published_sel_path: str | None = None):
     df_pub = pd.read_csv(published_path, sep='\t')
     merged = df_coef.merge(df_pub, on=['context', 'window', 'feature'], suffixes=('_new', '_pub'), how='outer')
     n_total = len(merged)
@@ -492,15 +501,41 @@ def validate_against_published(df_coef: pd.DataFrame, published_path: str):
     ok = merged.dropna(subset=['coef_new', 'coef_pub'])
     for col in ['coef', 'se', 'pval']:
         ok = ok.assign(**{f'{col}_diff': (ok[f'{col}_new'] - ok[f'{col}_pub']).abs()})
+    # The headline statistic. An absolute |coef diff| cannot be read without knowing the
+    # coefficients' scale, and it is NOT order 1: median |coef| is 0.027. Relative error
+    # is no better -- it blows up to 172% on coefficients of order 1e-5 that are
+    # indistinguishable from zero anyway. Dividing by the published standard error is
+    # scale-free and is the natural yardstick for a fitted coefficient: it asks whether
+    # the refit lands inside the uncertainty the original fit already had.
+    ok = ok.assign(coef_diff_se=ok['coef_diff'] / ok['se_pub'])
 
     print(f"\nrows: {n_total}  both-NaN (fit failed in both): {n_both_nan}  "
           f"NaN-mismatch (fit failed in only one): {n_nan_mismatch}  comparable: {len(ok)}")
     if len(ok):
+        print(f"max |coef diff| / se_pub = {ok['coef_diff_se'].max():.4f}   "
+              f"(median {ok['coef_diff_se'].median():.4f})  <-- scale-free; 1.0 would be "
+              f"a full standard error")
         print(f"max |coef diff| = {ok['coef_diff'].max():.3e}   "
               f"max |se diff|   = {ok['se_diff'].max():.3e}   "
               f"max |pval diff| = {ok['pval_diff'].max():.3e}")
         print(f"coef matches to <1e-6: {(ok['coef_diff'] < 1e-6).sum()}/{len(ok)}   "
-              f"<1e-3: {(ok['coef_diff'] < 1e-3).sum()}/{len(ok)}")
+              f"<1e-3: {(ok['coef_diff'] < 1e-3).sum()}/{len(ok)}   "
+              f"(absolute, against median |coef| = {ok['coef_pub'].abs().median():.4f})")
+    # What propagates downstream is not the coefficients themselves but which rows clear
+    # Bonferroni: the selected set is what each context's multivariate model is fit on.
+    # Comparing it sidesteps the scale question entirely -- a verdict either flips or it
+    # does not -- and against published_sel_path it compares our selection with Chen et
+    # al.'s OWN selection output, not merely with our logic re-applied to their coefs.
+    key = ['context', 'feature', 'window']
+    sel_new = bonferroni_select(df_coef)[key]
+    sel_ref = (pd.read_csv(published_sel_path, sep='\t')[key] if published_sel_path
+               else bonferroni_select(df_pub)[key])
+    against = "published selected file" if published_sel_path else "their coefs, our rule"
+    agree = sel_new.merge(sel_ref, how='outer', indicator=True)['_merge'].value_counts()
+    print(f"selected features vs {against}: ours {len(sel_new)}, theirs {len(sel_ref)}, "
+          f"in both {agree.get('both', 0)}, ours only {agree.get('left_only', 0)}, "
+          f"theirs only {agree.get('right_only', 0)}")
+
     if n_nan_mismatch:
         print("rows where fit succeeded in exactly one of new/published:")
         print(merged[merged['coef_new'].isna() != merged['coef_pub'].isna()]
