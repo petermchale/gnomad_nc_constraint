@@ -1,8 +1,8 @@
 """
 The DNM training set and Gnocchi's per-context regional-feature mutation model.
 
-Extracted verbatim (2026-08-04) from dnm_training_experiment/
-run_dnm_training_experiment.py, so that both figure directories can import the
+Extracted verbatim (2026-08-04) from dnm_training_size/
+run_dnm_training_experiment.py, so that all three consumers can import the
 same fitting code:
 
   fig5/              refits on three training populations (refit_and_apply) and
@@ -85,7 +85,12 @@ def load_training_data(dest_dir: str):
 
 
 def subsample_regime1(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, frac: float, seed: int):
-    """training-data.md regime 1: shrink both dnm0 and dnm1, independently, at the same rate."""
+    """
+    Regime 1: shrink both dnm0 and dnm1, independently, at the same rate -- so the
+    case-control ratio (dnm0:dnm1 ~ 10:1) is preserved and only the training-set SIZE
+    changes. Named for the numbering in okf/dnm-training-set-experiment/training-data.md,
+    deleted at 2a07dc9; the sentence above is the whole of what that file said about it.
+    """
     return (df_dnm1.sample(frac=frac, random_state=seed),
             df_dnm0.sample(frac=frac, random_state=seed))
 
@@ -94,8 +99,10 @@ def locus_to_element_id(locus: pd.Series) -> pd.Series:
     """
     1-based "chr1:137548" -> the 0-based 1kb tile id "chr1-137000-138000" that the
     window table, the features file and the expected-count exports are all keyed by.
-    Mirrors empirical_r.ELEMENT_ID_FROM_LOCUS's SQL exactly, including the -1 for the
-    1-based to 0-based conversion (which only moves sites at position = 1 mod 1000).
+    Mirrors the SQL in fig3/empirical_r.py:78 (ELEMENT_ID_FROM_LOCUS, removed with
+    fig3/ at c913d87 -- readable at c913d87^), including the -1 for the 1-based to
+    0-based conversion. That -1 moves only sites at position = 0 mod 1000: position
+    1000 lands in chr1-0-1000, not chr1-1000-2000.
     """
     chrom = locus.str.split(':').str[0]
     pos = locus.str.split(':').str[1].astype('int64')
@@ -115,7 +122,10 @@ def restrict_to_analyzed_windows(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame,
     (fig5/diagnostics.py), those two populations agree in the GC bulk
     and come apart in the GC-rich tail: the fraction of background training sites
     inside the analyzed set falls from 0.83 at GC 0.37 to 0.30 by GC 0.68, as GC-rich
-    sequence turns coding or loses gnomAD coverage. Restricting here is the
+    sequence turns coding or loses gnomAD coverage. (CLAUDE.md and the README quote
+    the same curve as 0.85 -> 0.29, at its sparser first and last plotted bins. One
+    curve, two endpoint pairs; both read off
+    fig5/output/dnm0_window_composition.20bins.parquet.) Restricting here is the
     intervention that tests whether that mismatch is what makes the fitted non-CpG
     adjustment climb with GC.
 
@@ -222,13 +232,20 @@ def select_features_for_context(df_sel: pd.DataFrame, context: str) -> list:
 
 def fit_multivariate_context(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, context: str, ft_sel: list):
     """
-    The missing step (missing-code.md): fit a multivariate, PCA-whitened
-    logistic regression for one context on its selected features. Mean/std
-    (open-questions.md item 3: ddof=0, matching scipy.stats.zscore's default
-    used by fit_univariate above) and PCA (open-questions.md item 2:
-    IncrementalPCA with default -- i.e. all -- components, verified for
-    context AAA in missing-code.md) are both fit fresh on this context's own
-    (possibly subsampled) training pool -- NOT the published values.
+    The step with NO published source anywhere: fit a multivariate, PCA-whitened
+    logistic regression for one context on its selected features. Both preprocessing
+    choices are reconstructions, so the reasoning is recorded here -- the notes it
+    came from (okf/dnm-training-set-experiment/{missing-code,open-questions}.md) were
+    deleted at 2a07dc9:
+
+      - std with ddof=0, because fit_univariate above standardizes with
+        scipy.stats.zscore, whose default is ddof=0. The two stages must agree.
+      - IncrementalPCA with default (i.e. all) components, so the transform is a
+        pure rotation that discards nothing. Verified for context AAA; the bucket
+        ships a fitted .pca.pkl per context if that check needs redoing.
+
+    Both are fit fresh on this context's own (possibly subsampled) training pool --
+    NOT the published values.
 
     Returns (logit, pca, ft_mean, ft_std), or None if there are no selected
     features, fewer than 2 outcome classes, a zero-variance feature, too few
@@ -410,7 +427,8 @@ def predict_training_set(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, contexts:
 def refit_and_apply(df_dnm1, df_dnm0, contexts, df_ft_genome,
                      genome_expected_percontext_path, output_dir=None, tag=""):
     """
-    Full regime-1 pipeline for one training-set size: univariate selection ->
+    Full regime-1 pipeline (see subsample_regime1) for one training-set size:
+    univariate selection ->
     Bonferroni -> per-context multivariate PCA+logit -> genome-wide r(w)
     apply -> join against per-context expected counts. Returns the
     element_id/possible/expected table.
