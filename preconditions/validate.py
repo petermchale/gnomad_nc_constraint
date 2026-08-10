@@ -3,34 +3,27 @@ Does this repo's reimplementation of Chen et al.'s fitting pipeline reproduce th
 
     .venv/bin/python preconditions/validate.py [-check {both,coefficients,expected}]
 
-Everything downstream -- fig5/ and dnm_training_size/ alike -- rests on the claim that
-`gnocchi_bias/dnm_model.py` reproduces the published pipeline, because the multivariate
-PCA+logit step that produces r(w) has NO published source anywhere (the bucket ships the
-fitted .pkl models and the apply-side code, never the fitting code). This directory holds
-the two checks that claim rests on, kept separate from the experiments that assume it. Its siblings here check the other
-direction -- whether what we believe about Chen et al.'s artifact is true at all.
+fig5/ and dnm_training_size/ both rest on gnocchi_bias/dnm_model.py reproducing the
+published pipeline, because the multivariate PCA+logit step that produces r(w) has no
+published source (the bucket ships fitted .pkl models and the apply side, never the
+fitting code). This script holds the two checks that claim rests on:
 
-  coefficients  The UNIVARIATE feature-selection stage, against Chen et al.'s own fitted
-                coefficient table. This is the only check anywhere in the repo against a
-                published FITTED-PARAMETER file rather than against a downstream output,
-                so it is the one that says the fitting code itself agrees rather than
-                that the numbers happen to come out the same. ~10 min: it refits all
-                (context, window, feature) triples on the full training set.
+  coefficients  The UNIVARIATE stage against Chen et al.'s own fitted coefficient
+                table -- the repo's only check against published FITTED PARAMETERS
+                rather than a downstream output, so the one that says the fitting code
+                agrees rather than that the numbers come out the same. ~10 min.
 
-  expected      The END-TO-END check: the full-population refit's genome-wide expected
-                counts against the published Gnocchi `expected` column. Covers the
-                multivariate step, which has no published parameters to diff against, so
-                it can only be validated through its output. Seconds; needs
-                `fig5/refit.py -population full` to have been run.
+  expected      END-TO-END: the full-population refit's genome-wide expected counts
+                against the published `expected` column. The only way to validate the
+                multivariate step, which has no published parameters to diff against.
+                Seconds; needs `fig5/refit.py -population full` first.
 
-The two are complementary and neither substitutes for the other: `coefficients` checks a
-stage whose output the figures never use directly, `expected` checks the composite of a
-stage that is validated and a stage that cannot be.
+Neither substitutes for the other: `coefficients` checks a stage the figures never use
+directly, `expected` checks a validated stage composed with one that cannot be.
 
-fig5 carries two further downstream checks, which is why they are not repeated here:
-per-GC-bin r_eff refit-vs-published (max 1.0e-4, printed on every run), and the
-full-population refit landing on published Gnocchi in panel E (mean |rank-0.5| 0.212 vs
-0.212).
+fig5 carries two further downstream checks, so they are not repeated here: per-GC-bin
+r_eff refit-vs-published (max 1.0e-4, printed on every run) and the full-population
+refit landing on published Gnocchi in panel E (mean |rank-0.5| 0.212 vs 0.212).
 """
 import argparse
 import os
@@ -38,7 +31,6 @@ import sys
 import time
 
 import duckdb
-import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -99,7 +91,7 @@ def check_expected(cache_dir: str, refit_expected: str, memory_limit: str = "8GB
         FROM j
     """).fetchone()
     n, r, med, mx = row
-    print(f"\nend-to-end expected counts, refit vs published:")
+    print("\nend-to-end expected counts, refit vs published:")
     print(f"  {n:,} windows joined")
     print(f"  Pearson r                     = {r:.6f}")
     print(f"  median relative difference    = {med:.2e}")

@@ -1,38 +1,27 @@
 """
-Empirically verify the discrepancy between the paper's stated adjustment-factor
-formula (a ratio of raw logits) and what run_nc_constraint_gnomad_v31_main.py
-actually computes (a ratio of predicted probabilities), by downloading one real
-fitted per-context logistic-regression model from the public bucket and calling
-its .predict() directly.
+The paper's Methods state the adjustment factor as a ratio of raw logits; the code
+computes a ratio of predicted probabilities. Checked here on a real fitted
+per-context model from the bucket, by calling its .predict() directly.
 
-Background / write-up: see CLAUDE.md, "Confirmed finding: the paper's Methods
-text does not match the code".
+The whole "a level error cancels" argument in fig5 panel B needs r to be that ratio.
+See CLAUDE.md, "The paper's Methods do not match the code".
 """
 import argparse
+import math
 import os
+import sys
 
 import pandas as pd
 import statsmodels.api as sm
 
-# published/ is the repo-root cache of Chen et al.'s downloaded data, shared with
-# every other script here. Resolved from __file__, not as a relative path, so
-# running this from inside preconditions/ reuses the cache instead of
-# re-downloading multi-GB files into preconditions/published/.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from gnocchi_bias.windows import download  # noqa: E402
+
+# Repo-root cache, shared with every other script here; resolved from __file__ so
+# running from inside preconditions/ reuses it rather than refetching multi-GB files.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "published")
-
-BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
-
-
-def download(context: str, dest_dir: str) -> str:
-    os.makedirs(dest_dir, exist_ok=True)
-    fname = f"logit_regularized_dnm01_{context}_pbonf_pca.pkl"
-    dest_path = os.path.join(dest_dir, fname)
-    if not os.path.exists(dest_path):
-        url = f"{BUCKET_URL}/logit_pickles/{fname}"
-        print(f"downloading {url} -> {dest_path}")
-        os.system(f"curl -s -o '{dest_path}' '{url}'")
-    return dest_path
 
 
 def main():
@@ -42,10 +31,12 @@ def main():
         help="trinucleotide context whose fitted model to test (default: AAA)")
     parser.add_argument(
         "-dest_dir", default=DEFAULT_DEST_DIR,
-        help="local directory to download the pickle into (default: ./tmp)")
+        help=f"directory to download the pickle into (default: {DEFAULT_DEST_DIR})")
     args = parser.parse_args()
 
-    pkl_path = download(args.context, args.dest_dir)
+    pkl_path = download(
+        f"logit_pickles/logit_regularized_dnm01_{args.context}_pbonf_pca.pkl",
+        args.dest_dir)
 
     logit = pd.read_pickle(pkl_path)
     print("\ntype(logit):", type(logit))
@@ -64,7 +55,6 @@ def main():
     print(f"logit.predict(zero_row, which='linear')    = {linear:.4f}  "
           f"(== logit.params[0] == {intercept:.4f}, the intercept)")
 
-    import math
     sigmoid_of_linear = 1 / (1 + math.exp(-linear))
     print(f"\nsigma(linear) = {sigmoid_of_linear:.4f}  "
           f"(matches predict()'s default output: {prob:.4f})")

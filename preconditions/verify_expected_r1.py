@@ -19,28 +19,28 @@ so skipping that code entirely (rather than editing it) is equivalent to
 r==1 for every context. No Hail table is touched: both files are already
 plain-text exports, so this whole check runs locally via duckdb.
 
-Background / write-up: see CLAUDE.md, the "expected_counts_by_context_
-methyl_genome_1kb.txt" row of the data inventory table, and the surrounding
-discussion of forcing r=1 vs. repurposing the (unrelated) DNM
-training-set-size experiment.
+See CLAUDE.md, the "expected_counts_by_context_methyl_genome_1kb.txt" row of the
+data inventory table.
 """
 import argparse
 import json
 import os
+import sys
 import time
 import urllib.parse
 import urllib.request
 
 import duckdb
 
-# published/ is the repo-root cache of Chen et al.'s downloaded data, shared with
-# every other script here. Resolved from __file__, not as a relative path, so
-# running this from inside preconditions/ reuses the cache instead of
-# re-downloading multi-GB files into preconditions/published/.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from gnocchi_bias.windows import download  # noqa: E402
+
+# Repo-root cache, shared with every other script here; resolved from __file__ so
+# running from inside preconditions/ reuses it rather than refetching multi-GB files.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "published")
 
-BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
 BUCKET_JSON_API = "https://storage.googleapis.com/storage/v1/b/gnomad-nc-constraint-v31-paper/o"
 
 PER_CONTEXT_FILE = "expected_counts_per_context_methyl_genome_1kb.txt"  # element_id, context, possible, expected (confirmed r==1 provenance)
@@ -94,27 +94,11 @@ def check_provenance_timeline():
     )
 
 
-def download(fname: str, dest_dir: str) -> str:
-    os.makedirs(dest_dir, exist_ok=True)
-    dest_path = os.path.join(dest_dir, fname)
-    if os.path.exists(dest_path):
-        print(f"[skip download, already present] {fname} ({os.path.getsize(dest_path) / 1e6:.1f} MB)")
-        return dest_path
-    url = f"{BUCKET_URL}/{fname}"
-    print(f"downloading {url} -> {dest_path}")
-    t0 = time.time()
-    os.system(f"curl -s -o '{dest_path}' '{url}'")
-    dt = time.time() - t0
-    size = os.path.getsize(dest_path)
-    print(f"  done: {size / 1e6:.1f} MB in {dt:.1f}s ({size / 1e6 / max(dt, 1e-9):.2f} MB/s)")
-    return dest_path
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "-dest_dir", default=DEFAULT_DEST_DIR,
-        help="local directory to download into (default: ./tmp)")
+        help=f"directory to download into (default: {DEFAULT_DEST_DIR})")
     args = parser.parse_args()
 
     t_start = time.time()
