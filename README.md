@@ -145,6 +145,16 @@ makes a correct table look short by thousands. The same script confirms the join
 loses nothing (0 of 410,542 DNM sites lack features) and that the tables' `3mer` column is
 the step-1 context-only mutation rate to 2.2e-16.
 
+**Is the `r = 1` baseline in panel A sound?** It carries the figure's headline comparison
+(0.093 against 0.212) and Chen et al. published no step-1 z to check it against, so it is
+validated in three pieces: `verify_expected_r1.py` confirms the expected counts are genuinely
+pre-adjustment (regenerated genome-wide from a file of confirmed provenance — `possible` exact
+on 2,575,299 rows) and that the r ≡ 1 table shares the published table's `possible` denominators
+exactly on all 1,984,900 joined windows, so the two curves count the same sequence; the z and
+rank on top of them are self-computed, and what licenses them is that the identical code path
+reproduces Chen et al.'s own `z` to **max |diff| = 0.0** wherever a published value exists.
+`fig5/README.md`, "How panel A's `r = 1` curve is validated", has the table.
+
 **Is our reimplementation faithful to theirs?** `preconditions/validate.py`: end-to-end expected
 counts at Pearson r = 1.000000 over 1,984,900 windows, and all 1,664 `(context, window, feature)`
 coefficient rows agreeing to within 0.021 of their own published standard errors — the

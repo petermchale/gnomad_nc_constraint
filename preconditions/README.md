@@ -19,7 +19,7 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 
 | | script | claim it checks | who depends on it |
 |---|---|---|---|
-| verify | `verify_expected_r1.py` | `expected_counts_by_context_methyl_genome_1kb.txt` really is the context-only, pre-adjustment (r ≡ 1) table | **everything** — fig5's step-1 curve (panel A), E₁ denominator (B), context-only baseline (E) |
+| verify | `verify_expected_r1.py` | `expected_counts_by_context_methyl_genome_1kb.txt` really is the context-only, pre-adjustment (r ≡ 1) table, *and* it describes the same windows with the same `possible` denominators as the published constraint table | **everything** — fig5's step-1 curve (panel A), E₁ denominator (B), context-only baseline (E) |
 | verify | `verify_logit_predict_behavior.py` | the operative adjustment is `r = σ(β₀+β·z)/σ(β₀)`, a ratio of *probabilities*, not the logit ratio the Methods state | fig5's Notation cell; panel B's "a level error cancels" argument |
 | verify | `verify_missing_utils_files.py` | the PCA+logit fit behind `r(w)` is genuinely absent from the bucket (only the apply side is published), and `misc/generic.py` et al. are *not* missing | the premise of `validate.py` |
 | verify | `verify_training_set_counts.py` | the four shipped training tables really are the training set the paper describes — both published counts reproduced, and the join `load_training_data` performs loses nothing | every fig5 claim about *what step 2 was fit on*: panels C, D and E, and the whole population argument. Also `dnm_training_size/` |
@@ -51,7 +51,11 @@ empty file read as a passing check.
 - **`verify_expected_r1`** — `possible` exact on all 2,575,299 rows; `expected` within 4.6e-5
   relative. The residual is the two source files coming from pipeline runs 277 days apart
   (GCS `customTime`), each with its own random-downsample mutation-rate refit — not the
-  r ≡ 1 interpretation.
+  r ≡ 1 interpretation. It also checks the r ≡ 1 table against the published constraint
+  table's `possible`: equal on all **1,984,900** joined windows, max diff 0, so panel A's
+  two curves count the same sequence and differ only in `expected`. (The z computed from
+  those counts has no published counterpart; `fig5/README.md`, "How panel A's `r = 1`
+  curve is validated", sets out the three layers and which check covers which.)
 - **`verify_logit_predict_behavior`** — on the real `AAA` model, `predict(zero_row)` returns
   `0.0394`, a probability; `which="linear"` returns `-3.1948`, the intercept. The paper's
   stated formula is not what produced the published scores, and the one Author Correction

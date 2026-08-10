@@ -72,6 +72,25 @@ a loud error rather than a silent mismatch.
 unit detection, the `1 - DR` complement, error paths) but **never against the real
 file**. Check its printed summary the first time it runs.
 
+## How panel A's `r = 1` curve is validated
+
+The context-only curve carries the comparison the whole figure rests on (0.093 against
+0.212), and Chen et al. never published anything to check it against directly — their
+pipeline computes no step-1 z. So it is validated in three separable pieces, two of them
+runnable checks and one an inheritance argument:
+
+| what | how | result |
+|---|---|---|
+| the **expected counts** really are pre-adjustment (`r ≡ 1`) | `preconditions/verify_expected_r1.py` regenerates the file genome-wide from `expected_counts_per_context_methyl_genome_1kb.txt`, whose provenance is confirmed — it is the literal `hl.export()` at `run_nc_constraint_gnomad_v31_main.py:191–197`, written *before* any r code runs | `possible` exact on all 2,575,299 rows; `expected` within 4.6e-5 relative, explained by two pipeline runs 277 days apart |
+| the two curves describe the **same windows** | same script: `possible` in the r≡1 table against `possible` in the published constraint table, which the r-adjustment multiplies `expected` but never touches | equal on all **1,984,900** joined windows, max diff 0 — so the curves differ only in `expected` |
+| the **z and rank** computed from them | cannot be checked directly, since no published step-1 z exists. Instead `gnocchi_bias/windows.py` runs the *identical* code path on the step-2 curve, which does have a published counterpart (`check_z_against_published`) | max \|z − z_published\| = **0.0** over 1,843,559 windows |
+
+The third row is the load-bearing one and worth stating plainly to a reviewer: `z_step1`
+is self-computed, and what licenses it is that the same `z_expr`, the same joint filter
+and the same within-curve ranking reproduce Chen et al.'s own `z` exactly wherever a
+published value exists. Both curves are also z-filtered *jointly* and ranked *after* that
+filter, so neither is advantaged by its own window set.
+
 ## Things to know before quoting numbers
 
 - **Panels A and E are the same statistic on the same windows**, so they read as

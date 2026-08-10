@@ -94,6 +94,36 @@ def check_provenance_timeline():
     )
 
 
+def check_same_window_universe(con, dest_dir: str) -> bool:
+    """
+    Do the r==1 table and the PUBLISHED constraint table describe the same windows with
+    the same denominators?
+
+    This is what makes fig5 panel A a fair before/after. The panel draws two curves from
+    (expected_step1, observed) and (expected_step2, observed) on one window set; if the
+    r==1 table's `possible` disagreed with the published table's, the two curves would be
+    counting different sequence and the comparison would be meaningless.
+
+    It should agree exactly, because the regional adjustment multiplies `expected` and
+    never touches `possible` -- so this also tests that reading of the pipeline, not just
+    the join.
+    """
+    annot = download("fig_tables/constraint_z_genome_1kb.annot.txt", dest_dir)
+    n, equal, max_diff = con.execute(f"""
+        SELECT COUNT(*), SUM(CASE WHEN p.possible = a.possible THEN 1 ELSE 0 END),
+               MAX(ABS(p.possible - a.possible))
+        FROM published p
+        INNER JOIN (SELECT element_id, possible FROM read_csv_auto('{annot}',
+                    delim='\t', header=True)) a USING (element_id)
+    """).fetchone()
+    print("\nsame window universe as the published constraint table?")
+    print(f"  {n:,} windows joined; `possible` equal on {equal:,} of them "
+          f"(max |diff| {max_diff:g})")
+    print("  -> panel A's two curves count the same sequence and differ only in "
+          "`expected`, which is the r-adjustment and nothing else.")
+    return n > 0 and equal == n
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
@@ -184,12 +214,15 @@ def main():
     """).fetchdf()
     print(diff.to_string(index=False))
 
+    same_universe = check_same_window_universe(con, args.dest_dir)
+
     all_match = (
         n_regen == n_pub
         and diff["in_published_only"].iloc[0] == 0
         and diff["in_regenerated_only"].iloc[0] == 0
         and diff["possible_mismatches"].iloc[0] == 0
         and diff["expected_mismatches"].iloc[0] == 0
+        and same_universe
     )
     print(f"\ntotal wall time: {time.time() - t_start:.1f}s")
 
