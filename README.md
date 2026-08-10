@@ -44,19 +44,19 @@ dissects the mechanism behind Gnocchi's GC-content bias.
 this addendum — `run_nc_constraint_gnomad_v31_main.py`, `analyze_individual_feature_effects.py`,
 `generate_manuscript_figures.py`, `generate_manuscript_efigures.py`, `fig_utils.py`,
 `efig_utils.py`, `generate_genomic_features.sh`). Verify with
-`git diff upstream/main HEAD -- <file>`. Every addition is a new file, so the reviewable
-surface is exactly what is listed below.
+`git diff upstream/main HEAD -- <file>`. 
 
 ## What Figure 5 shows
 
-Five panels, one argument, each written as a standalone vector PDF for assembly:
+Five panels, each written as a standalone vector PDF for assembly:
 
 | panel | claim |
 |---|---|
 | **A** | The GC bias is *introduced by* the regional adjustment `r`, not inherited from the context-only model underneath it |
-| **B** | That adjustment's GC dependence is wholly non-CpG — and `r_CpG ≈ 1` is *correct*, because methylation is already handled in step 1 |
-| **C** | The DNM training set is not the population Gnocchi is scored on, and the excluded territory is *different*, not merely absent |
-| **D** | Restricting the training set to the scored population flattens the empirical DNM rate, and the model can then fit it |
+| **B** | That adjustment's GC dependence is wholly non-CpG — and `r_CpG ≈ 1` is *correct*, because GC content covaries with methylation, which is already handled in step 1 |
+| **C** | The DNM training set has a different distribution than the population Gnocchi is scored on |
+| **D** | Restricting the training set to the scored population lowers the empirical DNM rate, 
+makes it monotonic, enabling a better model fit |
 | **E** | Refitting `r` on the scored population removes Gnocchi's bias — below the context-only model's own |
 
 Plus one supporting figure on why `r_CpG ≈ 1` is the right behaviour.
