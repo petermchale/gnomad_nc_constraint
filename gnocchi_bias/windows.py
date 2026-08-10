@@ -325,7 +325,7 @@ def check_z_against_published(df: pl.DataFrame, label: str, tol: float = 1e-6) -
     max_diff = (df[f"z_{label}"] - df["z_published"]).abs().max()
     print(f"  sanity check: z_{label} vs published z, max |diff| = {max_diff} "
           f"over {df.height:,} windows")
-    if max_diff is not None and max_diff > tol:
+    if max_diff is not None and max_diff > tol: # type: ignore
         raise ValueError(
             f"self-computed z_{label} disagrees with Chen et al.'s published z by "
             f"{max_diff} (> {tol}); both derive from the same "
