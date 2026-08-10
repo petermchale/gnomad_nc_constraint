@@ -122,5 +122,40 @@ Two inputs are **not** obtainable from public sources and are set to `None` in
 enhancer half of the "neutral" window definition, which is licensed). The figure builds
 without either; see `fig5/README.md` for what changes.
 
+## Sanity checks and controls
+
+Every claim here is backed by something runnable rather than asserted. `preconditions/README.md`
+holds the detail and the last-run results; this is the index.
+
+**Is Chen et al.'s pipeline what we claim it is?** `preconditions/verify_*.py`, each run against
+the real published artifact. The load-bearing one: the operative adjustment is
+`r = σ(β₀+β·z)/σ(β₀)`, a ratio of *probabilities*, not the ratio of logits the published Methods
+state — confirmed on a fitted model, where `predict(zero_row)` returns `0.0394` against an
+intercept of `-3.1948`.
+
+**Is our reimplementation faithful to theirs?** `preconditions/validate.py`: end-to-end expected
+counts at Pearson r = 1.000000 over 1,984,900 windows, and all 1,664 `(context, window, feature)`
+coefficient rows agreeing to <1e-3. Per GC bin, the refit's `r_eff` matches the published `E2/E1`
+to 1.0e-4 — printed by `fig5/data.py` on every run, not a recorded number.
+
+**Is the improvement attributable to the intervention?** Two controls in panel E, both routed
+through the same code as the intervention itself:
+
+| panel E curve | mean \|rank − 0.5\| | what it rules out |
+|---|---|---|
+| Gnocchi as published | 0.212 | — |
+| retrained on the scored population | **0.046** | *(the result)* |
+| control: refit on the full training set | 0.212 | the reimplementation |
+| control: size-matched random subsample | 0.210 | simply having less data |
+
+Panel B rests on a counterfactual rather than a fit: holding non-CpG `r` at 1 leaves the
+adjustment flat within 0.6% across GC, inside a decomposition (`r_eff = Π·r_CpG + (1−Π)·r_non`)
+that is an exact identity bin by bin. `dnm_training_size/` adds the training-size dose-response
+the size-matched control cannot show.
+
+Stated rather than buried: panel D is in-sample (panel E is not), `depletion_rank.py` has never
+been run against the real BED, and the callability caveat brackets the over-adjustment at
+**1.22–1.44** — do not quote 1.22 alone.
+
 Each directory has its own `README.md` with the methodological detail, the caveats that
 belong in the caption, and the numbers each claim rests on.
