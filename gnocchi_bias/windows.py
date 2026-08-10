@@ -3,17 +3,21 @@ Genome-wide 1kb window table for the GC-bias analyses, plus the Figure-2A-style
 rank statistic computed on it.
 
 Extracted verbatim (2026-08-04) from the repo-root
-compute_gc_bias_step1_vs_step2.py, which was the command-line entry point until it
-was deleted (2026-08-07, superseded by fig5 panel A; recoverable from git history)
-and now imports from here. Every docstring below keeps its original citation
-trail into CLAUDE.md / McHale et al.'s Methods -- those citations are the point
-of this code, so do not trim them.
+compute_gc_bias_step1_vs_step2.py, which was the command-line entry point until
+it was deleted (2026-08-07, superseded by fig5 panel A; recoverable from git
+history). Every docstring below keeps its original citation trail into
+CLAUDE.md / McHale et al.'s Methods -- those citations are the point of this
+code, so do not trim them.
 
 The only NEW code here is the N-curve generalization of the z/rank computation
-(add_z_column, add_rank_columns, binned_rank_curves), lifted from what
-the training-set-size experiment had already worked out for
-experiment. The two-curve helpers (add_z_columns, add_rank_columns_step1_step2)
-are kept as thin wrappers so the original CLI is unchanged.
+(add_z_column, add_rank_columns, binned_rank_curves): the statistic
+parameterized over an arbitrary list of (label, expected_col) curves instead of
+the hardcoded step1/step2 pair, with every curve z-filtered jointly and ranked
+only after that filter, so all curves describe one identical window population.
+Lifted from the training-set-size experiment, which had already worked this out
+because it needs one curve per DNM training fraction. add_z_columns() is kept
+as a two-curve (step1/step2) wrapper so the original CLI path was unchanged by
+the extraction.
 
 This module deliberately does NOT call matplotlib.use(): it must import cleanly
 inside a notebook running an interactive backend. Callers that need "Agg" set
@@ -87,8 +91,9 @@ def load_joined_table(local_paths: dict) -> pl.DataFrame:
       element_id, possible_step1, expected_step1, possible_step2,
       expected_step2, observed, pass_qc, coding_prop, GC_content_1k,
       z_published (the official, already-computed Gnocchi z, used only as a
-      sanity check against this script's own from-scratch z_step2 -- see
-      add_z_columns())
+      sanity check against this module's own from-scratch z for the published
+      curve -- see check_z_against_published(), which binned_rank_curves()
+      runs automatically whenever this column is present)
     """
     query = f"""
         SELECT
@@ -166,7 +171,7 @@ def restrict_to_neutral_genehancer(
     """
     if genehancer_bed_path is None:
         print(
-            "WARNING: -genehancer_bed not given -- 'neutral' here is only "
+            "WARNING: genehancer_bed_path is None -- 'neutral' here is only "
             "noncoding + pass_qc (+ non-sex-chromosome), NOT excluding "
             "GeneHancer-enhancer-overlapping windows. See CLAUDE.md, "
             "'GeneHancer enhancer exclusion'."
@@ -208,7 +213,9 @@ def maybe_downsample(df: pl.DataFrame, frac: float | None, n: int | None, seed: 
     of frac/n may be set.
     """
     if frac is not None and n is not None:
-        raise ValueError("specify at most one of -downsample_frac / -downsample_n")
+        raise ValueError(
+            "specify at most one of frac / n "
+            "(build_window_table: downsample_frac / downsample_n)")
     if frac is not None:
         return df.sample(fraction=frac, seed=seed)
     if n is not None:
@@ -220,8 +227,10 @@ def add_bias_columns(df: pl.DataFrame) -> pl.DataFrame:
     """
     Add per-window bias_step1 = expected_step1 - observed and
     bias_step2 = expected_step2 - observed, matching McHale et al.'s residual
-    sign convention (predicted - y, not y - predicted). Used by bin_by_gc()
-    for -bias_metric residual.
+    sign convention (predicted - y, not y - predicted). Fed to bin_by_gc() as
+    value_cols for the residual metric -- the statistic Supp. Fig. 1 is defined
+    on, which the deleted CLI exposed as -bias_metric residual (recoverable
+    from git; nothing in the repo computes it today).
     """
     return df.with_columns([
         (pl.col("expected_step1") - pl.col("observed")).alias("bias_step1"),
@@ -230,6 +239,13 @@ def add_bias_columns(df: pl.DataFrame) -> pl.DataFrame:
 
 
 # -------------------------------------------------------- z-scores and ranks
+
+# The r-adjusted expected count Chen et al. actually published. A curve built on
+# this column is the published Gnocchi, whatever the caller labels it (fig5 says
+# "step2", dnm_training_size says "step2_published"), so the sanity check below
+# keys on the column, not the label.
+PUBLISHED_EXPECTED_COL = "expected_step2"
+
 
 def z_expr(expected_col: str, observed_col: str = "observed") -> pl.Expr:
     """
@@ -259,7 +275,8 @@ def filter_z_in_range(df: pl.DataFrame, labels: list[str],
                        lo: float = -10.0, hi: float = 10.0) -> pl.DataFrame:
     """
     Replicate run_nc_constraint_gnomad_v31_main.py line 281's filtering
-    (`df_z[df_z['z'].between(-10,10)].dropna()`), applied jointly across
+    (`df_z[df_z['z'].between(-10,10)].drop(columns=['chisq']).dropna()` -- the
+    between() and dropna() are the parts reproduced here), applied jointly across
     EVERY named curve: a window is kept only if all of its z-scores are
     finite and in [lo, hi]. Filtering jointly (rather than per curve) is what
     makes the curves an apples-to-apples comparison on one identical window
@@ -288,6 +305,34 @@ def add_rank_columns(df: pl.DataFrame, labels: list[str]) -> pl.DataFrame:
     ])
 
 
+def check_z_against_published(df: pl.DataFrame, label: str, tol: float = 1e-6) -> None:
+    """
+    Check that this module's from-scratch z for the PUBLISHED curve reproduces
+    Chen et al.'s own z column (z_published, joined in by load_joined_table).
+
+    Both sides start from the same (expected_step2, observed) pair, so this
+    tests the join and z_expr()'s transcription of lines 278-280 -- NOT the
+    model, and not anything about r. Measured directly over all 1,984,900 rows
+    of fig_tables/constraint_z_genome_1kb.annot.txt the two agree exactly
+    (max |diff| = 0.0), which is why a violation raises rather than warns: at
+    this tolerance the only way to fail is a mis-joined or mislabelled column.
+
+    No-op when z_published is absent, so callers scoring only refits (or a
+    window table built without the annot file) are unaffected.
+    """
+    if "z_published" not in df.columns or f"z_{label}" not in df.columns:
+        return
+    max_diff = (df[f"z_{label}"] - df["z_published"]).abs().max()
+    print(f"  sanity check: z_{label} vs published z, max |diff| = {max_diff} "
+          f"over {df.height:,} windows")
+    if max_diff is not None and max_diff > tol:
+        raise ValueError(
+            f"self-computed z_{label} disagrees with Chen et al.'s published z by "
+            f"{max_diff} (> {tol}); both derive from the same "
+            f"({PUBLISHED_EXPECTED_COL}, observed) pair, so this means the join "
+            f"or the z formula is wrong, not the model.")
+
+
 def add_z_columns(df: pl.DataFrame) -> pl.DataFrame:
     """
     Two-curve (step1/step2) wrapper over add_z_column/filter_z_in_range, kept
@@ -296,19 +341,14 @@ def add_z_columns(df: pl.DataFrame) -> pl.DataFrame:
     the real r-adjusted Gnocchi expected count -- the official pipeline never
     computes a step-1-only z, so z_step1 is entirely self-computed here).
 
-    Sanity check: prints the max |z_step2 - z_published| across all windows,
-    where z_published is the official z column already in
-    fig_tables/constraint_z_genome_1kb.annot.txt -- if this formula is right,
-    the two should match almost exactly (up to floating-point/export-rounding
-    noise), since both start from the same (expected_step2, observed) pair.
+    The z_step2-vs-z_published sanity check now lives in
+    check_z_against_published() and is shared with binned_rank_curves(), so it
+    runs on the live fig5 path too rather than only here. Measured agreement is
+    exact, not merely close -- see that function.
     """
     df = add_z_column(df, "step1", "expected_step1")
-    df = add_z_column(df, "step2", "expected_step2")
-
-    max_diff = (df["z_step2"] - df["z_published"]).abs().max()
-    print(f"sanity check: self-computed z_step2 vs published z, "
-          f"max |diff| across {df.height:,} windows = {max_diff}")
-
+    df = add_z_column(df, "step2", PUBLISHED_EXPECTED_COL)
+    check_z_against_published(df, "step2")
     return filter_z_in_range(df, ["step1", "step2"])
 
 
@@ -324,13 +364,16 @@ def bin_by_gc(df: pl.DataFrame, gc_col: str, n_bins: int, bin_method: str,
     in rank mode, or "GC_content_1k" (0-100 percentage, this repo's native
     units) in residual mode -- see add_gc_content_fraction().
 
-    value_cols maps an output suffix to the per-window column to average
-    within each bin -- e.g. {"bias_step1": "bias_step1", "bias_step2":
-    "bias_step2"} for -bias_metric residual (see add_bias_columns()), or
-    {"rank_step1": "rank_step1", "rank_step2": "rank_step2"} for
-    -bias_metric rank (see add_rank_columns()). This lets one binning
-    implementation serve both metrics without duplicating the digitize/
-    group_by logic.
+    value_cols maps an output suffix to the per-window column to average within
+    each bin. The two need NOT be the same string, and for the rank statistic
+    they deliberately are not: binned_rank_curves() passes
+    {label: f"rank_{label}"} -- e.g. {"step1": "rank_step1"} -- so the outputs
+    are mean_step1/se_step1, indexable by curve label alone. fig5/data.py and
+    fig5/depletion_rank.py both read them back that way, so changing this
+    convention breaks them silently. The residual metric is passed the same
+    way, from add_bias_columns()'s output. One binning implementation
+    therefore serves both metrics without duplicating the digitize/group_by
+    logic.
 
     Per bin, computes:
       - n      = window count
@@ -352,7 +395,12 @@ def bin_by_gc(df: pl.DataFrame, gc_col: str, n_bins: int, bin_method: str,
     else:
         edges = np.linspace(gc.min(), gc.max(), n_bins + 1)
     edges = np.unique(edges)
-    edges[-1] += 1e-9  # make the max value fall inside the last bin
+    # Inert for the digitize() below, which only ever sees the INTERIOR edges
+    # (edges[1:-1]), so the max value already lands in the last bin without it.
+    # Kept because fig5/data.py's gc_edges() mirrors this branch exactly and its
+    # sql_bin_expr() DOES read edges[-1], as the upper bound of the equivalent
+    # floor-divide in duckdb. Drop it here and the two binnings diverge.
+    edges[-1] += 1e-9
 
     bin_idx = np.digitize(gc, edges[1:-1], right=False)
     df = df.with_columns(pl.Series("gc_bin", bin_idx))
@@ -421,6 +469,8 @@ def binned_rank_curves(df: pl.DataFrame, curves: list[tuple[str, str]],
     labels = [label for label, _ in curves]
     for label, expected_col in curves:
         df = add_z_column(df, label, expected_col)
+        if expected_col == PUBLISHED_EXPECTED_COL:
+            check_z_against_published(df, label)
     df = filter_z_in_range(df, labels)
     df = add_rank_columns(df, labels)
 
