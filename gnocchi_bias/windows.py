@@ -395,11 +395,13 @@ def bin_by_gc(df: pl.DataFrame, gc_col: str, n_bins: int, bin_method: str,
     else:
         edges = np.linspace(gc.min(), gc.max(), n_bins + 1)
     edges = np.unique(edges)
-    # Inert for the digitize() below, which only ever sees the INTERIOR edges
-    # (edges[1:-1]), so the max value already lands in the last bin without it.
-    # Kept because fig5/data.py's gc_edges() mirrors this branch exactly and its
-    # sql_bin_expr() DOES read edges[-1], as the upper bound of the equivalent
-    # floor-divide in duckdb. Drop it here and the two binnings diverge.
+    # Inert, and measured to be so on both sides of the fence: digitize() below
+    # only ever sees the INTERIOR edges (edges[1:-1]), and while fig5/data.py's
+    # sql_bin_expr() does read edges[-1] to derive its bin width, its LEAST(...,
+    # n-1) clip already puts the max value in the last bin. Removing the bump
+    # changed no bin assignment in either implementation over 500k GC values.
+    # Kept only so gc_edges() there stays a literal mirror of this branch --
+    # what matters is that the two build the SAME edges, not this epsilon.
     edges[-1] += 1e-9
 
     bin_idx = np.digitize(gc, edges[1:-1], right=False)
