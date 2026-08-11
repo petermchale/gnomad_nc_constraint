@@ -1,0 +1,119 @@
+$ .venv/bin/python verify_comparisons_tables.py
+# why the data behind Extended Data Fig. 6 cannot answer the GC-content-bias question
+# ran at 99c195a, 2026-08-11 17:05 UTC
+
+10 comparisons_*.txt files found in fig_tables/comparisons.tar.gz:
+
+=== comparisons_gwas_catalog_repl.txt ===
+  rows: 9229   unique loci: 9229   duplicate loci: 0
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_sliding100', 'z_trimer', 'z_heptamer', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon', 'coding', 'intergenic_intron', 'AF', 'AC', 'AF_topmed', 'AC_topmed']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+       locus   z    Orion   CDTS   gwRVIS       DR  phastCons  phyloP   GERP  z_sliding100  z_trimer  z_heptamer  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon  coding  intergenic_intron      AF       AC  AF_topmed  AC_topmed
+ chr1:960326 NaN -0.27268    NaN 2.157000 -0.72875      0.587   0.526 -2.080           NaN       NaN         NaN      NaN      NaN    NaN    NaN       NaN    NaN        368     0.0              False 0.65320  76878.0    0.65457   173258.0
+chr1:1659060 NaN -0.41383    NaN 0.000812 -0.97254      0.000  -0.175 -2.620           NaN       NaN         NaN      NaN      NaN    NaN    NaN       NaN    NaN       1043     0.0              False 0.29348  44618.0    0.29710    78638.0
+chr1:2212668 NaN -0.29826 3.6872 2.072900 -0.68519      1.000   0.676  0.899           NaN       NaN         NaN      NaN      NaN    NaN    NaN       NaN    NaN      16099     0.0              False 0.89122 135628.0    0.90083   238440.0
+
+=== comparisons_gwas_fine-mapping_pip09.txt ===
+  rows: 2192   unique loci: 2192   duplicate loci: 0
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_sliding100', 'z_trimer', 'z_heptamer', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon', 'coding', 'intergenic_intron', 'AF', 'AC', 'AF_topmed', 'AC_topmed']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+       locus   z    Orion    CDTS   gwRVIS       DR  phastCons  phyloP   GERP  z_sliding100  z_trimer  z_heptamer  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon  coding  intergenic_intron      AF       AC  AF_topmed  AC_topmed
+chr1:1129916 NaN -0.48601 -3.3793 -2.62570 -0.77426      0.001  -0.038 -0.461           NaN       NaN         NaN      NaN      NaN    NaN    NaN       NaN    NaN    38373.0     0.0               True 0.70553 107034.0    0.71319   188774.0
+chr1:2274142 NaN -0.45050 -5.2022 -0.32398 -0.91907      0.000  -1.498 -1.610           NaN       NaN         NaN      NaN      NaN    NaN    NaN       NaN    NaN    28836.0     0.0               True 0.45342  68641.0    0.46020   121810.0
+chr1:2293397 NaN -0.46218  1.8030 -0.32598 -0.96455      0.000  -1.126 -0.966           NaN       NaN         NaN      NaN      NaN    NaN    NaN       NaN    NaN     9581.0     0.0               True 0.39431  59432.0    0.39167   103671.0
+
+=== comparisons_gwas_fine-mapping_pip09_hc.txt ===
+  rows: 140   unique loci: 140   duplicate loci: 0
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_sliding100', 'z_trimer', 'z_heptamer', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon', 'coding', 'intergenic_intron', 'AF', 'AC', 'AF_topmed', 'AC_topmed']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+        locus      z    Orion      CDTS   gwRVIS       DR  phastCons  phyloP   GERP  z_sliding100  z_trimer  z_heptamer  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon  coding  intergenic_intron      AF      AC  AF_topmed  AC_topmed
+chr1:10765520 3.3404 -0.55517 -0.810840 -2.38250 -0.59002      0.029  -0.558    NaN        3.5286   0.89518      1.1188   1.7670   3.0426 3.4578 6.0794    2.9429 3.0211    71631.0     0.0               True 0.49091 74596.0    0.46726   123678.0
+chr1:16178825    NaN -0.30913  3.546600 -0.77572 -0.33176      0.014   0.119  1.570        3.6337       NaN         NaN   0.9486   1.3110 2.9372 2.6772       NaN    NaN    19762.0     0.0              False 0.47369 71864.0    0.44929   118922.0
+chr1:21493549 2.1813 -0.44700 -0.085452 -1.20810 -0.48920      0.012   0.596 -0.561        2.1749   1.38990      1.5762   1.6775   2.9431 3.1365 4.7475    1.5789 1.3036    10163.0     0.0               True 0.31521 47845.0    0.30234    80026.0
+
+=== comparisons_likely_pathogenic_clinvar_hgmd.txt ===
+  rows: 1273   unique loci: 1026   duplicate loci: 247
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_sliding100', 'z_trimer', 'z_heptamer', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon', 'coding', 'intergenic_intron', 'AF_topmed', 'AC_topmed']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+       locus      z    Orion   CDTS   gwRVIS       DR  phastCons  phyloP  GERP  z_sliding100  z_trimer  z_heptamer  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon  coding  intergenic_intron  AF_topmed  AC_topmed
+chr1:1043197    NaN -0.16000 6.5980  2.01020 -0.88528        0.0   0.192 -1.28           NaN       NaN         NaN      NaN      NaN    NaN    NaN       NaN    NaN       42.0     0.0               True   0.000091       24.0
+chr1:2520467 6.2003 -0.36213 4.2751  0.76498 -0.75786        0.0  -1.568 -2.85        6.8154   0.99436     1.04730      NaN   5.5846 5.7553    NaN    4.7312 4.8555       53.0     0.0               True   0.000008        2.0
+chr1:9943525 2.1835 -0.25944 7.5884 -0.37060 -0.86960        0.0  -0.297 -1.00        1.8521   0.58052     0.51284  -1.6776   1.8074 3.0385 4.8015    1.5496 1.0785     6906.0     0.0               True   0.000000        0.0
+
+=== comparisons_topmed_mac1.sampled.cov.txt ===
+  rows: 78232   unique loci: 78230   duplicate loci: 2
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_trimer', 'z_heptamer', 'z_sliding100', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+      locus      z    Orion  CDTS   gwRVIS       DR  phastCons  phyloP  GERP  z_trimer  z_heptamer  z_sliding100  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon
+chr1:794725 4.0345      NaN   NaN 0.001277 -0.24588      0.049   1.126   NaN       NaN     2.35770        4.2573  0.64709   3.3915 5.8751 5.3297    3.4765 3.3941     108071
+chr1:795279 4.0725 -0.18011   NaN 0.002057      NaN      0.055   0.824   NaN       NaN     2.09410        4.2135  1.79630   3.1272 5.8751 4.6332    3.3661 4.0801     108625
+chr1:829560 2.3665 -0.30729   NaN 0.000887      NaN      0.996   2.390 0.202       NaN     0.72248        2.6910  2.35710   1.7841 1.5752 2.0679    2.2624 2.7810      96382
+
+=== comparisons_topmed_maf001.sampled.cov.txt ===
+  rows: 137667   unique loci: 137664   duplicate loci: 3
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_trimer', 'z_heptamer', 'z_sliding100', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+      locus      z    Orion  CDTS   gwRVIS       DR  phastCons  phyloP   GERP  z_trimer  z_heptamer  z_sliding100  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon
+chr1:830051 1.1863      NaN   NaN 0.000832      NaN      0.032   0.303  0.202       NaN    -0.43335        1.9579   1.7909   1.4486    NaN 2.0679    1.0789 1.5874      95891
+chr1:833881 2.5523 -0.26856   NaN 0.001531 -0.49715      0.051   1.703  0.533       NaN     0.42353        3.3878   1.7462   2.5786 2.4217 3.5433    2.5513 3.2430      92061
+chr1:843222 2.0047 -0.30618   NaN 0.001738 -0.69507      0.001  -0.163 -0.578       NaN     0.35478        2.1948   1.8281   1.7271 2.7568 4.8639    1.6143 1.8385      82720
+
+=== comparisons_topmed_maf001_01.sampled.cov.txt ===
+  rows: 136702   unique loci: 136699   duplicate loci: 3
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_trimer', 'z_heptamer', 'z_sliding100', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+      locus      z    Orion  CDTS   gwRVIS       DR  phastCons  phyloP  GERP  z_trimer  z_heptamer  z_sliding100  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon
+chr1:777614    NaN      NaN   NaN 0.001553 -0.64355      0.001   0.266   NaN       NaN         NaN           NaN      NaN      NaN    NaN    NaN       NaN    NaN      90960
+chr1:784027 1.7451 -0.26209   NaN 0.001480 -0.29686      0.962   0.095   NaN       NaN      1.3132        1.7266  0.30655   2.1338 2.8251 2.7247     2.285 2.5213      97373
+chr1:821546    NaN -1.17210   NaN 0.008706      NaN      0.955   0.732   NaN       NaN         NaN           NaN      NaN      NaN    NaN    NaN       NaN    NaN     104396
+
+=== comparisons_topmed_maf01_1.sampled.cov.txt ===
+  rows: 135053   unique loci: 135047   duplicate loci: 6
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_trimer', 'z_heptamer', 'z_sliding100', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+      locus      z    Orion  CDTS   gwRVIS       DR  phastCons  phyloP  GERP  z_trimer  z_heptamer  z_sliding100  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon
+chr1:779762    NaN      NaN   NaN 0.001298 -0.21274      0.003   0.264   NaN       NaN         NaN           NaN      NaN      NaN    NaN    NaN       NaN    NaN      93108
+chr1:795399 4.0725      NaN   NaN 0.001966      NaN      0.001  -0.867   NaN       NaN     2.09410        4.1223      NaN   3.1272 5.8751 4.6332    3.3661 4.0801     108745
+chr1:796119 1.6051 -0.59799   NaN 0.001359 -0.37798      0.004  -0.676   NaN       NaN     0.56247        2.5490  0.68282   1.6521 2.9070 4.6332    2.4326 1.1135     109465
+
+=== comparisons_topmed_maf1_5.sampled.cov.txt ===
+  rows: 133792   unique loci: 133790   duplicate loci: 2
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_trimer', 'z_heptamer', 'z_sliding100', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+      locus      z    Orion  CDTS   gwRVIS       DR  phastCons  phyloP  GERP  z_trimer  z_heptamer  z_sliding100  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon
+chr1:794869 4.0345 -0.34502   NaN 0.001365 -0.25090      0.001   1.126   NaN       NaN     2.35770        4.3989   1.7530   3.3915 5.8751 5.3297    3.4765 3.3941     108215
+chr1:846001 2.2953      NaN   NaN 0.001734 -0.31226      0.007   0.559 0.416       NaN     0.83337        1.5731   1.7889   2.5396 4.3244 6.2469    2.1896 1.3431      79941
+chr1:890382    NaN -2.17920   NaN 0.000352 -0.12749      0.003   0.137 0.154       NaN         NaN           NaN      NaN      NaN    NaN    NaN       NaN    NaN      35560
+
+=== comparisons_topmed_maf5.sampled.cov.txt ===
+  rows: 129979   unique loci: 129979   duplicate loci: 0
+  columns: ['locus', 'z', 'Orion', 'CDTS', 'gwRVIS', 'DR', 'phastCons', 'phyloP', 'GERP', 'z_trimer', 'z_heptamer', 'z_sliding100', 'z_100bp', 'z_500bp', 'z_2kb', 'z_3kb', 'z_global', 'z_nfe', 'dist2exon']
+  has a GC-content column? False
+  keyed by 'element_id' (1kb window)? False  -- it's keyed by 'locus' (an individual variant position) instead
+  sample rows:
+      locus   z    Orion     CDTS   gwRVIS       DR  phastCons  phyloP   GERP  z_trimer  z_heptamer  z_sliding100  z_100bp  z_500bp  z_2kb  z_3kb  z_global  z_nfe  dist2exon
+chr1:899576 NaN -0.65907 -7.49180 -2.67430 -0.72465       0.01   0.356 -0.678       NaN         NaN        2.9811   1.6675      NaN    NaN    NaN       NaN    NaN      26366
+chr1:925141 NaN -0.16271      NaN  0.90662 -0.24909       0.00  -0.907 -1.150       NaN         NaN           NaN      NaN      NaN    NaN    NaN       NaN    NaN        801
+chr1:927003 NaN -0.63924 -0.22581 -0.40646 -0.95072       0.00  -1.868 -2.520       NaN         NaN           NaN      NaN      NaN    NaN    NaN       NaN    NaN        990
+
+Raw pool sizes for one GWAS-Catalog comparison: 9229 positive (functional) variants vs 129979 candidate negative (TOPMed control) variants (14.1x). efig_utils.py:plt_comparison_roc_gnocchi further subsamples the negative pool down to exactly 10x the positive count at plot time (`sampling = 10`; `df_0.sample(n=sampling*len(df_1))`) -- i.e. even the raw files are already a curated candidate pool for a classification task, not a genome-wide window census.
+
+Conclusion: every comparisons_*.txt file is a per-variant table built from a specific, curated positive (GWAS Catalog / GWAS fine-mapping / likely pathogenic ClinVar+HGMD) or negative (AF-matched, downsampled TOPMed control) variant set -- assembled for the ROC/AUC classification task behind Extended Data Fig. 6, not as a uniform, genome-wide sample of 1kb windows. None of them carry a GC-content column, and none are keyed by element_id. Stratifying z/z_trimer/z_heptamer from these files by GC content would measure model behavior on this curated, functionally- and AF-enriched variant sample, not genome-wide local bias -- a different question from the one fig5 panel A already answers correctly using every 1kb window genome-wide.
