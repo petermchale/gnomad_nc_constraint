@@ -5,9 +5,13 @@ standalone vector file for assembly in Illustrator, plus one supporting figure,
 `output/fig5_supp_cpg.pdf`. Run it top to bottom.
 
 **Panel C is two rows** sharing a GC axis: the composition of the background training
-sites (how much of the training set is outside the scored population), and each
-excluded stratum's DNM rate relative to the noncoding one (whether the excluded
-territory is also *different*). The upper row alone shows only an absence.
+sites (how much of the training set is outside the scored population), and each other
+stratum's DNM rate relative to the QC-pass noncoding one (whether the territory outside
+is also *different*). The upper row alone shows only an absence. Its three bands are
+*QC-pass noncoding*, *QC-pass coding* and *QC-fail* — only the first two are split by
+coding status, because `coding_prop` comes from the constraint table and a QC-fail window
+has no row in it; measured separately, that band is 6.9% coding-overlapping against the
+QC-pass windows' 7.1%.
 
 **The supporting figure** backs panel B's claim that `r_CpG ~ 1` is *correct*: the
 methylation effect step 1 absorbs (3.0-4.3x within one trinucleotide, against 9.7-15.2x
@@ -105,12 +109,19 @@ filter, so neither is advantaged by its own window set.
   holds bin by bin because each bin aggregates ratios of *summed* expected counts, not
   means of per-window ratios.
 - **Two claims are made in the text and not plotted**, so `diagnostics.py` computes them
-  and the notebook prints them: the no-coverage stratum's non-CpG DNM rate (1.55x the
+  and the notebook prints them: the QC-fail stratum's non-CpG DNM rate (1.55x the
   noncoding rate in the GC bulk, **4.06x by GC 0.61**, while coding/noncoding stays at
   0.90–0.99 and flat), and the CpG-island character of high-GC CpGs (90–100%
   hypomethylated above GC 0.70, DNM rate 2.7x lower than the bulk, against a 3.0–4.3x
   methylation effect that step 1 already absorbs). Migrated from `fig3/` when that
   directory was retired, and drawn in `output/fig5_supp_cpg.pdf`.
+- **That stratum is QC failure, not absent sequence** — it was called "no gnomAD coverage"
+  here until it was measured. Every one of the 587,902 windows has its QC inputs on file;
+  70.9% fail Chen et al.'s ≥80%-PASS rule against 3.3% failing the 25–35× coverage band.
+  `preconditions/verify_qc_filter.py` also confirms the filter forwards (all 1,984,900
+  scored windows satisfy all three conditions) and records both denominators, since
+  **86.6% of background training sites are in QC-pass windows** — the 87.8% quoted for the
+  PASS rule is *within* the 13.3% that are not.
 - **Panel D measures a level error**, and levels cancel in `r = sigma(b0+b.z)/sigma(b0)`.
   It diagnoses the fit; panel E is the measurement of the bias. Its y-axis is also not a
   mutation rate — the ~0.07 baseline reflects the 10:1 case-control design.
