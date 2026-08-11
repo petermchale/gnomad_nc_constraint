@@ -1,17 +1,23 @@
-// Silence Pylance/pyright's type complaints about pandas and duckdb, which are noise here,
+// Silence Pylance/pyright's type complaints about duckdb and pandas, which are noise here,
 // while keeping the diagnostics that catch real mistakes.
 //
-// Every one of the 38 errors this file turns off came from a third-party stub being more
-// conservative than the value actually is, in one of three families:
+// 17 errors are turned off. Most come from a third-party stub being more conservative than
+// the value actually is:
 //
 //   1. duckdb's `fetchone()` is typed `tuple | None`, so `n, = con.execute(...).fetchone()`
-//      reads as unpacking None (e.g. verify_training_set_counts.py:194). A `SELECT COUNT(*)`
-//      always returns a row; the None branch is unreachable by construction.
+//      reads as unpacking None (verify_training_set_counts.py:194, validate.py:230,
+//      verify_expected_r1.py:165/191). A `SELECT COUNT(*)` always returns a row; the None
+//      branch is unreachable by construction.
 //   2. duckdb scalars come back as `PythonLiteral | None`, so passing one to `float()` or
 //      comparing it to a number looks unsafe (fig5/data.py, fig5/depletion_rank.py).
-//   3. pandas-stubs types `df[['a','b']]` as `Series | DataFrame | ndarray`, so the very next
-//      `.dropna()`/`.apply()`/`.values` is flagged as missing from ndarray (most of
-//      gnocchi_bias/dnm_model.py). The frames are frames; the union is the stub hedging.
+//   3. pandas-stubs cannot type `df.apply(scipy.stats.zscore)` (dnm_model.py:260), since
+//      zscore's signature does not match the `(...) -> Mapping` overload it picks.
+//
+// Four are ours rather than the stubs': `extra: list[tuple[str, str]] = ()` in fig5/data.py
+// and fig5/diagnostics.py (the default should be a Sequence, or a list), and `total_size +=
+// size` in list_bucket_files.py:237/244, where `size` is `int | None` in general but never
+// None on those two paths. All four are harmless at runtime and worth fixing properly rather
+// than leaving to a blanket suppression.
 //
 // Disabled per rule rather than with `typeCheckingMode: "off"` so that the checks worth
 // having survive -- reportUndefinedVariable and reportUnboundVariable in particular, which
@@ -51,12 +57,13 @@
 
   "typeCheckingMode": "basic",
 
+  // reportAttributeAccessIssue, reportOptionalIterable and reportReturnType were here too,
+  // for a `df[['a','b']]` union that included ndarray. Installing pandas-stubs (pinned to
+  // the pandas version in requirements.txt) types those frames as frames, and all three
+  // rules now find nothing, so they are enforced again.
   "reportOptionalSubscript": "none",
-  "reportOptionalIterable": "none",
   "reportGeneralTypeIssues": "none",
   "reportArgumentType": "none",
   "reportOperatorIssue": "none",
-  "reportAttributeAccessIssue": "none",
-  "reportCallIssue": "none",
-  "reportReturnType": "none"
+  "reportCallIssue": "none"
 }
