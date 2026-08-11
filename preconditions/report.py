@@ -59,8 +59,8 @@ CHECKS = {
         ".venv/bin/python preconditions/verify_missing_utils_files.py",
     ),
     "verify_qc_filter": (
-        "the published constraint table's pass_qc column is a constant, and the windows "
-        "missing from it failed variant-call QC rather than lacking coverage",
+        "the published window filter holds in both directions -- every scored window "
+        "satisfies it, every absent one fails it -- and pass_qc itself is a constant",
         ".venv/bin/python preconditions/verify_qc_filter.py",
     ),
     "verify_training_set_counts": (

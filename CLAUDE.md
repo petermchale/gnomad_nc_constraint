@@ -69,7 +69,14 @@ figure.
    (weighted by training sites: 87.8 / 14.3 / 1.0%). A residual 1.9% pass all three and
    are unexplained. Relatedly, `pass_qc` is **True on all 1,984,900 rows** of that table,
    so filtering on it is a no-op and a QC failure is only ever visible as an absent row.
-   `preconditions/verify_qc_filter.py`.
+   The filter also holds in the forward direction, re-evaluated from the raw
+   `pass`/`coverage`/`possible` inputs rather than from that flag: **all 1,984,900 scored
+   windows satisfy it, 0 violations**, with the pass fraction bottoming out at exactly
+   0.8000 (1,723 windows sit there, fixing the comparison as `>=`), coverage spanning
+   25.003-34.862 and `possible` at exactly 1,000. `preconditions/verify_qc_filter.py`.
+   Note which file is the scored set: `constraint_z_genome_1kb.annot.txt`, not
+   `expected_counts_by_context_methyl_genome_1kb.txt` -- the latter is the 2,575,299-window
+   step-1 universe and still contains every QC failure.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
    smooth 1.57x, and the logistic regression can then track it instead of missing by 26%
