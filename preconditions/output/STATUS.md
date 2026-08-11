@@ -16,7 +16,7 @@ run time. Full transcripts are the `.log` files beside this one.
 | [`verify_logit_predict_behavior`](verify_logit_predict_behavior.log) | PASS | 3/3 | 2026-08-11 02:51 UTC | `0e29ea8` | the operative adjustment is a ratio of probabilities, not the logit ratio the Methods state |
 | [`verify_missing_utils_files`](verify_missing_utils_files.log) | PASS | 2/2 | 2026-08-11 02:51 UTC | `0e29ea8` | the multivariate PCA+logit fit behind r(w) is genuinely unpublished, and the three utility modules are not missing |
 | [`verify_training_set_counts`](verify_training_set_counts.log) | PASS | 5/5 | 2026-08-11 02:51 UTC | `0e29ea8` | the four shipped training tables are the training set the paper describes |
-| [`validate.coefficients`](validate.coefficients.log) | PASS | 3/3 | 2026-08-11 02:53 UTC | `0e29ea8` | our univariate stage reproduces Chen et al.'s fitted coefficients and their selected-feature set |
+| [`validate.coefficients`](validate.coefficients.log) | PASS | 3/3 | 2026-08-11 17:46 UTC | `93e6f1b` | our univariate stage reproduces Chen et al.'s fitted coefficients and their selected-feature set |
 | [`validate.expected`](validate.expected.log) | PASS | 2/2 | 2026-08-11 02:51 UTC | `0e29ea8` | our full-population refit reproduces the published genome-wide expected counts |
 
 ## `verify_expected_r1` and `validate.expected` are not the same check
@@ -95,7 +95,7 @@ _PASS, 2s, 2026-08-11 02:51 UTC._
 - PASS — every coefficient lands within 0.0212 of the published fit's OWN standard error (median 0.0008, threshold 0.25) over 1,664 rows
 - PASS — our feature selection reproduces theirs EXACTLY against published selected file: 239 rows each, 239 in both, none on either side alone -- and the selected set is what each context's multivariate model is fit on
 
-_PASS, 113s, 2026-08-11 02:53 UTC._
+_PASS, 108s, 2026-08-11 17:46 UTC._
 
 ### `validate.expected`
 

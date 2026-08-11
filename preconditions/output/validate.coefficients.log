@@ -3,7 +3,7 @@ $ .venv/bin/python preconditions/validate.py -check coefficients
 32 contexts, dnm1=410,542 rows, dnm0=4,104,878 rows
 
 fitting univariate feature selection on the FULL, unmodified training set...
-  done in 82.6s
+  done in 78.2s
 wrote ./preconditions/output/coef_univariate.txt
 
 rows: 1664  both-NaN (fit failed in both): 0  NaN-mismatch (fit failed in only one): 0  comparable: 1664
@@ -12,7 +12,7 @@ max |coef diff| = 2.632e-04   max |se diff|   = 5.209e-05   max |pval diff| = 1.
 coef matches to <1e-6: 360/1664   <1e-3: 1664/1664   (absolute, against median |coef| = 0.0266)
 selected features vs published selected file: ours 239, theirs 239, in both 239, ours only 0, theirs only 0
 
-PASS: 3/3 claims, 113s
+PASS: 3/3 claims, 108s
   [PASS] every one of the 1,664 (context, window, feature) rows fits in both implementations or neither -- 0 one-sided failures
   [PASS] every coefficient lands within 0.0212 of the published fit's OWN standard error (median 0.0008, threshold 0.25) over 1,664 rows
   [PASS] our feature selection reproduces theirs EXACTLY against published selected file: 239 rows each, 239 in both, none on either side alone -- and the selected set is what each context's multivariate model is fit on

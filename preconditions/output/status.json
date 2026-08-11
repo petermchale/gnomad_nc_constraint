@@ -14,12 +14,12 @@
         "text": "our feature selection reproduces theirs EXACTLY against published selected file: 239 rows each, 239 in both, none on either side alone -- and the selected set is what each context's multivariate model is fit on"
       }
     ],
-    "commit": "0e29ea8",
+    "commit": "93e6f1b",
     "dirty": false,
     "name": "validate.coefficients",
-    "seconds": 112.7,
+    "seconds": 108.0,
     "verdict": "PASS",
-    "when": "2026-08-11 02:53 UTC"
+    "when": "2026-08-11 17:46 UTC"
   },
   "validate.expected": {
     "claims": [
