@@ -336,21 +336,78 @@ save(fig, "A")
 md(r"""
 ## Panel B — the adjustment Gnocchi applies, decomposed by CpG status
 
-The quantity actually applied to each window is the $E_1$-weighted mean of the
-per-context $r$,
+**Per-context expected counts.** Group step 1's sum by trinucleotide context $t$ — the
+level $r$ is fit at — writing $c\!\to\!t$ for the classes $c=(t,m)$ sharing context $t$:
 
-$$r_{\mathrm{eff}}(w)=\frac{E_2(w)}{E_1(w)}.$$
+$$E_1^{t}(w)=\sum_{c\to t} n_c(w)\,p_c, \qquad E_1(w)=\sum_t E_1^{t}(w).$$
 
-Aggregating a GC bin as a **ratio of summed expected counts** (not a mean of per-window
-ratios — expected counts add, so this is the adjustment the bin actually receives), and
-splitting the sum at CpG contexts $\mathcal K=\{\mathrm{ACG,CCG,GCG,TCG}\}$:
+Because $r_t(w)$ carries no methylation index, it comes out of the inner sum, and step 2
+is a *reweighting of the same per-context counts*:
 
-$$R_{\mathrm{eff}}(g)=\Pi(g)\,R_{\mathrm{CpG}}(g)+\big(1-\Pi(g)\big)\,R_{\mathrm{non}}(g),
-\qquad \Pi(g)=\frac{\sum_{w\in g} E_1^{\mathcal K}(w)}{\sum_{w\in g} E_1(w)} .$$
+$$E_2^{t}(w)=\sum_{c\to t} n_c(w)\,p_c\,r_t(w)=E_1^{t}(w)\,r_t(w),
+\qquad E_2(w)=\sum_t E_1^{t}(w)\,r_t(w).$$
 
-This is an **exact identity**, not a fit, so the panel reads additively. The dashed grey
-curve is the counterfactual $R_{\mathrm{non}}\equiv1$ with everything else untouched;
-its flatness is the claim.
+**What one window receives.** Dividing,
+
+$$r_{\mathrm{eff}}(w)=\frac{E_2(w)}{E_1(w)}=\sum_t \omega_t(w)\,r_t(w),
+\qquad \omega_t(w)=\frac{E_1^{t}(w)}{E_1(w)},\quad \sum_t \omega_t(w)=1,$$
+
+an $E_1$-weighted mean of the per-context $r$. This is why $r_{\mathrm{eff}}$, not any
+single $r_t$, is the quantity the score sees: two windows with identical $r_t$ still
+receive different adjustments if their context composition differs — and context
+composition is precisely what varies with GC.
+
+**What a GC bin receives.** Aggregate a bin $g$ as a **ratio of summed expected counts**:
+
+$$R_{\mathrm{eff}}(g)=\frac{\sum_{w\in g}E_2(w)}{\sum_{w\in g}E_1(w)}
+=\sum_{w\in g} W(w)\,r_{\mathrm{eff}}(w),
+\qquad W(w)=\frac{E_1(w)}{\sum_{w'\in g}E_1(w')},$$
+
+again an $E_1$-weighted mean, of the window-level $r_{\mathrm{eff}}$ this time. Expected
+counts add, so this is the adjustment the bin actually receives; an unweighted mean of
+$r_{\mathrm{eff}}(w)$ would weight a 3-site window like a 400-site one and answer a
+different question.
+
+**Splitting at CpG.** Let $\mathcal K=\{\mathrm{ACG,CCG,GCG,TCG}\}$ and write
+$E_M^{\mathcal K}=\sum_{t\in\mathcal K}E_M^{t}$, $E_M^{\neg\mathcal K}=E_M-E_M^{\mathcal K}$
+for $M\in\{1,2\}$. Define each part's own adjustment, and the CpG share of the step-1
+counts:
+
+$$R_{\mathrm{CpG}}(g)=\frac{\sum_{w\in g}E_2^{\mathcal K}(w)}{\sum_{w\in g}E_1^{\mathcal K}(w)},
+\qquad
+R_{\mathrm{non}}(g)=\frac{\sum_{w\in g}E_2^{\neg\mathcal K}(w)}{\sum_{w\in g}E_1^{\neg\mathcal K}(w)},
+\qquad
+\Pi(g)=\frac{\sum_{w\in g}E_1^{\mathcal K}(w)}{\sum_{w\in g}E_1(w)} .$$
+
+Then, splitting the numerator of $R_{\mathrm{eff}}$ and multiplying each term by 1,
+
+$$R_{\mathrm{eff}}(g)
+=\frac{\sum_g E_2^{\mathcal K}+\sum_g E_2^{\neg\mathcal K}}{\sum_g E_1}
+=\frac{\sum_g E_1^{\mathcal K}}{\sum_g E_1}\cdot\frac{\sum_g E_2^{\mathcal K}}{\sum_g E_1^{\mathcal K}}
++\frac{\sum_g E_1^{\neg\mathcal K}}{\sum_g E_1}\cdot\frac{\sum_g E_2^{\neg\mathcal K}}{\sum_g E_1^{\neg\mathcal K}}
+=\Pi(g)\,R_{\mathrm{CpG}}(g)+\big(1-\Pi(g)\big)\,R_{\mathrm{non}}(g),$$
+
+using only that expected counts add and that $\sum_g E_1^{\neg\mathcal K}/\sum_g E_1=1-\Pi(g)$.
+This is an **exact identity**, not a fit, so the panel reads additively.
+
+**The counterfactual.** Holding the non-CpG adjustment at 1 sends
+$E_2^{\neg\mathcal K}\!\to\!E_1^{\neg\mathcal K}$ and nothing else, so the dashed grey curve is
+
+$$R_{\mathrm{eff}}\big|_{r_{\mathrm{non}}\equiv1}(g)
+=\frac{\sum_g E_2^{\mathcal K}+\sum_g E_1^{\neg\mathcal K}}{\sum_g E_1}
+=\Pi(g)\,R_{\mathrm{CpG}}(g)+\big(1-\Pi(g)\big).$$
+
+Its flatness is the claim: whatever CpG contexts do, and however much of the bin they
+carry, they move $R_{\mathrm{eff}}$ hardly at all.
+
+In `data.r_eff_by_gc` these are the columns `r_eff`, `r_cpg`, `r_non`, `pi_cpg` and
+`r_counterfactual`, summed from the per-window `e1`, `e2`, `e1_cpg`, `e2_cpg` of
+`_r_eff_components` (non-CpG by subtraction, `e1_non = e1 - e1_cpg`). One further column,
+`r_eff_published` $=\sum_g E_2^{\mathrm{pub}}/\sum_g E_1$, replaces the refit's numerator
+with Chen et al.'s own published `expected`. It needs no per-context $r$, which is what
+makes it a check rather than a restatement: the two agree to $10^{-4}$ per bin, and that
+is what licenses using the refit's per-context $r$ above — the published pipeline writes
+its own only to a local directory, never to the bucket.
 
 **Why $R_{\mathrm{CpG}}\approx1$ is correct, not a failure.** CpG mutability is dominated
 by methylation, and $p_c$ is already keyed by methylation level — across methylation 0 to
@@ -686,8 +743,9 @@ nb = {
     "nbformat_minor": 5,
 }
 
-out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fig5.ipynb")
-out = "/Users/petermchale/gnomad_nc_constraint/fig5/fig5.ipynb"
+# Beside this file. (Was two lines: a wrong os.path.join -- it landed in the repo root --
+# immediately overwritten by a hardcoded absolute path from one machine.)
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fig5.ipynb")
 with open(out, "w") as fh:
     json.dump(nb, fh, indent=1)
 print("wrote", out, f"({len(CELLS)} cells)")
