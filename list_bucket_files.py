@@ -71,7 +71,7 @@ SIZE = _c("\033[32m")      # green
 SUMMARY = _c("\033[1;36m")  # bold cyan
 
 
-def human_size(n: int) -> str:
+def human_size(n: float) -> str:  # float, not int: `n /= 1024` below rebinds it
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if n < 1024:
             return f"{n:.1f}{unit}"
@@ -91,6 +91,9 @@ def _urlopen_with_retries(url: str, max_attempts: int = 5):
             if e.code not in (429, 500, 502, 503, 504) or attempt == max_attempts - 1:
                 raise
             time.sleep(2 ** attempt)
+    # Unreachable for max_attempts >= 1: the last attempt either returns or re-raises. Here
+    # so the function cannot silently return None to `with _urlopen_with_retries(...)`.
+    raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
 
 
 def list_objects(prefix: str, recursive: bool):

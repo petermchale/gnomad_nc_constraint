@@ -1,0 +1,62 @@
+// Silence Pylance/pyright's type complaints about pandas and duckdb, which are noise here,
+// while keeping the diagnostics that catch real mistakes.
+//
+// Every one of the 38 errors this file turns off came from a third-party stub being more
+// conservative than the value actually is, in one of three families:
+//
+//   1. duckdb's `fetchone()` is typed `tuple | None`, so `n, = con.execute(...).fetchone()`
+//      reads as unpacking None (e.g. verify_training_set_counts.py:194). A `SELECT COUNT(*)`
+//      always returns a row; the None branch is unreachable by construction.
+//   2. duckdb scalars come back as `PythonLiteral | None`, so passing one to `float()` or
+//      comparing it to a number looks unsafe (fig5/data.py, fig5/depletion_rank.py).
+//   3. pandas-stubs types `df[['a','b']]` as `Series | DataFrame | ndarray`, so the very next
+//      `.dropna()`/`.apply()`/`.values` is flagged as missing from ndarray (most of
+//      gnocchi_bias/dnm_model.py). The frames are frames; the union is the stub hedging.
+//
+// Disabled per rule rather than with `typeCheckingMode: "off"` so that the checks worth
+// having survive -- reportUndefinedVariable and reportUnboundVariable in particular, which
+// catch typos in a repo that is mostly scripts, and unresolved imports.
+//
+// If you add a real type annotation somewhere and want it enforced, delete the matching line
+// below rather than the whole file.
+{
+  // So `uvx pyright` from the shell resolves duckdb/pandas the same way the editor does.
+  // Without this it reports 28 spurious unresolved-import errors instead.
+  "venvPath": ".",
+  "venv": ".venv",
+
+  // Chen et al.'s files are byte-unchanged from upstream (see README) and ours to read, not
+  // to fix; the two data directories are gitignored downloads.
+  //
+  // The first three entries are pyright's own defaults, restored by hand: naming `exclude`
+  // at all REPLACES the defaults rather than adding to them, and dropping `**/.*` sends
+  // pyright walking into `.venv` (which is minutes of analysis, and is what Pylance's
+  // `missingDefaultExcludes` hint is warning about).
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "published",
+    "refits",
+    "run_nc_constraint_gnomad_v31_main.py",
+    "analyze_individual_feature_effects.py",
+    "generate_manuscript_figures.py",
+    "generate_manuscript_efigures.py",
+    "fig_utils.py",
+    "efig_utils.py",
+    "generic.py",
+    "constraint_basics.py",
+    "nc_constraint_utils.py"
+  ],
+
+  "typeCheckingMode": "basic",
+
+  "reportOptionalSubscript": "none",
+  "reportOptionalIterable": "none",
+  "reportGeneralTypeIssues": "none",
+  "reportArgumentType": "none",
+  "reportOperatorIssue": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportCallIssue": "none",
+  "reportReturnType": "none"
+}
