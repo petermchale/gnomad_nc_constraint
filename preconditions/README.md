@@ -27,7 +27,7 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 | verify | `verify_expected_r1.py` | `expected_counts_by_context_methyl_genome_1kb.txt` really is the context-only, pre-adjustment (r ≡ 1) table, *and* it describes the same windows with the same `possible` denominators as the published constraint table | **everything** — fig5's step-1 curve (panel A), E₁ denominator (B), context-only baseline (E) |
 | verify | `verify_logit_predict_behavior.py` | the operative adjustment is `r = σ(β₀+β·z)/σ(β₀)`, a ratio of *probabilities*, not the logit ratio the Methods state | fig5's Notation cell; panel B's "a level error cancels" argument |
 | verify | `verify_missing_utils_files.py` | the PCA+logit fit behind `r(w)` is genuinely absent from the bucket (only the apply side is published), and `misc/generic.py` et al. are *not* missing | the premise of `validate.py` |
-| verify | `verify_qc_filter.py` | Chen et al.'s window filter re-derived from its own inputs, both ways: all 1,984,900 scored windows satisfy it (0 violations) and 98.1% of the 587,902 absent ones fail it — by the ≥80% PASS rule (70.9%) far more than the coverage band (3.3%). `pass_qc` is `True` on every published row, so the flag is inert and a QC failure shows up only as an absent window | fig5 panel C's third stratum and the name it carries in the legend; anything that treats "in the constraint table" as meaning "passed QC" |
+| verify | `verify_qc_filter.py` | Chen et al.'s window filter re-derived from its own inputs, both ways: all 1,984,900 scored windows satisfy it (0 violations) and 98.1% of the 587,902 absent ones fail it — by the ≥80% PASS rule (70.9%) far more than the coverage band (3.3%). `pass_qc` is `True` on every published row, so the flag is inert and a QC failure shows up only as an absent window. The dropped windows are 6.9% coding-overlapping against the kept windows' 7.1%, so QC failure is near-independent of coding status | fig5 panel C's third stratum and the name it carries in the legend; anything that treats "in the constraint table" as meaning "passed QC" |
 | verify | `verify_training_set_counts.py` | the four shipped training tables really are the training set the paper describes — both published counts reproduced, and the join `load_training_data` performs loses nothing | every fig5 claim about *what step 2 was fit on*: panels C, D and E, and the whole population argument. Also `dnm_training_size/` |
 | validate | `validate.py` | the reimplementation reproduces Chen et al.'s, at the univariate parameters and end to end | fig5 and dnm_training_size both refit |
 
@@ -81,7 +81,7 @@ one, never from the universe.
 .venv/bin/python preconditions/verify_expected_r1.py              # ~8 min cold (3.3 GB), 3s cached
 .venv/bin/python preconditions/verify_logit_predict_behavior.py   # seconds
 .venv/bin/python preconditions/verify_missing_utils_files.py      # seconds
-.venv/bin/python preconditions/verify_qc_filter.py                # 19s cached (+200 MB, once)
+.venv/bin/python preconditions/verify_qc_filter.py                # 20s cached (+300 MB, once)
 .venv/bin/python preconditions/verify_training_set_counts.py      # 5s cached (421 MB)
 .venv/bin/python preconditions/validate.py -check expected        # seconds
 .venv/bin/python preconditions/validate.py -check coefficients    # ~2 min cached (2.5 GB)
@@ -129,6 +129,11 @@ it does.
   fraction bottoms out at exactly 0.8000, coverage spans 25.003–34.862 inside a 25–35 band,
   `possible` bottoms out at exactly 1,000. The **1,723 windows sitting exactly at 0.8** are
   what fixes the comparison as `>=` rather than `>`.
+  The coding claim is the one to reach for if someone asks whether the QC-fail stratum is
+  just coding sequence under another name: it is a mixture, 6.9% coding-overlapping
+  against 7.1% among the kept windows, which had to be measured from Chen et al.'s own
+  upstream `misc/genome_1kb_coding_exons.txt` because `coding_prop` lives in the
+  constraint table and these windows have no row there.
   Then read the two decompositions of the absences together, because they disagree in
   emphasis and both are true. Per *window*, 70.9% of the 587,902 absences fail the PASS rule
   and 43.3% fail `possible ≥ 1000` (the categories overlap); per *training site*, it is 87.8%

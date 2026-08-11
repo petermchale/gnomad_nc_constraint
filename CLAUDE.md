@@ -76,7 +76,11 @@ figure.
    25.003-34.862 and `possible` at exactly 1,000. `preconditions/verify_qc_filter.py`.
    Note which file is the scored set: `constraint_z_genome_1kb.annot.txt`, not
    `expected_counts_by_context_methyl_genome_1kb.txt` -- the latter is the 2,575,299-window
-   step-1 universe and still contains every QC failure.
+   step-1 universe and still contains every QC failure. The QC-fail stratum is a **mixture
+   of coding and noncoding** windows (6.9% coding-overlapping, against 7.1% among the
+   QC-pass ones, so QC failure is near-independent of coding status); panel C therefore
+   names its three bands *QC-pass noncoding*, *QC-pass coding* and *QC-fail*, splitting
+   only the first two by coding status.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
    smooth 1.57x, and the logistic regression can then track it instead of missing by 26%

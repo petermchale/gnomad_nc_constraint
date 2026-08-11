@@ -480,7 +480,16 @@ That third stratum is therefore **not** "no gnomAD coverage", the name it carrie
 until measured: of the 587,902 absent autosomal windows, all have their QC inputs on
 file, 417,097 fail the PASS rule and only 19,396 fail the coverage band. Weighted by
 background training sites it is starker still — 88% PASS rule, 14% too few possible
-variants, 1% coverage. `preconditions/verify_qc_filter.py` records both.
+variants, 1% coverage. `preconditions/verify_qc_filter.py` records both, and confirms the
+filter forwards too: all 1,984,900 scored windows satisfy all three conditions.
+
+The three strata are therefore *QC-pass noncoding*, *QC-pass coding*, and *QC-fail* — and
+only the first two are split by coding status. **The third is a mixture**, deliberately:
+`coding_prop` lives in the constraint table and these windows have no row in it. Read from
+Chen et al.'s own upstream input (`misc/genome_1kb_coding_exons.txt`), 6.9% of the QC-fail
+windows overlap coding exons, against 7.1% of the QC-pass ones — so QC failure is close to
+independent of coding status, and the third band is not a coding band in disguise. Site-
+weighted, 5.8% of its sites are in coding-overlapping windows.
 
 The fraction inside the scored population falls from ~0.83 in the GC bulk to under 0.30
 by GC 0.68. So the model is fit on one population and applied to another, and the two

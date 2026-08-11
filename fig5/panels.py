@@ -138,9 +138,17 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # population. The word needs an antecedent the legend does not supply, and it papers over
 # a difference: a coding window HAS a published Gnocchi score and is dropped by this
 # analysis's noncoding restriction, while a QC-failing window was dropped by Chen et al.
-# before scoring and has none. Naming each stratum for what it is says more in fewer
-# words; the relation to the scored set is what the first label states and what the
-# notebook's panel C section spells out.
+# before scoring and has none. Naming each stratum by the two properties that define it --
+# did the window pass QC, does it overlap coding exons -- says more in fewer words.
+#
+# The labels also stop the third stratum from reading as "the noncoding remainder". It is
+# a MIXTURE: 40,509 of the 587,902 QC-fail autosomal windows overlap coding exons (6.9%),
+# against 7.1% among the QC-pass ones, so QC failure is close to independent of coding
+# status. Site-weighted, which is what the band counts, 5.8% of its sites sit in
+# coding-overlapping windows. Only the first two strata are separated by coding status;
+# the third deliberately is not, because `coding_prop` comes from the constraint table and
+# these windows have no row in it (measured here from Chen et al.'s own upstream input,
+# misc/genome_1kb_coding_exons.txt, in preconditions/verify_qc_filter.py).
 #
 # `failed_qc`, not `no_coverage`: a window absent from the published constraint table
 # failed one of the paper's three QC conditions (>= 80% of observed variants PASS, mean
@@ -149,9 +157,9 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # PASS rule against 19,396 failing coverage. preconditions/verify_qc_filter.py measures it.
 STRATUM_COLORS = {"analyzed": "0.78", "coding": "#eb6834", "failed_qc": "#1baf7a"}
 STRATUM_LABELS = {
-    "analyzed": "In the analyzed noncoding genome",
-    "coding": "Coding window",
-    "failed_qc": "Window failed gnomAD variant-call QC",
+    "analyzed": "In QC-pass noncoding windows",
+    "coding": "In QC-pass coding windows",
+    "failed_qc": "In QC-fail windows",
 }
 # The composition table names the third category `noannot`, for the mechanism that
 # defines it -- no row in the constraint table at all -- which is the same set of windows
@@ -207,9 +215,14 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
 
     THE CLAIM, and why the two rows belong together. The row above shows that the
     training set leaves the scored population at high GC; on its own that is only an
-    absence. This row shows the excluded territory is also DIFFERENT: the coding stratum
-    tracks the noncoding one within ~10% and flat across the whole GC range, while the
-    QC-failing stratum runs 1.55x in the GC bulk and 4.06x by GC 0.61. So the steep GC
+    absence. This row shows the excluded territory is also DIFFERENT: the QC-pass coding
+    stratum tracks the QC-pass noncoding one within ~10% and flat across the whole GC
+    range, while the QC-fail stratum runs 1.55x in the GC bulk and 4.06x by GC 0.61.
+
+    The QC-fail stratum mixes coding and noncoding windows (6.9% of it overlaps coding
+    exons, against 7.1% of the QC-pass windows), so its excess is not the coding effect
+    arriving by another route -- and the coding curve beside it is what shows that
+    directly. So the steep GC
     dependence the model learns comes from sequence gnomAD could not call reliably --
     which is also where trio DNM calling is least reliable, making part of that excess
     plausibly false-positive calls rather than real mutation.

@@ -38,6 +38,11 @@ Four things it establishes, all load-bearing for fig5 panel C:
   4. The residual: a small number of absent windows pass all three conditions and are
      unexplained, so the filter is not a complete account of who is in the table.
 
+  5. The dropped windows are a MIXTURE of coding and noncoding, in about the same
+     proportion as the kept ones -- which is why panel C's third stratum is labelled by
+     QC status alone. `coding_prop` lives in the constraint table, so a dropped window has
+     none; this reads Chen et al.'s own upstream input instead.
+
 Outcome of the last run: preconditions/output/STATUS.md (transcript in the .log beside it).
 """
 import argparse
@@ -57,6 +62,10 @@ DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "published")
 
 PASS_FILE = "misc/genome_1kb_gnomad_v31_pass.txt"          # element_id, fraction PASS
 COVERAGE_FILE = "misc/genome_1kb_gnomad_v31_coverage.txt"  # element_id, mean coverage
+# The input the constraint table's own coding_prop column is built from
+# (run_nc_constraint_gnomad_v31_main.py:299-301), and the only way to ask about coding
+# overlap for a window that never got a row in that table.
+CODING_FILE = "misc/genome_1kb_coding_exons.txt"           # element_id, coding fraction
 
 # The filter, transcribed from run_nc_constraint_gnomad_v31_main.py:296. Comparisons are
 # inclusive on both sides exactly as pandas' `>=` and `.between(25, 35)` are; 1,723 scored
@@ -250,6 +259,36 @@ def main() -> None:
                   f"the same holds site-weighted, which is what panel C's third band "
                   f"counts: of its {s_n:,} sites, {s_pass / s_n:.1%} are in windows "
                   f"failing the PASS rule against {s_cov / s_n:.1%} failing coverage")
+
+        # ------------------------- is the QC-fail stratum secretly a coding stratum?
+        coding = download(CODING_FILE, args.dest_dir)
+        c_n, c_unknown, c_coding, c_mostly = (int(v) for v in one(con, f"""
+            WITH cd AS (SELECT column0 AS element_id, column1 AS coding_prop
+                        FROM read_csv_auto('{coding}', delim='\t', header=False))
+            SELECT COUNT(*),
+                   SUM(CASE WHEN cd.coding_prop IS NULL THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN cd.coding_prop > 0 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN cd.coding_prop >= 0.5 THEN 1 ELSE 0 END)
+            FROM ({universe}) u LEFT JOIN cd ON u.element_id = cd.element_id
+            WHERE NOT u.scored
+        """))
+        kept_coding_frac = PAPER_CODING / PAPER_WINDOWS
+        print(f"\ncoding composition of the {c_n:,} QC-fail windows "
+              f"(from {os.path.basename(coding)}, not the constraint table, which has no "
+              f"row for them):\n"
+              f"  overlap coding exons:   {c_coding:,} ({c_coding / c_n:.1%})   "
+              f"[QC-pass windows: {kept_coding_frac:.1%}]\n"
+              f"  >= 50% coding:          {c_mostly:,} ({c_mostly / c_n:.1%})\n"
+              f"  no coding_prop on file: {c_unknown:,}")
+        rep.claim(c_unknown == 0 and 0 < c_coding < c_n,
+                  f"the QC-fail stratum is a MIXTURE, not the noncoding remainder: "
+                  f"{c_coding:,} of its {c_n:,} windows overlap coding exons and "
+                  f"{c_n - c_coding:,} do not, with a coding_prop on file for every one")
+        rep.claim(abs(c_coding / c_n - kept_coding_frac) < 0.02,
+                  f"and its coding share, {c_coding / c_n:.1%}, is within 2 points of the "
+                  f"QC-pass windows' {kept_coding_frac:.1%} -- QC failure is close to "
+                  f"independent of coding status, so panel C's third band is not a coding "
+                  f"band in disguise")
 
 
 if __name__ == "__main__":
