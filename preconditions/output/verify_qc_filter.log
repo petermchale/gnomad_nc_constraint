@@ -1,27 +1,41 @@
 $ .venv/bin/python preconditions/verify_qc_filter.py
-# the published constraint table's pass_qc column is a constant, and the windows missing from it failed variant-call QC rather than lacking coverage
+# the published window filter holds in both directions -- every scored window satisfies it, every absent one fails it -- and pass_qc itself is a constant
 
 published constraint table: 1,984,900 rows, pass_qc false on 0, null on 0
   coding-overlapping 141,341, exclusively noncoding 1,843,559
 
 autosomal windows in the step-1 table: 2,572,802
-  in the constraint table:  1,984,900
-  absent from it:           587,902
+  scored (in the constraint table): 1,984,900
+  absent from it:                   587,902
+
+filter re-evaluated from the raw inputs, against membership:
+  scored and satisfies it:     1,984,900
+  scored and VIOLATES it:      0
+  absent and fails it:         576,981
+  absent but satisfies it:     10,921   [unexplained]
+
+margins over the scored windows:
+  pass fraction  min 0.8000   (threshold 0.8; 1,723 sit exactly on it)
+  mean coverage  25.003 - 34.862   (band 25-35)
+  possible       min 1,000   (threshold 1,000)
+
+reasons the 587,902 absent windows fail (categories overlap):
   fail >= 80% PASS:        417,097 (70.9%)
   fail >= 1000 possible:   254,555 (43.3%)
   fail 25-35x coverage:    19,396 (3.3%)
-  pass all three anyway:   10,921 (1.9%)   [unexplained]
 
 non-CpG background training sites in absent windows: 537,985
   fail >= 80% PASS:        472,433 (87.8%)
   fail >= 1000 possible:   77,190 (14.3%)
   fail 25-35x coverage:    5,610 (1.0%)
 
-PASS: 7/7 claims, 1s
+PASS: 9/9 claims, 2s
   [PASS] pass_qc is True on all 1,984,900 rows of the published constraint table -- the column is a constant, so a QC failure appears as an ABSENT row, never as pass_qc = False
   [PASS] the window set is the paper's: 1,984,900 autosomal windows, 141,341 coding-overlapping and 1,843,559 exclusively noncoding (Methods: 1,984,900 / 141,341 / 1,843,559)
   [PASS] the two tables partition cleanly: 2,572,802 autosomal step-1 windows = 1,984,900 scored + 587,902 absent
-  [PASS] all 587,902 absent windows have their QC inputs on file (0 missing a pass fraction or a coverage), so the reason for each absence is adjudicable rather than assumed
-  [PASS] 98.1% of absent windows fail at least one of the paper's three conditions (threshold 95%); the residual 10,921 pass all three and are unexplained
+  [PASS] every one of the 2,572,802 windows has all three QC inputs on file (0 missing a pass fraction, a coverage or a possible count), so the filter can be re-evaluated everywhere rather than assumed
+  [PASS] FORWARD DIRECTION: all 1,984,900 scored windows satisfy the published filter when it is re-evaluated from the raw pass/coverage/possible inputs -- 0 violate it, so nothing was admitted in spite of the rule the Methods state
+  [PASS] the margins agree: over the scored set the pass fraction bottoms out at 0.8000, coverage spans 25.003-34.862 and `possible` bottoms out at 1,000 -- and the 1,723 windows at exactly 0.8 confirm the comparison is >=, not >
+  [PASS] REVERSE DIRECTION: 98.1% of absent windows fail at least one of the paper's three conditions (threshold 95%); the residual 10,921 pass all three and are unexplained, so the filter is not a complete account of membership
   [PASS] absence is the PASS-fraction rule, not missing coverage: 417,097 windows fail >= 80% PASS against 19,396 failing the 25-35x band -- so 'no gnomAD coverage' is the wrong name for this stratum
   [PASS] the same holds site-weighted, which is what panel C's third band counts: of its 537,985 sites, 87.8% are in windows failing the PASS rule against 1.0% failing coverage
