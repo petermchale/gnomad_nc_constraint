@@ -30,6 +30,31 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 | verify | `verify_training_set_counts.py` | the four shipped training tables really are the training set the paper describes — both published counts reproduced, and the join `load_training_data` performs loses nothing | every fig5 claim about *what step 2 was fit on*: panels C, D and E, and the whole population argument. Also `dnm_training_size/` |
 | validate | `validate.py` | the reimplementation reproduces Chen et al.'s, at the univariate parameters and end to end | fig5 and dnm_training_size both refit |
 
+### `verify_expected_r1` and `validate.py -check expected` look alike and are not
+
+They read neighbouring files and both end in a genome-wide diff, but they are about
+different quantities. Neither *computes* E₁ — Chen et al.'s E₁ is an input to both.
+
+| | `verify_expected_r1` | `validate.py -check expected` |
+|---|---|---|
+| compares | `Σ_context E₁[eid, ctx]` vs `E₁[eid]` | `Σ_context E₁[eid, ctx] × r_ours` vs `annot.expected` (= `Σ E₁ × r_theirs`) |
+| both sides are | E₁, and both are **theirs** | E₂, one **ours** and one theirs |
+| what runs | a re-aggregation; no model | the full refit — selection, PCA, L1 logit, apply |
+| under test | the E₁ table's **identity** | **r**, with E₁ taken as given |
+| rows | 2,575,299, genome-wide | 1,984,900 (the `annot` join, `expected > 0`) |
+| `annot` column used | `possible`, which r never multiplies | `expected`, which is entirely r's doing |
+
+They also sit on opposite sides of `verify_expected_r1`'s own comparison: it uses the
+per-context file as its trusted reference and certifies the summed one. `refit.py` consumes
+the per-context file (`dnm_model.py`, `SUM(e.expected * rr)`) — the side it trusts — while
+fig5 panel A consumes the summed one, the side it certifies.
+
+**So `validate.expected` cannot stand in for it.** E₁ is a common factor on both of its
+sides, so it cancels and only r is left under test. Were
+`expected_counts_by_context_methyl_genome_1kb.txt` secretly post-adjustment,
+`validate.expected` would still pass at Pearson r = 1.000000 — both sides carrying the
+identical contamination — while panel A's whole "before" curve was silently wrong.
+
 ## Running them
 
 ```bash

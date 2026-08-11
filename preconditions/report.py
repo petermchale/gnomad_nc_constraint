@@ -73,6 +73,26 @@ CHECKS = {
     ),
 }
 
+# Prose belonging to a SET of checks rather than to any one of them, so it has no natural
+# home in CHECKS above or in a claim. Rendered after the table. Keep these to things a
+# reader of STATUS.md would otherwise get wrong -- two rows that look like the same check,
+# a claim that looks like independent corroboration of another -- and put the full argument
+# in preconditions/README.md rather than restating it here.
+NOTES = [(
+    "`verify_expected_r1` and `validate.expected` are not the same check",
+    """Both end in a genome-wide diff of expected counts, and neither computes E1 --
+Chen et al.'s E1 is an input to both. `verify_expected_r1` compares E1 against E1, both
+theirs, by re-aggregating the per-context export; what is under test is the E1 table's
+IDENTITY as the pre-adjustment one, and no model runs. `validate.expected` compares E2
+against E2, ours against theirs, after the full refit; what is under test is r, with E1
+taken as given.
+
+So the second cannot stand in for the first: E1 is a common factor on both of its sides
+and cancels. Were the E1 table secretly post-adjustment, `validate.expected` would still
+pass at Pearson r = 1.000000, both sides carrying the identical contamination, while
+fig5 panel A's "before" curve was silently wrong. Full contrast in `../README.md`.""",
+)]
+
 _PASS, _FAIL, _ERROR, _NOT_RUN = "PASS", "FAIL", "ERROR", "not run"
 _MARK = {_PASS: "PASS", _FAIL: "**FAIL**", _ERROR: "**ERROR**", _NOT_RUN: "_not run_"}
 
@@ -242,6 +262,9 @@ def _render(state: dict) -> None:
         code = e["commit"] + ("+dirty" if e.get("dirty") else "")
         lines.append(f"| [`{name}`]({name}.log) | {_MARK[e['verdict']]} | "
                      f"{ok}/{len(e['claims'])} | {e['when']} | `{code}` | {what} |")
+
+    for heading, body in NOTES:
+        lines += ["", f"## {heading}", "", body]
 
     lines += ["", "## Claims", ""]
     for name, (_what, cmd) in CHECKS.items():

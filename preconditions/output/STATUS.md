@@ -19,6 +19,20 @@ run time. Full transcripts are the `.log` files beside this one.
 | [`validate.coefficients`](validate.coefficients.log) | PASS | 3/3 | 2026-08-11 02:53 UTC | `0e29ea8` | our univariate stage reproduces Chen et al.'s fitted coefficients and their selected-feature set |
 | [`validate.expected`](validate.expected.log) | PASS | 2/2 | 2026-08-11 02:51 UTC | `0e29ea8` | our full-population refit reproduces the published genome-wide expected counts |
 
+## `verify_expected_r1` and `validate.expected` are not the same check
+
+Both end in a genome-wide diff of expected counts, and neither computes E1 --
+Chen et al.'s E1 is an input to both. `verify_expected_r1` compares E1 against E1, both
+theirs, by re-aggregating the per-context export; what is under test is the E1 table's
+IDENTITY as the pre-adjustment one, and no model runs. `validate.expected` compares E2
+against E2, ours against theirs, after the full refit; what is under test is r, with E1
+taken as given.
+
+So the second cannot stand in for the first: E1 is a common factor on both of its sides
+and cancels. Were the E1 table secretly post-adjustment, `validate.expected` would still
+pass at Pearson r = 1.000000, both sides carrying the identical contamination, while
+fig5 panel A's "before" curve was silently wrong. Full contrast in `../README.md`.
+
 ## Claims
 
 ### `verify_expected_r1`
