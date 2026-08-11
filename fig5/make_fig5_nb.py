@@ -622,7 +622,8 @@ curves_e = [
     panels.curve_from_binned(binned_e, "step1", "step1", r"Context-only model ($r \equiv 1$)"),
     panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi as published"),
     panels.curve_from_binned(binned_e, "scored", "scored",
-                             "Gnocchi, $r$ retrained on the scored population"),
+                             "Gnocchi, $r$ retrained on the\n"
+                             "scored-population-filtered training set"),
 ]
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
@@ -736,7 +737,7 @@ for pop, tab in binned_d.items():
 print(f"\npanel E: {df_e.height:,} windows after joint z filtering")
 for label, name in [("step1", "context-only (r = 1)"),
                     ("step2", "Gnocchi as published"),
-                    ("scored", "Gnocchi, retrained on the scored population"),
+                    ("scored", "Gnocchi, retrained on the filtered training set"),
                     ("full_refit", "  control: refit on the full training set"),
                     ("sizematched", "  control: size-matched random subsample")]:
     print(f"  mean |rank - 0.5|  {name:<44} {D.rank_bias(binned_e, label, MIN_N_WINDOWS):.3f}")
