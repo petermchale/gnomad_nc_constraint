@@ -235,30 +235,59 @@ def main() -> None:
                   f"-- so 'no gnomAD coverage' is the wrong name for this stratum")
 
         # ------------------------------- weighted by the training sites panel C counts
-        sites = f"""
-            SELECT u.element_id, u.possible, u.pass_frac, u.cov
+        #
+        # TWO DIFFERENT DENOMINATORS live here, and conflating them misreads the figure.
+        # First: how the background training sites divide between panel C's three bands
+        # -- most of them are in QC-PASS windows, which is what the stack shows. Second,
+        # and only within the third band: which condition those windows failed. The 88%
+        # below is of the band, not of the training set.
+        bands = f"""
+            SELECT u.element_id, u.possible, u.pass_frac, u.cov, u.scored,
+                   COALESCE(an.coding_prop, 0.0) AS coding_prop,
+                   an.element_id IS NOT NULL AS in_annot
             FROM (SELECT context, {ELEMENT_ID_FROM_LOCUS} AS element_id
                   FROM read_csv_auto('{dnm0}', delim='\t', header=True)
                   WHERE locus NOT LIKE 'chrX:%'
                     AND context NOT IN ({', '.join(repr(c) for c in M.CPG_CONTEXTS)})) d0
             JOIN ({universe}) u ON d0.element_id = u.element_id
-            WHERE NOT u.scored
+            LEFT JOIN (SELECT element_id, coding_prop
+                       FROM read_csv_auto('{annot}', delim='\t', header=True)) an
+              ON d0.element_id = an.element_id
         """
+        b_n, b_analyzed, b_coding, b_qcfail = (int(v) for v in one(con, f"""
+            SELECT COUNT(*),
+                   SUM(CASE WHEN scored AND coding_prop <= 0 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN scored AND coding_prop > 0 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN NOT scored THEN 1 ELSE 0 END)
+            FROM ({bands})
+        """))
+        print(f"\nnon-CpG background training sites, by panel C band: {b_n:,} total\n"
+              f"  in QC-pass noncoding windows: {b_analyzed:,} ({b_analyzed / b_n:.1%})\n"
+              f"  in QC-pass coding windows:    {b_coding:,} ({b_coding / b_n:.1%})\n"
+              f"  in QC-fail windows:           {b_qcfail:,} ({b_qcfail / b_n:.1%})")
+        rep.claim(b_analyzed + b_coding > b_qcfail,
+                  f"MOST background training sites are in windows that PASSED QC -- "
+                  f"{(b_analyzed + b_coding) / b_n:.1%} of {b_n:,}, split "
+                  f"{b_analyzed / b_n:.1%} noncoding and {b_coding / b_n:.1%} coding -- "
+                  f"leaving {b_qcfail / b_n:.1%} in QC-fail windows genome-wide; panel C "
+                  f"plots this per GC bin, where the third band runs 6.6% to 27%")
+
         s_n, s_pass, s_cov, s_poss = (int(v) for v in one(con, f"""
             SELECT COUNT(*),
                    SUM(CASE WHEN pass_frac < 0.8 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN cov < 25 OR cov > 35 THEN 1 ELSE 0 END),
                    SUM(CASE WHEN possible < 1000 THEN 1 ELSE 0 END)
-            FROM ({sites})
+            FROM ({bands}) WHERE NOT scored
         """))
-        print(f"\nnon-CpG background training sites in absent windows: {s_n:,}\n"
-              f"  fail >= 80% PASS:        {s_pass:,} ({s_pass / s_n:.1%})\n"
-              f"  fail >= 1000 possible:   {s_poss:,} ({s_poss / s_n:.1%})\n"
-              f"  fail 25-35x coverage:    {s_cov:,} ({s_cov / s_n:.1%})")
+        print(f"\nWITHIN that third band -- why those {s_n:,} sites' windows failed:\n"
+              f"  fail >= 80% PASS:        {s_pass:,} ({s_pass / s_n:.1%} of the band)\n"
+              f"  fail >= 1000 possible:   {s_poss:,} ({s_poss / s_n:.1%} of the band)\n"
+              f"  fail 25-35x coverage:    {s_cov:,} ({s_cov / s_n:.1%} of the band)")
         rep.claim(s_pass / s_n > 0.5,
-                  f"the same holds site-weighted, which is what panel C's third band "
-                  f"counts: of its {s_n:,} sites, {s_pass / s_n:.1%} are in windows "
-                  f"failing the PASS rule against {s_cov / s_n:.1%} failing coverage")
+                  f"and WITHIN the QC-fail band -- {s_n:,} sites, {s_n / b_n:.1%} of the "
+                  f"background training set, NOT most of it -- the reason is again the "
+                  f"PASS rule: {s_pass / s_n:.1%} of the band against {s_cov / s_n:.1%} "
+                  f"failing coverage")
 
         # ------------------------- is the QC-fail stratum secretly a coding stratum?
         coding = download(CODING_FILE, args.dest_dir)

@@ -134,6 +134,12 @@ it does.
   against 7.1% among the kept windows, which had to be measured from Chen et al.'s own
   upstream `misc/genome_1kb_coding_exons.txt` because `coding_prop` lives in the
   constraint table and these windows have no row there.
+  **Watch the denominator** on the site-weighted claims, which is the easiest thing here to
+  misread against the figure. Most background training sites are in windows that *passed*
+  QC — 86.6% genome-wide, 80.5% noncoding plus 6.1% coding — and only 13.3% are in the
+  QC-fail band. The 87.8% is *within* that band: of its 537,985 sites, that many are there
+  because their window failed the PASS rule rather than the `possible` or coverage rule. It
+  answers "why did these windows fail", not "how many sites fail".
   Then read the two decompositions of the absences together, because they disagree in
   emphasis and both are true. Per *window*, 70.9% of the 587,902 absences fail the PASS rule
   and 43.3% fail `possible ≥ 1000` (the categories overlap); per *training site*, it is 87.8%
