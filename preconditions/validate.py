@@ -22,9 +22,16 @@ fitting code). This script holds the two checks that claim rests on:
 Neither substitutes for the other: `coefficients` checks a stage the figures never use
 directly, `expected` checks a validated stage composed with one that cannot be.
 
-fig5 carries two further downstream checks, so they are not repeated here: per-GC-bin
-r_eff refit-vs-published (max 1.0e-4, printed on every run) and the full-population
-refit landing on published Gnocchi in panel E (mean |rank-0.5| 0.212 vs 0.212).
+The two checks fig5 prints on every run are not additional evidence: both are `expected`
+seen downstream. Per-GC-bin r_eff refit-vs-published (max 1.0e-4) is `expected`'s own
+ratio aggregated over the analyzed windows -- both sides divide by the same step-1 table,
+so r_eff/r_eff_published reduces to refit/published expected -- and the full-population
+refit landing on published Gnocchi in panel E (mean |rank-0.5| 0.212 vs 0.212) is that
+same ratio after z-scoring and ranking. `expected` is the stronger form, per window and
+unaggregated over the whole genome, which is why it is the one carrying a claim here.
+They stay in fig5 because they are free on a run that builds the figure anyway, and
+because what they add is local to it: r_eff per bin is what licenses panel B's use of the
+refit's per-context `rr` in place of the published one, which was never published.
 
 Outcome of the last run: preconditions/output/STATUS.md (transcripts in the .log files
 beside it). The thresholds the PASS/FAIL verdicts use are TOLERANCES below, each with

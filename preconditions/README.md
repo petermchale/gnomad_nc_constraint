@@ -99,13 +99,22 @@ it does.
   et al. already had? It does, by a wide margin, consistent with solver-tolerance and
   library-version noise against a 2022 `statsmodels` L1 logit.
 
-## Two further checks live in `fig5/`, deliberately
+## Two checks live in `fig5/`, deliberately — and they are not extra evidence
 
-Properties of the figure, printed on every run, so copies here would drift: refit-vs-published
-`r_eff` per GC bin (max 1.0e-4, median 3.9e-6, `data.r_eff_by_gc`), and the full-population
-refit landing on published Gnocchi in panel E (mean |rank − 0.5| 0.212 vs 0.212) — which is
-also what makes the retrained result attributable to the intervention rather than to the
-reimplementation.
+Both are `validate.expected` seen downstream, not independent confirmations of it.
+Refit-vs-published `r_eff` per GC bin (max 1.0e-4, median 3.9e-6, `data.r_eff_by_gc`) is
+that same refit/published ratio aggregated over the analyzed windows — both sides divide by
+the same step-1 table, so it reduces to one — and the full-population refit landing on
+published Gnocchi in panel E (mean |rank − 0.5| 0.212 vs 0.212) is the ratio after z-scoring
+and ranking. `validate.expected` measures it per window, unaggregated and genome-wide, so it
+is the stronger form and the one with a recorded claim. Do not read the three as corroborating
+each other.
+
+They stay in `fig5/` because they are free on a run that builds the figure anyway, and because
+what they add is local to it: `r_eff` per bin is what licenses panel B's use of the refit's
+per-context `rr` in place of the published one, which Chen et al. never published. Panel E's
+pair is separately what makes the retrained result attributable to the intervention rather
+than to the reimplementation — a claim about the figure, argued in `fig5/README.md`.
 
 ## Not here
 
