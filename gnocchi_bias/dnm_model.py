@@ -9,7 +9,12 @@ same fitting code:
                      evaluates each on its own sites (predict_training_set), for
                      panels B, D and E.
   dnm_training_size/ the same refit under a randomly shrunk training set.
-  preconditions/     fit_univariate + validate_against_published.
+  preconditions/     fit_univariate + bonferroni_select, which validate.py diffs
+                     against Chen et al.'s published fitted parameters. The comparison
+                     itself lives THERE, not here: it is a test, and the module under
+                     test should not ship its own grader. (Contrast
+                     windows.check_z_against_published, which is a runtime guard on the
+                     live fig5 path and so belongs beside the code it guards.)
 
 Provenance, unchanged from the original and load-bearing for the manuscript:
 fit_univariate + bonferroni_select reimplement the published feature-selection
@@ -532,56 +537,3 @@ def refit_and_apply(df_dnm1, df_dnm0, contexts, df_ft_genome,
     df_out = combine_and_predict(df_adj_by_context, contexts, genome_expected_percontext_path)
     print(f"  done in {time.time() - t0:.1f}s ({len(df_out):,} windows)")
     return df_out
-
-
-def validate_against_published(df_coef: pd.DataFrame, published_path: str,
-                                published_sel_path: str | None = None):
-    df_pub = pd.read_csv(published_path, sep='\t')
-    merged = df_coef.merge(df_pub, on=['context', 'window', 'feature'], suffixes=('_new', '_pub'), how='outer')
-    n_total = len(merged)
-    n_both_nan = (merged['coef_new'].isna() & merged['coef_pub'].isna()).sum()
-    n_nan_mismatch = (merged['coef_new'].isna() != merged['coef_pub'].isna()).sum()
-
-    ok = merged.dropna(subset=['coef_new', 'coef_pub'])
-    for col in ['coef', 'se', 'pval']:
-        ok = ok.assign(**{f'{col}_diff': (ok[f'{col}_new'] - ok[f'{col}_pub']).abs()})
-    # The headline statistic. An absolute |coef diff| cannot be read without knowing the
-    # coefficients' scale, and it is NOT order 1: median |coef| is 0.027. Relative error
-    # is no better -- it blows up to 172% on coefficients of order 1e-5 that are
-    # indistinguishable from zero anyway. Dividing by the published standard error is
-    # scale-free and is the natural yardstick for a fitted coefficient: it asks whether
-    # the refit lands inside the uncertainty the original fit already had.
-    ok = ok.assign(coef_diff_se=ok['coef_diff'] / ok['se_pub'])
-
-    print(f"\nrows: {n_total}  both-NaN (fit failed in both): {n_both_nan}  "
-          f"NaN-mismatch (fit failed in only one): {n_nan_mismatch}  comparable: {len(ok)}")
-    if len(ok):
-        print(f"max |coef diff| / se_pub = {ok['coef_diff_se'].max():.4f}   "
-              f"(median {ok['coef_diff_se'].median():.4f})  <-- scale-free; 1.0 would be "
-              f"a full standard error")
-        print(f"max |coef diff| = {ok['coef_diff'].max():.3e}   "
-              f"max |se diff|   = {ok['se_diff'].max():.3e}   "
-              f"max |pval diff| = {ok['pval_diff'].max():.3e}")
-        print(f"coef matches to <1e-6: {(ok['coef_diff'] < 1e-6).sum()}/{len(ok)}   "
-              f"<1e-3: {(ok['coef_diff'] < 1e-3).sum()}/{len(ok)}   "
-              f"(absolute, against median |coef| = {ok['coef_pub'].abs().median():.4f})")
-    # What propagates downstream is not the coefficients themselves but which rows clear
-    # Bonferroni: the selected set is what each context's multivariate model is fit on.
-    # Comparing it sidesteps the scale question entirely -- a verdict either flips or it
-    # does not -- and against published_sel_path it compares our selection with Chen et
-    # al.'s OWN selection output, not merely with our logic re-applied to their coefs.
-    key = ['context', 'feature', 'window']
-    sel_new = bonferroni_select(df_coef)[key]
-    sel_ref = (pd.read_csv(published_sel_path, sep='\t')[key] if published_sel_path
-               else bonferroni_select(df_pub)[key])
-    against = "published selected file" if published_sel_path else "their coefs, our rule"
-    agree = sel_new.merge(sel_ref, how='outer', indicator=True)['_merge'].value_counts()
-    print(f"selected features vs {against}: ours {len(sel_new)}, theirs {len(sel_ref)}, "
-          f"in both {agree.get('both', 0)}, ours only {agree.get('left_only', 0)}, "
-          f"theirs only {agree.get('right_only', 0)}")
-
-    if n_nan_mismatch:
-        print("rows where fit succeeded in exactly one of new/published:")
-        print(merged[merged['coef_new'].isna() != merged['coef_pub'].isna()]
-              [['context', 'window', 'feature', 'coef_new', 'coef_pub']].to_string(index=False))
-    return merged
