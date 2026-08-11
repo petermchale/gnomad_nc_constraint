@@ -114,7 +114,9 @@ range. Code for this figure went with `fig3/`; it is at `070fee9`.
   Confirmed by downloading it: the files are a curated variant-classification set (GWAS /
   fine-mapped / pathogenic positives against AF-matched TOPMed negatives), keyed by
   `locus` not `element_id`, with no GC column, and scored in `z` rather than the residual.
-  Ascertainment alone disqualifies it. `verify_comparisons_tables.py` reproduces this.
+  Ascertainment alone disqualifies it. `verify_comparisons_tables.py` reproduces this, and
+  `verify_comparisons_tables.log` beside it is a real run's transcript — read that rather
+  than re-downloading the tarball.
 
 ## The paper's Methods do not match the code — and the code is what ran
 

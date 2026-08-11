@@ -145,4 +145,7 @@ than to the reimplementation — a claim about the figure, argued in `fig5/READM
 
 `verify_comparisons_tables.py` (repo root) checks why the data behind Extended Data Fig. 6
 cannot answer the GC-bias question. Nothing depends on it, so it records a road not taken
-rather than a precondition.
+rather than a precondition — which is exactly why it is not registered in `report.py`'s
+`CHECKS`: a row in `output/STATUS.md` would put it among the claims the figure rests on.
+It keeps its own committed transcript instead, `verify_comparisons_tables.log`, written by
+a hand-rolled copy of the same tee and carrying the same commit stamp.

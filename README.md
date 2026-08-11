@@ -76,7 +76,7 @@ the figure.
 | `preconditions/` | 527 | The claims about Chen et al.'s pipeline that everything else assumes. `verify_*.py` — is what we believe about their published artifact true? `validate.py` — is our reimplementation faithful to theirs? |
 | `fig5/` | 1,951 + notebook | The figure. `fig5.ipynb` (578 source lines, 23 cells) carries the mathematical derivation of every plotted quantity and calls the code; `make_fig5_nb.py` generates it. `data.py`, `panels.py`, `diagnostics.py`, `refit.py`, `depletion_rank.py`, `config.py`. |
 | `dnm_training_size/` | 119 | A separate experiment: Gnocchi's bias as a function of DNM training-set *size*, which is what distinguishes "less data" from "wrong data". |
-| `verify_comparisons_tables.py` | 95 | Why Extended Data Fig. 6's underlying data cannot answer the GC-bias question. A recorded dead end. |
+| `verify_comparisons_tables.py` | 158 | Why Extended Data Fig. 6's underlying data cannot answer the GC-bias question. A recorded dead end; `verify_comparisons_tables.log`, beside it, is the transcript of a real run, so the answer needs no re-download. |
 | `list_bucket_files.py` | 231 | Utility for browsing the public bucket without `gsutil`. |
 | `generic.py`, `constraint_basics.py`, `nc_constraint_utils.py` | — | **Not written here.** Copied verbatim from `misc/` in Chen et al.'s public bucket, where `run_nc_constraint_gnomad_v31_main.py` imports them from. Present so that script is importable. |
 | `CLAUDE.md` | 411 | Working notes: the bucket data inventory, a recipe for reading the Hail tables locally, the methods narrative, and the settled findings. |
