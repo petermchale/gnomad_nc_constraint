@@ -11,58 +11,21 @@ Background / write-up: see CLAUDE.md, the section immediately before "The
 analysis: real-data version of the reviewer's request".
 
 Every run tees itself to `verify_comparisons_tables.log`, committed beside this
-file, so the answer is readable without re-downloading the tarball. The header
-records the commit it ran against: if that SHA is not an ancestor of what you
-are reading, the log predates the code.
-
-The log is written by hand here rather than through `preconditions/report.py`,
-which does the same job better. Registering this script there would give it a
-row in `preconditions/output/STATUS.md`, and it is not a precondition -- nothing
-in the repo depends on it, and a road not taken must not sit in the table of
-claims the figure rests on.
+file, so the answer is readable without re-downloading the tarball. See
+`runlog.py` for what the header records and why this does not go through
+`preconditions/report.py`.
 """
 import argparse
 import os
-import subprocess
-import sys
 import tarfile
-from datetime import datetime, timezone
 
 import pandas as pd
+
+import runlog
 
 BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(HERE, "verify_comparisons_tables.log")
-
-
-class _Tee:
-    """Writes to the terminal unchanged and to the log with machine-specific paths removed."""
-
-    def __init__(self, stream, fh):
-        self.stream, self.fh = stream, fh
-
-    def write(self, s: str) -> int:
-        self.fh.write(s.replace(HERE, ".").replace(os.path.expanduser("~"), "~"))
-        return self.stream.write(s)
-
-    def flush(self) -> None:
-        self.fh.flush()
-        self.stream.flush()
-
-    def __getattr__(self, name):  # isatty, encoding, ... asked for by other libraries
-        return getattr(self.stream, name)
-
-
-def _git_state() -> str:
-    """The commit this ran against, and whether this script itself was modified."""
-    def git(*args) -> str:
-        return subprocess.run(["git", "-C", HERE, *args],
-                              capture_output=True, text=True, check=True).stdout.strip()
-    try:
-        dirty = bool(git("status", "--porcelain", "--", __file__))
-        return git("rev-parse", "--short", "HEAD") + ("+dirty" if dirty else "")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "unknown"
 
 
 def download(dest_dir: str) -> str:
@@ -140,18 +103,10 @@ def main():
 
     # The tee goes on before the download, so the log is the whole run and not just the
     # part after the bytes arrived.
-    with open(LOG_PATH, "w") as fh:
-        saved_stdout, sys.stdout = sys.stdout, _Tee(sys.stdout, fh)
-        try:
-            print("$ .venv/bin/python verify_comparisons_tables.py")
-            print("# why the data behind Extended Data Fig. 6 cannot answer the "
-                  "GC-content-bias question")
-            print(f"# ran at {_git_state()}, "
-                  f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
-            inspect(args.dest_dir)
-        finally:
-            sys.stdout = saved_stdout
-    print(f"wrote {os.path.basename(LOG_PATH)}")
+    with runlog.tee(LOG_PATH, ".venv/bin/python verify_comparisons_tables.py",
+                    "why the data behind Extended Data Fig. 6 cannot answer the "
+                    "GC-content-bias question"):
+        inspect(args.dest_dir)
 
 
 if __name__ == "__main__":

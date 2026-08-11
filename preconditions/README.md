@@ -148,4 +148,4 @@ cannot answer the GC-bias question. Nothing depends on it, so it records a road 
 rather than a precondition — which is exactly why it is not registered in `report.py`'s
 `CHECKS`: a row in `output/STATUS.md` would put it among the claims the figure rests on.
 It keeps its own committed transcript instead, `verify_comparisons_tables.log`, written by
-a hand-rolled copy of the same tee and carrying the same commit stamp.
+`runlog.py` — the same tee and commit stamp as here, without the claims or the status table.

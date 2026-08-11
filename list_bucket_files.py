@@ -35,17 +35,28 @@ Examples:
     python list_bucket_files.py -recursive                    # whole bucket (slow)
     python list_bucket_files.py -size                         # top-level + dir sizes (slow)
     python list_bucket_files.py -depth 2                      # top-level dirs, expanded one level
+
+Every run tees itself to `list_bucket_files.log` beside this file (see runlog.py),
+so the inventory can be read with no network access. The committed copy is the
+`-depth 2` run -- every top-level directory expanded one level, which is the one
+worth keeping. Any other invocation overwrites it, so the header records the exact
+command: if it does not say `-depth 2`, a stray run clobbered the useful listing and
+the fix is to run that one again.
 """
 import argparse
 import json
 import os
+import shlex
 import sys
 import time
 import urllib.error
 import urllib.request
 
+import runlog
+
 BUCKET = "gnomad-nc-constraint-v31-paper"
 API_URL = f"https://storage.googleapis.com/storage/v1/b/{BUCKET}/o"
+LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "list_bucket_files.log")
 
 # -depth refuses to expand into (or count the children of) any directory with
 # more than this many immediate children -- some Hail-internal directories
@@ -209,6 +220,14 @@ def main():
              "recursive listing per directory (default: off)")
     args = parser.parse_args()
 
+    command = "python list_bucket_files.py " + shlex.join(sys.argv[1:])
+    with runlog.tee(LOG_PATH, command.strip(),
+                    f"gs://{BUCKET}, listed through the public JSON API "
+                    "(no gsutil, no auth -- the bucket is world-readable)"):
+        run(args)
+
+
+def run(args) -> None:
     n_files = 0
     total_size = 0
     if args.recursive:
