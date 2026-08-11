@@ -3,7 +3,7 @@ $ .venv/bin/python preconditions/validate.py -check coefficients
 32 contexts, dnm1=410,542 rows, dnm0=4,104,878 rows
 
 fitting univariate feature selection on the FULL, unmodified training set...
-  done in 82.8s
+  done in 82.6s
 wrote ./preconditions/output/coef_univariate.txt
 
 rows: 1664  both-NaN (fit failed in both): 0  NaN-mismatch (fit failed in only one): 0  comparable: 1664

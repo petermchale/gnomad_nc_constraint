@@ -12,12 +12,12 @@ run time. Full transcripts are the `.log` files beside this one.
 
 | check | verdict | claims | last run | code | what it checks |
 |---|---|---|---|---|---|
-| [`verify_expected_r1`](verify_expected_r1.log) | PASS | 4/4 | 2026-08-11 02:49 UTC | `39634c8+dirty` | the published expected-count table really is the context-only, r = 1 one, and describes the same windows as the published constraint table |
-| [`verify_logit_predict_behavior`](verify_logit_predict_behavior.log) | PASS | 3/3 | 2026-08-11 02:47 UTC | `39634c8+dirty` | the operative adjustment is a ratio of probabilities, not the logit ratio the Methods state |
-| [`verify_missing_utils_files`](verify_missing_utils_files.log) | PASS | 2/2 | 2026-08-11 02:47 UTC | `39634c8+dirty` | the multivariate PCA+logit fit behind r(w) is genuinely unpublished, and the three utility modules are not missing |
-| [`verify_training_set_counts`](verify_training_set_counts.log) | PASS | 5/5 | 2026-08-11 02:49 UTC | `39634c8+dirty` | the four shipped training tables are the training set the paper describes |
-| [`validate.coefficients`](validate.coefficients.log) | PASS | 3/3 | 2026-08-11 02:49 UTC | `39634c8+dirty` | our univariate stage reproduces Chen et al.'s fitted coefficients and their selected-feature set |
-| [`validate.expected`](validate.expected.log) | PASS | 2/2 | 2026-08-11 02:49 UTC | `39634c8+dirty` | our full-population refit reproduces the published genome-wide expected counts |
+| [`verify_expected_r1`](verify_expected_r1.log) | PASS | 4/4 | 2026-08-11 02:51 UTC | `0e29ea8` | the published expected-count table really is the context-only, r = 1 one, and describes the same windows as the published constraint table |
+| [`verify_logit_predict_behavior`](verify_logit_predict_behavior.log) | PASS | 3/3 | 2026-08-11 02:51 UTC | `0e29ea8` | the operative adjustment is a ratio of probabilities, not the logit ratio the Methods state |
+| [`verify_missing_utils_files`](verify_missing_utils_files.log) | PASS | 2/2 | 2026-08-11 02:51 UTC | `0e29ea8` | the multivariate PCA+logit fit behind r(w) is genuinely unpublished, and the three utility modules are not missing |
+| [`verify_training_set_counts`](verify_training_set_counts.log) | PASS | 5/5 | 2026-08-11 02:51 UTC | `0e29ea8` | the four shipped training tables are the training set the paper describes |
+| [`validate.coefficients`](validate.coefficients.log) | PASS | 3/3 | 2026-08-11 02:53 UTC | `0e29ea8` | our univariate stage reproduces Chen et al.'s fitted coefficients and their selected-feature set |
+| [`validate.expected`](validate.expected.log) | PASS | 2/2 | 2026-08-11 02:51 UTC | `0e29ea8` | our full-population refit reproduces the published genome-wide expected counts |
 
 ## Claims
 
@@ -32,7 +32,7 @@ run time. Full transcripts are the `.log` files beside this one.
 - PASS — `expected` matches within 1e-03 relative on every row (max 4.6e-05); the residual is the two files' independent mutation-rate refits, dated 277 days apart above
 - PASS — the r = 1 table shares the published constraint table's window universe: `possible` equal on all 1,984,900 joined windows (max |diff| 0), so fig5 panel A's two curves count the same sequence
 
-_PASS, 3s, 2026-08-11 02:49 UTC._
+_PASS, 3s, 2026-08-11 02:51 UTC._
 
 ### `verify_logit_predict_behavior`
 
@@ -44,7 +44,7 @@ _PASS, 3s, 2026-08-11 02:49 UTC._
 - PASS — predict(which='linear') at z = 0 equals the fitted intercept (-3.194809 vs -3.194809), so r's denominator is sigma(beta0)
 - PASS — sigma(linear predictor) reproduces predict()'s default output to 0.0e+00, confirming the sigmoid is applied
 
-_PASS, 0s, 2026-08-11 02:47 UTC._
+_PASS, 0s, 2026-08-11 02:51 UTC._
 
 ### `verify_missing_utils_files`
 
@@ -55,7 +55,7 @@ _PASS, 0s, 2026-08-11 02:47 UTC._
 - PASS — all 3 modules downloaded non-empty (1333 lines total) and each is imported by run_nc_constraint_gnomad_v31_main.py -- they are NOT missing
 - PASS — none of the three matches ['IncrementalPCA', '\\bPCA\\b', 'fit_regularized'] -- the multivariate PCA+logit fit behind r(w) is unpublished, so reimplementing it was necessary
 
-_PASS, 0s, 2026-08-11 02:47 UTC._
+_PASS, 0s, 2026-08-11 02:51 UTC._
 
 ### `verify_training_set_counts`
 
@@ -69,7 +69,7 @@ _PASS, 0s, 2026-08-11 02:47 UTC._
 - PASS — `3mer` IS the step-1 context-only rate -- fitted_po summed over the three alts, to 2.2e-16 across all 92 (context, methylation) combinations, so step 2 only ever adjusts a rate the training table already carries
 - PASS — the feature table has the expected shape: 53 columns = 13 features x 4 window scales + key
 
-_PASS, 2s, 2026-08-11 02:49 UTC._
+_PASS, 2s, 2026-08-11 02:51 UTC._
 
 ### `validate.coefficients`
 
@@ -81,7 +81,7 @@ _PASS, 2s, 2026-08-11 02:49 UTC._
 - PASS — every coefficient lands within 0.0212 of the published fit's OWN standard error (median 0.0008, threshold 0.25) over 1,664 rows
 - PASS — our feature selection reproduces theirs EXACTLY against published selected file: 239 rows each, 239 in both, none on either side alone -- and the selected set is what each context's multivariate model is fit on
 
-_PASS, 113s, 2026-08-11 02:49 UTC._
+_PASS, 113s, 2026-08-11 02:53 UTC._
 
 ### `validate.expected`
 
@@ -92,5 +92,5 @@ _PASS, 113s, 2026-08-11 02:49 UTC._
 - PASS — the full-population refit reproduces the published genome-wide expected counts at Pearson r = 1.000000 over 1,984,900 windows (threshold 0.9999) -- the only available check on the multivariate step, which has no published parameters to diff against
 - PASS — median per-window relative difference is 3.8e-06 (threshold 1e-04); max is 2.9e-04, dominated by windows whose `expected` is near zero
 
-_PASS, 0s, 2026-08-11 02:49 UTC._
+_PASS, 0s, 2026-08-11 02:51 UTC._
 

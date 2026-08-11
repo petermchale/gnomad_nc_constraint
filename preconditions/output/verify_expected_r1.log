@@ -10,7 +10,7 @@ checking customTime (original per-file creation date, preserved through a later 
   Span from first to last file: 277 days. mu_by_context_methyl_downsampled_1000.txt feeds mutation_rate_by_context_methyl.txt just two code-steps later (lines 134-148) -- a gap this large means the two expected_counts_* files below were almost certainly produced by two separate pipeline runs (independent mutation-rate refits on independent random downsamples), not one continuous execution.
 
 regenerating element-level sums from the per-context file (mirrors run_nc_constraint_gnomad_v31_main.py lines 191-193, one group_by level up)...
-  regenerated 2,575,299 element rows in 1.4s
+  regenerated 2,575,299 element rows in 1.3s
   saved to ./published/expected_counts_by_context_methyl_genome_1kb.regenerated.txt (107.1 MB)
 
 loading published file...
