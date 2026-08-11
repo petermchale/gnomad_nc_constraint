@@ -174,10 +174,21 @@ def rank_curves(df_win: pl.DataFrame, extra: list[tuple[str, str]] = (),
 def _r_eff_components(pop: str, cache_dir: str, refits_dir: str,
                       memory_limit: str) -> pl.DataFrame:
     """
-    Per-window expected-count components: e1, e2 (totals over all 32 contexts) and
-    e1_cpg, e2_cpg (the same sums restricted to ACG/CCG/GCG/TCG). Non-CpG is then
-    e1 - e1_cpg, which is why only the CpG slice of the two multi-GB per-context files
-    is ever joined -- an 85M x 85M join becomes 10M x 10M.
+    Per-window expected-count components, in the notation of fig5.ipynb's panel B cell:
+
+        e1      E1(w)            sum over all 32 contexts, published step-1 table
+        e2      E2(w)            the same sum after the refit's r, i.e. sum_t E1^t r_t
+        e1_cpg  E1^K(w)          sum_t E1^t(w) over the four CpG contexts K
+        e2_cpg  E2^K(w)          sum_t E1^t(w) r_t(w) over those same four
+
+    Non-CpG is then a subtraction the caller does (e1_non = e1 - e1_cpg), which is why
+    only the CpG slice of the two multi-GB per-context files is ever joined -- an
+    85M x 85M join becomes 10M x 10M.
+
+    That subtraction mixes two published files -- the totals come from the summed export,
+    the CpG parts from the per-context one -- so it needs them to describe the same
+    counts. They do: preconditions/verify_expected_r1.py regenerates the first from the
+    second genome-wide, `possible` exactly and `expected` to 4.6e-5 relative.
 
     The published pipeline writes its per-context r to a local dir, not the bucket, so
     the refit's rr table stands in. That substitution is validated per GC bin in
@@ -187,22 +198,38 @@ def _r_eff_components(pop: str, cache_dir: str, refits_dir: str,
     percontext = W.download(M.GENOME_EXPECTED_PERCONTEXT_FILE, cache_dir)
     step1 = W.download(W.REMOTE_FILES["step1_expected"], cache_dir)
     query = f"""
+        -- The CpG half of the split, built per (element_id, context) and summed back to
+        -- one row per window: E1^K(w) = sum_t E1^t(w) and E2^K(w) = sum_t E1^t(w) r_t(w),
+        -- both over t in K = the four CpG contexts.
         WITH cpg AS (
             SELECT e.element_id AS element_id,
                    SUM(e.expected) AS e1_cpg,
+                   -- rr is missing for a context with no fitted model (no feature cleared
+                   -- Bonferroni, or the fit did not converge). Those get r = 1, which is
+                   -- what refit_and_apply's genome-wide apply does with them.
                    SUM(e.expected * COALESCE(r.rr, 1.0)) AS e2_cpg
+            -- E1^t(w): the per-context step-1 export, one row per (window, context).
             FROM (SELECT element_id, context, expected
                   FROM read_csv_auto('{percontext}', delim='\t', header=True)
                   WHERE context IN ({ctx})) e
+            -- r_t(w): per (window, context), from the refit. Chen et al. publish fitted
+            -- .pkl models but never this table, which is why a refit supplies it.
             LEFT JOIN (SELECT element_id, context, rr
                        FROM read_csv_auto('{refit_path("rr", pop, refits_dir)}',
                                           delim='\t', header=True)
                        WHERE context IN ({ctx})) r
               ON e.element_id = r.element_id AND e.context = r.context
             GROUP BY e.element_id)
+        -- The totals, already summed over all 32 contexts by whoever wrote each file, so
+        -- no per-context arithmetic is repeated here for the 28 non-CpG ones.
         SELECT t1.element_id AS element_id, t1.expected AS e1, t2.expected AS e2,
+               -- A window with no CpG-context row has E1^K = E2^K = 0, not NULL: it is
+               -- entirely non-CpG, and must still contribute its e1/e2 to the bin.
                COALESCE(cpg.e1_cpg, 0.0) AS e1_cpg, COALESCE(cpg.e2_cpg, 0.0) AS e2_cpg
+        -- E1(w): published, r == 1 (verify_expected_r1 is what establishes that).
         FROM read_csv_auto('{step1}', delim='\t', header=True) t1
+        -- E2(w): the same windows after the refit's r. INNER, so a window missing from
+        -- either side is dropped rather than silently scored against a partial numerator.
         INNER JOIN read_csv_auto('{refit_path("expected", pop, refits_dir)}',
                                  delim='\t', header=True) t2
           ON t1.element_id = t2.element_id

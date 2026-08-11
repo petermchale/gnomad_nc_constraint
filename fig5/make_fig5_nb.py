@@ -400,14 +400,31 @@ $$R_{\mathrm{eff}}\big|_{r_{\mathrm{non}}\equiv1}(g)
 Its flatness is the claim: whatever CpG contexts do, and however much of the bin they
 carry, they move $R_{\mathrm{eff}}$ hardly at all.
 
-In `data.r_eff_by_gc` these are the columns `r_eff`, `r_cpg`, `r_non`, `pi_cpg` and
-`r_counterfactual`, summed from the per-window `e1`, `e2`, `e1_cpg`, `e2_cpg` of
-`_r_eff_components` (non-CpG by subtraction, `e1_non = e1 - e1_cpg`). One further column,
-`r_eff_published` $=\sum_g E_2^{\mathrm{pub}}/\sum_g E_1$, replaces the refit's numerator
-with Chen et al.'s own published `expected`. It needs no per-context $r$, which is what
-makes it a check rather than a restatement: the two agree to $10^{-4}$ per bin, and that
-is what licenses using the refit's per-context $r$ above — the published pipeline writes
-its own only to a local directory, never to the bucket.
+**Where each quantity comes from.** `data._r_eff_components` builds the four per-window
+sums, one SQL query, and `data.r_eff_by_gc` does the binning and the divisions:
+
+| symbol | column | built from |
+|---|---|---|
+| $E_1(w)$ | `e1` | `expected_counts_by_context_methyl_genome_1kb.txt` — published, already summed over all 32 contexts, $r\equiv1$ |
+| $E_2(w)$ | `e2` | `refits/expected_counts_by_context_methyl_genome_1kb.{pop}.txt` — the same windows after the refit's $r$ |
+| $E_1^{\mathcal K}(w)$ | `e1_cpg` | `expected_counts_per_context_methyl_genome_1kb.txt`, the per-$(w,t)$ export, restricted to $t\in\mathcal K$ and summed |
+| $E_2^{\mathcal K}(w)$ | `e2_cpg` | the same rows times `rr` from `refits/rr_by_context.{pop}.txt`, the per-$(w,t)$ adjustment |
+| $E_1^{\neg\mathcal K},E_2^{\neg\mathcal K}$ | — | subtraction, `e1 - e1_cpg` and `e2 - e2_cpg` |
+
+The subtraction is why only the CpG slice of the two multi-GB per-context files is ever
+joined: an 85M × 85M join becomes 10M × 10M. It also means the identity above mixes two
+published files — totals from the summed export, CpG parts from the per-context one — so
+it needs them to describe the same counts. They do:
+`preconditions/verify_expected_r1.py` regenerates the first from the second genome-wide,
+`possible` exactly and `expected` to $4.6\times10^{-5}$ relative.
+
+$R_{\mathrm{eff}}$, $R_{\mathrm{CpG}}$, $R_{\mathrm{non}}$, $\Pi$ and the counterfactual
+are then the columns `r_eff`, `r_cpg`, `r_non`, `pi_cpg`, `r_counterfactual`. One further
+column, `r_eff_published` $=\sum_g E_2^{\mathrm{pub}}/\sum_g E_1$, replaces the refit's
+numerator with Chen et al.'s own published `expected`. It needs no per-context $r$, which
+is what makes it a check rather than a restatement: the two agree to $10^{-4}$ per bin,
+and that is what licenses using the refit's per-context $r$ above — the published pipeline
+writes its own only to a local directory, never to the bucket.
 
 **Why $R_{\mathrm{CpG}}\approx1$ is correct, not a failure.** CpG mutability is dominated
 by methylation, and $p_c$ is already keyed by methylation level — across methylation 0 to
