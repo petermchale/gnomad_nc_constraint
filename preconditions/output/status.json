@@ -142,14 +142,22 @@
       {
         "ok": true,
         "text": "the same holds site-weighted, which is what panel C's third band counts: of its 537,985 sites, 87.8% are in windows failing the PASS rule against 1.0% failing coverage"
+      },
+      {
+        "ok": true,
+        "text": "the QC-fail stratum is a MIXTURE, not the noncoding remainder: 40,509 of its 587,902 windows overlap coding exons and 547,393 do not, with a coding_prop on file for every one"
+      },
+      {
+        "ok": true,
+        "text": "and its coding share, 6.9%, is within 2 points of the QC-pass windows' 7.1% -- QC failure is close to independent of coding status, so panel C's third band is not a coding band in disguise"
       }
     ],
-    "commit": "72c756d",
+    "commit": "476292e",
     "dirty": false,
     "name": "verify_qc_filter",
-    "seconds": 2.1,
+    "seconds": 2.5,
     "verdict": "PASS",
-    "when": "2026-08-11 20:38 UTC"
+    "when": "2026-08-11 21:20 UTC"
   },
   "verify_training_set_counts": {
     "claims": [

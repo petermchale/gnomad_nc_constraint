@@ -29,7 +29,12 @@ non-CpG background training sites in absent windows: 537,985
   fail >= 1000 possible:   77,190 (14.3%)
   fail 25-35x coverage:    5,610 (1.0%)
 
-PASS: 9/9 claims, 2s
+coding composition of the 587,902 QC-fail windows (from genome_1kb_coding_exons.txt, not the constraint table, which has no row for them):
+  overlap coding exons:   40,509 (6.9%)   [QC-pass windows: 7.1%]
+  >= 50% coding:          2,062 (0.4%)
+  no coding_prop on file: 0
+
+PASS: 11/11 claims, 2s
   [PASS] pass_qc is True on all 1,984,900 rows of the published constraint table -- the column is a constant, so a QC failure appears as an ABSENT row, never as pass_qc = False
   [PASS] the window set is the paper's: 1,984,900 autosomal windows, 141,341 coding-overlapping and 1,843,559 exclusively noncoding (Methods: 1,984,900 / 141,341 / 1,843,559)
   [PASS] the two tables partition cleanly: 2,572,802 autosomal step-1 windows = 1,984,900 scored + 587,902 absent
@@ -39,3 +44,5 @@ PASS: 9/9 claims, 2s
   [PASS] REVERSE DIRECTION: 98.1% of absent windows fail at least one of the paper's three conditions (threshold 95%); the residual 10,921 pass all three and are unexplained, so the filter is not a complete account of membership
   [PASS] absence is the PASS-fraction rule, not missing coverage: 417,097 windows fail >= 80% PASS against 19,396 failing the 25-35x band -- so 'no gnomAD coverage' is the wrong name for this stratum
   [PASS] the same holds site-weighted, which is what panel C's third band counts: of its 537,985 sites, 87.8% are in windows failing the PASS rule against 1.0% failing coverage
+  [PASS] the QC-fail stratum is a MIXTURE, not the noncoding remainder: 40,509 of its 587,902 windows overlap coding exons and 547,393 do not, with a coding_prop on file for every one
+  [PASS] and its coding share, 6.9%, is within 2 points of the QC-pass windows' 7.1% -- QC failure is close to independent of coding status, so panel C's third band is not a coding band in disguise
