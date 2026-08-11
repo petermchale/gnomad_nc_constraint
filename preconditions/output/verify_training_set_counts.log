@@ -1,0 +1,35 @@
+$ .venv/bin/python preconditions/verify_training_set_counts.py
+# the four shipped training tables are the training set the paper describes
+
+=== dnm1: does the feature table reproduce the published DNM count? ===
+  site table:     410,542 rows over 410,511 distinct loci -> 31 loci carry two DNMs (same position, different alleles)
+  feature table:  413,273 rows, 413,273 distinct loci (keyed by locus, so those 31 pairs collapse to one row each)
+  413,273 + 31 = 413,304   paper says 413,304   -> MATCH
+
+=== dnm0: does the site table reproduce the published background count? ===
+  site table:     4,107,802 rows, of which 2,924 are chrX
+  after the chrX filter load_training_data applies: 4,104,878   paper says 4,104,879   -> -1
+  within the 1-row tolerance: True
+
+=== the join fig5/ and dnm_training_size/ actually perform ===
+  sites with no feature row: 0  (anything above 0 would train on nulls)
+  feature loci absent from the site table: 2,762 across 22 chromosomes, none of them sex: True
+    top: chr7 323, chr5 247, chr10 190, chr16 187, chr9 178
+    -> NOT the chrX filter; these are autosomal DNMs the site table omits, presumably where trinucleotide context or methylation could not be assigned.
+
+=== is `3mer` the step-1 context-only mutation rate? ===
+  92 (context, methylation) combinations compared against fig_tables/mutation_rate_by_context_methyl.txt
+  max |3mer - sum(fitted_po) over alts| = 2.220e-16
+
+=== feature-table shape and the misleading key name ===
+  53 columns; expected 13 features x 4 scales + key = 53
+  key column is named 'element_id' but holds a LOCUS, e.g. 'chr10:100003712' -- not a 1 kb element_id, which is why load_training_data renames it
+
+Each published count must be checked against the right one of the four tables -- the dnm1 FEATURE table and the dnm0 SITE table respectively. Check either against the wrong one and a correct table looks short by thousands of rows.
+
+PASS: 5/5 claims, 2s
+  [PASS] dnm1 reproduces the paper's 413,304 DNMs exactly: 413,273 feature rows + 31 loci carrying two DNMs each = 413,304
+  [PASS] dnm0 reproduces the paper's 4,104,879 background sites to within 1 row: 4,107,802 site rows - 2,924 chrX = 4,104,878 (-1; a different filter would move thousands, as the chrX one does)
+  [PASS] the training join loses nothing: 0 of the dnm1 sites lack a feature row, and the 2,762 feature-only loci are all autosomal, so no site trains on nulls
+  [PASS] `3mer` IS the step-1 context-only rate -- fitted_po summed over the three alts, to 2.2e-16 across all 92 (context, methylation) combinations, so step 2 only ever adjusts a rate the training table already carries
+  [PASS] the feature table has the expected shape: 53 columns = 13 features x 4 window scales + key

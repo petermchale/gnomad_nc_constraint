@@ -1,0 +1,18 @@
+$ .venv/bin/python preconditions/verify_missing_utils_files.py
+# the multivariate PCA+logit fit behind r(w) is genuinely unpublished, and the three utility modules are not missing
+
+=== Claim 1: these modules exist and are what the main script imports ===
+  misc/generic.py: 17894 bytes, 336 lines -- imported by run_nc_constraint_gnomad_v31_main.py? True
+  misc/constraint_basics.py: 48573 bytes, 848 lines -- imported by run_nc_constraint_gnomad_v31_main.py? True
+  misc/nc_constraint_utils.py: 5708 bytes, 149 lines -- imported by run_nc_constraint_gnomad_v31_main.py? True
+
+=== Claim 2: none of the three contains the multivariate-fit step ===
+  misc/generic.py: matches for ['IncrementalPCA', '\\bPCA\\b', 'fit_regularized'] -> none
+  misc/constraint_basics.py: matches for ['IncrementalPCA', '\\bPCA\\b', 'fit_regularized'] -> none
+  misc/nc_constraint_utils.py: matches for ['IncrementalPCA', '\\bPCA\\b', 'fit_regularized'] -> none
+
+Conclusion: confirmed -- zero matches for PCA/IncrementalPCA/fit_regularized in any of the three. The multivariate fit behind r(w) has no published source in this bucket; only the apply side (that script's lines 231-249) is available.
+
+PASS: 2/2 claims, 0s
+  [PASS] all 3 modules downloaded non-empty (1333 lines total) and each is imported by run_nc_constraint_gnomad_v31_main.py -- they are NOT missing
+  [PASS] none of the three matches ['IncrementalPCA', '\\bPCA\\b', 'fit_regularized'] -- the multivariate PCA+logit fit behind r(w) is unpublished, so reimplementing it was necessary

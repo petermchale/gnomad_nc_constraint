@@ -21,6 +21,8 @@ plain-text exports, so this whole check runs locally via duckdb.
 
 See CLAUDE.md, the "expected_counts_by_context_methyl_genome_1kb.txt" row of the
 data inventory table.
+
+Outcome of the last run: preconditions/output/STATUS.md (transcript in the .log beside it).
 """
 import argparse
 import json
@@ -35,6 +37,7 @@ import duckdb
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gnocchi_bias.windows import download  # noqa: E402
+from preconditions.report import Report  # noqa: E402
 
 # Repo-root cache, shared with every other script here; resolved from __file__ so
 # running from inside preconditions/ reuses it rather than refetching multi-GB files.
@@ -94,7 +97,7 @@ def check_provenance_timeline():
     )
 
 
-def check_same_window_universe(con, dest_dir: str) -> bool:
+def check_same_window_universe(con, dest_dir: str) -> tuple[bool, str]:
     """
     Do the r==1 table and the PUBLISHED constraint table describe the same windows with
     the same denominators?
@@ -121,7 +124,10 @@ def check_same_window_universe(con, dest_dir: str) -> bool:
           f"(max |diff| {max_diff:g})")
     print("  -> panel A's two curves count the same sequence and differ only in "
           "`expected`, which is the r-adjustment and nothing else.")
-    return n > 0 and equal == n
+    return (n > 0 and equal == n), (
+        f"the r = 1 table shares the published constraint table's window universe: "
+        f"`possible` equal on all {n:,} joined windows (max |diff| {max_diff:g}), so "
+        f"fig5 panel A's two curves count the same sequence")
 
 
 def main():
@@ -131,12 +137,17 @@ def main():
         help=f"directory to download into (default: {DEFAULT_DEST_DIR})")
     args = parser.parse_args()
 
+    with Report("verify_expected_r1") as rep:
+        run(rep, args.dest_dir)
+
+
+def run(rep, dest_dir: str) -> None:
     t_start = time.time()
 
     check_provenance_timeline()
 
-    per_context_path = download(PER_CONTEXT_FILE, args.dest_dir)
-    published_path = download(PUBLISHED_FILE, args.dest_dir)
+    per_context_path = download(PER_CONTEXT_FILE, dest_dir)
+    published_path = download(PUBLISHED_FILE, dest_dir)
 
     con = duckdb.connect()
 
@@ -160,7 +171,7 @@ def main():
     # purely for easier side-by-side reading -- the join-based comparison above
     # already confirmed equivalence independent of row order or formatting.
     regenerated_path = os.path.join(
-        args.dest_dir, PUBLISHED_FILE.replace(".txt", ".regenerated.txt"))
+        dest_dir, PUBLISHED_FILE.replace(".txt", ".regenerated.txt"))
     con.execute(f"""
         COPY (
             SELECT element_id, possible, printf('%.8f', expected) AS expected
@@ -213,39 +224,35 @@ def main():
         FULL OUTER JOIN published p ON r.element_id = p.element_id
     """).fetchdf()
     print(diff.to_string(index=False))
-
-    same_universe = check_same_window_universe(con, args.dest_dir)
-
-    all_match = (
-        n_regen == n_pub
-        and diff["in_published_only"].iloc[0] == 0
-        and diff["in_regenerated_only"].iloc[0] == 0
-        and diff["possible_mismatches"].iloc[0] == 0
-        and diff["expected_mismatches"].iloc[0] == 0
-        and same_universe
-    )
     print(f"\ntotal wall time: {time.time() - t_start:.1f}s")
 
-    if all_match:
-        print(
-            "\nConclusion: expected_counts_by_context_methyl_genome_1kb.txt is "
-            "reproduced, genome-wide, by summing expected_counts_per_context_methyl_"
-            "genome_1kb.txt over context per element_id -- `possible` matches exactly "
-            "on every row, and `expected` matches to within the relative tolerance "
-            "above (consistent with the two files coming from separate pipeline runs "
-            "with independently-refit mutation rates -- see the customTime timeline "
-            "printed above). This confirms the r==1, context-only interpretation of "
-            "expected_counts_by_context_methyl_genome_1kb.txt using only code whose "
-            "provenance is confirmed end-to-end."
-        )
-    else:
-        print(
-            "\nConclusion: MISMATCH found beyond refit-level noise -- expected_counts_"
-            "by_context_methyl_genome_1kb.txt does NOT match the r==1 regeneration from "
-            "expected_counts_per_context_methyl_genome_1kb.txt even accounting for a "
-            "plausible independent mutation-rate refit. Its r==1 interpretation in "
-            "CLAUDE.md needs re-examination before further use."
-        )
+    print(
+        "\nWhat the four claims below test, jointly: that summing expected_counts_per_"
+        "context_methyl_genome_1kb.txt over context per element_id reproduces "
+        "expected_counts_by_context_methyl_genome_1kb.txt. That sum is what forcing "
+        "r = 1 means here -- r only ever multiplies expected counts further down the "
+        "pipeline -- and the per-context file's provenance is established where the "
+        "published file's is not, so agreement dates the published file to before the "
+        "regional adjustment."
+    )
+
+    # Four claims, because "the file is the r==1 table" is a conjunction and each part
+    # can fail differently. `possible` and `expected` are kept apart deliberately:
+    # `possible` is a plain count and must be EXACT, so it is the claim that would
+    # actually catch a wrong-file or wrong-aggregation error, while `expected` carries a
+    # tolerance and could absorb one.
+    rep.claim(n_regen == n_pub and diff["in_published_only"].iloc[0] == 0
+              and diff["in_regenerated_only"].iloc[0] == 0,
+              f"the regeneration covers the published file exactly: {n_regen:,} rows vs "
+              f"{n_pub:,}, no element_id on one side alone")
+    rep.claim(diff["possible_mismatches"].iloc[0] == 0,
+              f"`possible` -- a plain count, so exact agreement is required -- matches on "
+              f"all {n_pub:,} rows")
+    rep.claim(diff["expected_mismatches"].iloc[0] == 0,
+              f"`expected` matches within {REL_TOL_EXPECTED:.0e} relative on every row "
+              f"(max {diff['max_expected_rel_diff'].iloc[0]:.1e}); the residual is the two "
+              f"files' independent mutation-rate refits, dated 277 days apart above")
+    rep.claim(*check_same_window_universe(con, dest_dir))
 
 
 if __name__ == "__main__":

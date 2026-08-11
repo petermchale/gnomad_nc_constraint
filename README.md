@@ -123,8 +123,12 @@ without either; see `fig5/README.md` for what changes.
 
 ## Sanity checks and controls
 
-Every claim here is backed by something runnable rather than asserted. `preconditions/README.md`
-holds the detail and the last-run results; this is the index.
+Every claim here is backed by something runnable rather than asserted — and, for the
+preconditions, by a committed record of it having been run:
+**[`preconditions/output/STATUS.md`](preconditions/output/STATUS.md)** carries one row per
+check, every claim with the number that supports it, and the commit each ran against, with
+the full transcript in the `.log` beside it. Nothing needs re-downloading to read it.
+`preconditions/README.md` explains what the numbers mean; this is the index.
 
 **Is Chen et al.'s pipeline what we claim it is?** `preconditions/verify_*.py`, each run against
 the real published artifact. The load-bearing one: the operative adjustment is

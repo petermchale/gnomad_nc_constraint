@@ -25,6 +25,11 @@ directly, `expected` checks a validated stage composed with one that cannot be.
 fig5 carries two further downstream checks, so they are not repeated here: per-GC-bin
 r_eff refit-vs-published (max 1.0e-4, printed on every run) and the full-population
 refit landing on published Gnocchi in panel E (mean |rank-0.5| 0.212 vs 0.212).
+
+Outcome of the last run: preconditions/output/STATUS.md (transcripts in the .log files
+beside it). The thresholds the PASS/FAIL verdicts use are TOLERANCES below, each with
+the reason it was set where it is -- they are choices, so read the measured numbers in
+the log rather than the verdict alone.
 """
 import argparse
 import os
@@ -45,14 +50,24 @@ from gnocchi_bias.dnm_model import (  # noqa: E402
     load_contexts,
     load_training_data,
 )
+from preconditions.report import Report  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 FULL_REFIT_EXPECTED = os.path.join(
     REPO_ROOT, "refits", "expected_counts_by_context_methyl_genome_1kb.full.txt")
 
+# Thresholds for the PASS/FAIL verdicts, set an order of magnitude above what a healthy
+# run measures so ordinary solver/library noise cannot trip them while a real
+# reimplementation error still would. Each is a CHOICE; the measured value is printed
+# and logged next to it.
+MAX_COEF_DIFF_SE = 0.25   # measured 0.0212. A quarter of the published fit's own SE:
+                          # far inside its uncertainty, far outside rounding.
+MIN_PEARSON_R = 0.9999    # measured 1.000000 over 1,984,900 windows.
+MAX_MEDIAN_REL_DIFF = 1e-4  # measured 3.8e-6.
 
-def validate_against_published(df_coef: pd.DataFrame, published_path: str,
+
+def validate_against_published(rep: Report, df_coef: pd.DataFrame, published_path: str,
                                 published_sel_path: str | None = None):
     """
     Is fit_univariate's output the same as Chen et al.'s? Two comparisons, printed.
@@ -83,14 +98,16 @@ def validate_against_published(df_coef: pd.DataFrame, published_path: str,
     counted and excluded from the distance statistics.
 
     Args:
+        rep: the Report to record claims on, so output/STATUS.md carries the verdict.
         df_coef: fit_univariate's output -- context, window, feature, coef, se, pval.
         published_path: Chen et al.'s fitted coefficient table (PUBLISHED_COEF_FILE).
         published_sel_path: their selected-feature file (PUBLISHED_SEL_FILE). Optional
             only so the coefficient half can run alone; pass it when you have it.
 
-    Returns the outer-joined frame, for inspecting individual rows. Prints rather than
-    raises: preconditions/validate.py is read by a human, and the interesting outcome is
-    a distribution, not a boolean.
+    Returns the outer-joined frame, for inspecting individual rows. The interesting
+    outcome is a distribution, not a boolean, so the distribution is what gets printed;
+    the claims exist so a reader who has not run this can see it passed, and each carries
+    its measured number for exactly that reason.
     """
     df_pub = pd.read_csv(published_path, sep='\t')
     merged = df_coef.merge(df_pub, on=['context', 'window', 'feature'], suffixes=('_new', '_pub'), how='outer')
@@ -140,10 +157,23 @@ def validate_against_published(df_coef: pd.DataFrame, published_path: str,
         print("rows where fit succeeded in exactly one of new/published:")
         print(merged[merged['coef_new'].isna() != merged['coef_pub'].isna()]
               [['context', 'window', 'feature', 'coef_new', 'coef_pub']].to_string(index=False))
+
+    n_both = int(agree.get('both', 0))
+    rep.claim(n_nan_mismatch == 0,
+              f"every one of the {n_total:,} (context, window, feature) rows fits in both "
+              f"implementations or neither -- {n_nan_mismatch} one-sided failures")
+    rep.claim(len(ok) and ok['coef_diff_se'].max() < MAX_COEF_DIFF_SE,
+              f"every coefficient lands within {ok['coef_diff_se'].max():.4f} of the "
+              f"published fit's OWN standard error (median {ok['coef_diff_se'].median():.4f}, "
+              f"threshold {MAX_COEF_DIFF_SE}) over {len(ok):,} rows")
+    rep.claim(n_both == len(sel_new) == len(sel_ref) and len(sel_new) > 0,
+              f"our feature selection reproduces theirs EXACTLY against {against}: "
+              f"{len(sel_new)} rows each, {n_both} in both, none on either side alone -- "
+              f"and the selected set is what each context's multivariate model is fit on")
     return merged
 
 
-def check_coefficients(cache_dir: str, output_dir: str) -> None:
+def check_coefficients(rep: Report, cache_dir: str, output_dir: str) -> None:
     """Refit univariate selection on the full training set and diff against published."""
     contexts = load_contexts(cache_dir)
     df_dnm1, df_dnm0 = load_training_data(cache_dir)
@@ -157,12 +187,13 @@ def check_coefficients(cache_dir: str, output_dir: str) -> None:
     out = os.path.join(output_dir, "coef_univariate.txt")
     df_coef.to_csv(out, sep="\t", index=False)
     print(f"wrote {out}")
-    validate_against_published(df_coef,
+    validate_against_published(rep, df_coef,
                                W.download(PUBLISHED_COEF_FILE, cache_dir),
                                W.download(PUBLISHED_SEL_FILE, cache_dir))
 
 
-def check_expected(cache_dir: str, refit_expected: str, memory_limit: str = "8GB") -> None:
+def check_expected(rep: Report, cache_dir: str, refit_expected: str,
+                   memory_limit: str = "8GB") -> None:
     """
     Per-window Pearson r and median relative difference between the full-population
     refit's expected counts and the published ones.
@@ -196,6 +227,19 @@ def check_expected(cache_dir: str, refit_expected: str, memory_limit: str = "8GB
     print(f"  median relative difference    = {med:.2e}")
     print(f"  max relative difference       = {mx:.2e}")
 
+    # The max relative difference is deliberately NOT a claim: it is dominated by windows
+    # with a tiny `expected`, where a rounding-level absolute difference is a large
+    # relative one. The median is the honest summary of a per-window agreement.
+    rep.claim(r >= MIN_PEARSON_R,
+              f"the full-population refit reproduces the published genome-wide expected "
+              f"counts at Pearson r = {r:.6f} over {n:,} windows (threshold "
+              f"{MIN_PEARSON_R}) -- the only available check on the multivariate step, "
+              f"which has no published parameters to diff against")
+    rep.claim(med < MAX_MEDIAN_REL_DIFF,
+              f"median per-window relative difference is {med:.1e} (threshold "
+              f"{MAX_MEDIAN_REL_DIFF:.0e}); max is {mx:.1e}, dominated by windows whose "
+              f"`expected` is near zero")
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
@@ -207,10 +251,15 @@ def main() -> None:
     args = ap.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
+    # One Report per check, not one for the run: the two are independently runnable
+    # (seconds vs minutes) and STATUS.md should never imply that `-check expected` alone
+    # vouched for the coefficients.
     if args.check in ("both", "expected"):
-        check_expected(args.cache_dir, args.refit_expected)
+        with Report("validate.expected") as rep:
+            check_expected(rep, args.cache_dir, args.refit_expected)
     if args.check in ("both", "coefficients"):
-        check_coefficients(args.cache_dir, args.output_dir)
+        with Report("validate.coefficients") as rep:
+            check_coefficients(rep, args.cache_dir, args.output_dir)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+$ .venv/bin/python preconditions/verify_logit_predict_behavior.py
+# the operative adjustment is a ratio of probabilities, not the logit ratio the Methods state
+
+type(logit): <class 'statsmodels.discrete.discrete_model.L1BinaryResultsWrapper'>
+MRO: ['L1BinaryResultsWrapper', 'RegressionResultsWrapper', 'ResultsWrapper', 'object']
+
+logit.predict(zero_row)                    = 0.0394  (a probability, in (0,1))
+logit.predict(zero_row, which='linear')    = -3.1948  (== logit.params[0] == -3.1948, the intercept)
+
+sigma(linear) = 0.0394  (matches predict()'s default output: 0.0394)
+
+Conclusion: logit.predict() defaults to sigma(linear predictor), a probability, not the raw logit the paper's Methods text describes. The pipeline's r = pred_ctx / ave is therefore a ratio of predicted probabilities, sigma(beta0 + beta.z(w)) / sigma(beta0), not a ratio of logits beta.x(w) / beta.xbar as stated in the paper.
+
+PASS: 3/3 claims, 0s
+  [PASS] predict() on the real AAA model returns 0.0394, a probability in (0,1) -- not the linear predictor -3.1948
+  [PASS] predict(which='linear') at z = 0 equals the fitted intercept (-3.194809 vs -3.194809), so r's denominator is sigma(beta0)
+  [PASS] sigma(linear predictor) reproduces predict()'s default output to 0.0e+00, confirming the sigmoid is applied

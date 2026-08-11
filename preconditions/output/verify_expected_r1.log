@@ -1,0 +1,37 @@
+$ .venv/bin/python preconditions/verify_expected_r1.py
+# the published expected-count table really is the context-only, r = 1 one, and describes the same windows as the published constraint table
+
+checking customTime (original per-file creation date, preserved through a later bucket migration) across the dependency chain...
+  2022-01-16T04:28:32.510Z  mu_by_context_methyl_downsampled_1000.txt
+  2022-01-17T01:24:52.719Z  expected_counts_by_context_methyl_genome_1kb.ht/metadata.json.gz
+  2022-01-18T00:42:45.075Z  expected_counts_by_context_methyl_genome_1kb.txt
+  2022-08-05T16:44:55.386Z  expected_counts_per_context_methyl_genome_1kb.txt
+  2022-10-20T14:11:15.844Z  fig_tables/mutation_rate_by_context_methyl.txt
+  Span from first to last file: 277 days. mu_by_context_methyl_downsampled_1000.txt feeds mutation_rate_by_context_methyl.txt just two code-steps later (lines 134-148) -- a gap this large means the two expected_counts_* files below were almost certainly produced by two separate pipeline runs (independent mutation-rate refits on independent random downsamples), not one continuous execution.
+
+regenerating element-level sums from the per-context file (mirrors run_nc_constraint_gnomad_v31_main.py lines 191-193, one group_by level up)...
+  regenerated 2,575,299 element rows in 1.4s
+  saved to ./published/expected_counts_by_context_methyl_genome_1kb.regenerated.txt (107.1 MB)
+
+loading published file...
+  loaded 2,575,299 published rows in 0.1s
+
+row count: regenerated=2,575,299  published=2,575,299  MATCH
+
+comparing values genome-wide (possible: exact; expected: relative tolerance 1e-03, since `expected` depends on a randomly-downsampled mutation-rate refit that can differ slightly between pipeline runs)...
+ n_joined  in_published_only  in_regenerated_only  possible_mismatches  expected_mismatches  max_expected_abs_diff  max_expected_rel_diff
+  2575299                0.0                  0.0                  0.0                  0.0               0.003523               0.000046
+
+total wall time: 3.2s
+
+What the four claims below test, jointly: that summing expected_counts_per_context_methyl_genome_1kb.txt over context per element_id reproduces expected_counts_by_context_methyl_genome_1kb.txt. That sum is what forcing r = 1 means here -- r only ever multiplies expected counts further down the pipeline -- and the per-context file's provenance is established where the published file's is not, so agreement dates the published file to before the regional adjustment.
+
+same window universe as the published constraint table?
+  1,984,900 windows joined; `possible` equal on 1,984,900 of them (max |diff| 0)
+  -> panel A's two curves count the same sequence and differ only in `expected`, which is the r-adjustment and nothing else.
+
+PASS: 4/4 claims, 3s
+  [PASS] the regeneration covers the published file exactly: 2,575,299 rows vs 2,575,299, no element_id on one side alone
+  [PASS] `possible` -- a plain count, so exact agreement is required -- matches on all 2,575,299 rows
+  [PASS] `expected` matches within 1e-03 relative on every row (max 4.6e-05); the residual is the two files' independent mutation-rate refits, dated 277 days apart above
+  [PASS] the r = 1 table shares the published constraint table's window universe: `possible` equal on all 1,984,900 joined windows (max |diff| 0), so fig5 panel A's two curves count the same sequence

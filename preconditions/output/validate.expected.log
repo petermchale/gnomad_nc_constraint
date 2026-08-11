@@ -1,0 +1,12 @@
+$ .venv/bin/python preconditions/validate.py -check expected
+# our full-population refit reproduces the published genome-wide expected counts
+
+end-to-end expected counts, refit vs published:
+  1,984,900 windows joined
+  Pearson r                     = 1.000000
+  median relative difference    = 3.84e-06
+  max relative difference       = 2.92e-04
+
+PASS: 2/2 claims, 0s
+  [PASS] the full-population refit reproduces the published genome-wide expected counts at Pearson r = 1.000000 over 1,984,900 windows (threshold 0.9999) -- the only available check on the multivariate step, which has no published parameters to diff against
+  [PASS] median per-window relative difference is 3.8e-06 (threshold 1e-04); max is 2.9e-04, dominated by windows whose `expected` is near zero
