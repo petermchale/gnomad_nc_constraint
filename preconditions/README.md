@@ -1,4 +1,4 @@
-# Preconditions — what had to be true before any of this meant anything
+# Preconditions 
 
 Every figure here rests on claims about Chen et al.'s published pipeline that the paper
 does not state, or states differently from how the code behaves. This directory holds the
@@ -7,8 +7,6 @@ can be audited without reading the figures and nothing gets quietly re-assumed.
 
 Each script downloads the real artifact and inspects it. None trusts CLAUDE.md, and none
 needs Hail, a JVM, or credentials — the bucket is public.
-
-## Two directions, and the filenames encode which
 
 **`verify_*` — is what we BELIEVE about their artifact true?** Claims about the published
 data, code and formula. These come first: they establish what the pipeline *is*.
@@ -23,7 +21,7 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 | verify | `verify_logit_predict_behavior.py` | the operative adjustment is `r = σ(β₀+β·z)/σ(β₀)`, a ratio of *probabilities*, not the logit ratio the Methods state | fig5's Notation cell; panel B's "a level error cancels" argument |
 | verify | `verify_missing_utils_files.py` | the PCA+logit fit behind `r(w)` is genuinely absent from the bucket (only the apply side is published), and `misc/generic.py` et al. are *not* missing | the premise of `validate.py` |
 | verify | `verify_training_set_counts.py` | the four shipped training tables really are the training set the paper describes — both published counts reproduced, and the join `load_training_data` performs loses nothing | every fig5 claim about *what step 2 was fit on*: panels C, D and E, and the whole population argument. Also `dnm_training_size/` |
-| validate | `validate.py` | the reimplementation reproduces Chen et al.'s, at the univariate parameters and end to end | fig5 and dnm_training_size both refit; if this fails, both measure their own bug |
+| validate | `validate.py` | the reimplementation reproduces Chen et al.'s, at the univariate parameters and end to end | fig5 and dnm_training_size both refit |
 
 ## Running them
 
