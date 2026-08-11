@@ -141,7 +141,11 @@
       },
       {
         "ok": true,
-        "text": "the same holds site-weighted, which is what panel C's third band counts: of its 537,985 sites, 87.8% are in windows failing the PASS rule against 1.0% failing coverage"
+        "text": "MOST background training sites are in windows that PASSED QC -- 86.7% of 4,035,400, split 80.5% noncoding and 6.1% coding -- leaving 13.3% in QC-fail windows genome-wide; panel C plots this per GC bin, where the third band runs 6.6% to 27%"
+      },
+      {
+        "ok": true,
+        "text": "and WITHIN the QC-fail band -- 537,985 sites, 13.3% of the background training set, NOT most of it -- the reason is again the PASS rule: 87.8% of the band against 1.0% failing coverage"
       },
       {
         "ok": true,
@@ -152,12 +156,12 @@
         "text": "and its coding share, 6.9%, is within 2 points of the QC-pass windows' 7.1% -- QC failure is close to independent of coding status, so panel C's third band is not a coding band in disguise"
       }
     ],
-    "commit": "476292e",
+    "commit": "7fef7a7",
     "dirty": false,
     "name": "verify_qc_filter",
-    "seconds": 2.5,
+    "seconds": 3.7,
     "verdict": "PASS",
-    "when": "2026-08-11 21:20 UTC"
+    "when": "2026-08-11 21:55 UTC"
   },
   "verify_training_set_counts": {
     "claims": [
