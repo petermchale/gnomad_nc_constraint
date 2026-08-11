@@ -1,6 +1,6 @@
 $ .venv/bin/python verify_comparisons_tables.py
 # why the data behind Extended Data Fig. 6 cannot answer the GC-content-bias question
-# ran at 99c195a, 2026-08-11 17:05 UTC
+# ran at ed8bd8b, 2026-08-11 17:18 UTC
 
 10 comparisons_*.txt files found in fig_tables/comparisons.tar.gz:
 
