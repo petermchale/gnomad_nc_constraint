@@ -27,6 +27,7 @@ data, code and formula. These come first: they establish what the pipeline *is*.
 | verify | `verify_expected_r1.py` | `expected_counts_by_context_methyl_genome_1kb.txt` really is the context-only, pre-adjustment (r ≡ 1) table, *and* it describes the same windows with the same `possible` denominators as the published constraint table | **everything** — fig5's step-1 curve (panel A), E₁ denominator (B), context-only baseline (E) |
 | verify | `verify_logit_predict_behavior.py` | the operative adjustment is `r = σ(β₀+β·z)/σ(β₀)`, a ratio of *probabilities*, not the logit ratio the Methods state | fig5's Notation cell; panel B's "a level error cancels" argument |
 | verify | `verify_missing_utils_files.py` | the PCA+logit fit behind `r(w)` is genuinely absent from the bucket (only the apply side is published), and `misc/generic.py` et al. are *not* missing | the premise of `validate.py` |
+| verify | `verify_qc_filter.py` | the published constraint table carries `pass_qc = True` on every row, so the flag is inert and a QC failure shows up only as an absent window — and those absences are variant-call QC (70.9% fail the ≥80% PASS rule; 3.3% the coverage band), not missing coverage | fig5 panel C's third stratum, and the name it is given in the legend |
 | verify | `verify_training_set_counts.py` | the four shipped training tables really are the training set the paper describes — both published counts reproduced, and the join `load_training_data` performs loses nothing | every fig5 claim about *what step 2 was fit on*: panels C, D and E, and the whole population argument. Also `dnm_training_size/` |
 | validate | `validate.py` | the reimplementation reproduces Chen et al.'s, at the univariate parameters and end to end | fig5 and dnm_training_size both refit |
 
@@ -61,12 +62,13 @@ identical contamination — while panel A's whole "before" curve was silently wr
 .venv/bin/python preconditions/verify_expected_r1.py              # ~8 min cold (3.3 GB), 3s cached
 .venv/bin/python preconditions/verify_logit_predict_behavior.py   # seconds
 .venv/bin/python preconditions/verify_missing_utils_files.py      # seconds
+.venv/bin/python preconditions/verify_qc_filter.py                # 7s cached (+200 MB, once)
 .venv/bin/python preconditions/verify_training_set_counts.py      # 5s cached (421 MB)
 .venv/bin/python preconditions/validate.py -check expected        # seconds
 .venv/bin/python preconditions/validate.py -check coefficients    # ~2 min cached (2.5 GB)
 ```
 
-Timings measured 2026-08-10. "Cached" means the inputs are already in `published/`; the
+Timings measured 2026-08-10 (`verify_qc_filter` 2026-08-11). "Cached" means the inputs are already in `published/`; the
 first run of anything pays its download instead. `-check coefficients` is compute, not
 I/O — 1,664 L1-logit fits, 77s of the 109s total.
 
@@ -100,6 +102,14 @@ it does.
 - **`verify_missing_utils_files`** — the gap is real, and it is specifically the multivariate
   fit: the three utility modules are present and are exactly what the main script imports,
   so this is not an incomplete checkout.
+- **`verify_qc_filter`** — read the two decompositions together, because they disagree in
+  emphasis and both are true. Per *window*, 70.9% of the 587,902 absences fail the PASS rule
+  and 43.3% fail `possible ≥ 1000` (the categories overlap); per *training site*, it is 87.8%
+  and 14.3%, because a window with few possible variants also holds few training sites. The
+  second is the one panel C's band actually counts. A residual **1.9% of absent windows pass
+  all three conditions** and are unexplained — the constraint table's window set is not
+  exactly "step-1 windows that pass QC", so do not present the filter as a complete account
+  of the absence.
 - **`verify_training_set_counts`** — both published counts are reproduced, but by *different
   tables of the pair*, which is the trap: **413,304** DNMs comes from the dnm1 *feature*
   table plus the 31 loci carrying two DNMs each (a locus-keyed table collapses those pairs),

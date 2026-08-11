@@ -58,9 +58,18 @@ figure.
    is a decomposition identity, not a fit.
 3. The training set **is not the scored population**: the fraction of background training
    sites inside the analyzed windows falls 0.85 -> 0.29 across GC, and the excluded
-   territory is *different*, not merely absent -- the no-coverage stratum's non-CpG DNM
+   territory is *different*, not merely absent -- the QC-failing stratum's non-CpG DNM
    rate runs 1.55x the noncoding rate in the GC bulk and 4.06x by GC 0.61, while
    coding/noncoding stays flat at 0.90-0.99.
+   *Name that stratum carefully.* It is the windows with no row in the published
+   constraint table, and until measured it was called "no gnomAD coverage" here, which is
+   wrong: all 587,902 of them have their QC inputs on file, and they are absent because
+   they failed Chen et al.'s window filter -- 70.9% the `>= 80%` of observed variants PASS
+   rule, 43.3% the `>= 1000 possible variants` rule, only 3.3% the 25-35x coverage band
+   (weighted by training sites: 87.8 / 14.3 / 1.0%). A residual 1.9% pass all three and
+   are unexplained. Relatedly, `pass_qc` is **True on all 1,984,900 rows** of that table,
+   so filtering on it is a no-op and a QC failure is only ever visible as an absent row.
+   `preconditions/verify_qc_filter.py`.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
    smooth 1.57x, and the logistic regression can then track it instead of missing by 26%

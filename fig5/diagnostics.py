@@ -7,9 +7,10 @@ asserted in the figure's text is unregenerable.
 Three questions, three functions:
 
   dnm_rate_by_stratum   Panel C: is the training territory excluded from the scored
-                        population actually different, or just absent? -> the excluded
-                        no-coverage sequence carries essentially all of the training
-                        set's GC dependence (4.1x the noncoding rate by GC 0.61).
+                        population actually different, or just absent? -> the sequence
+                        dropped for failing gnomAD's variant-call QC carries essentially
+                        all of the training set's GC dependence (4.1x the noncoding rate
+                        by GC 0.61).
 
   cpg_methylation_by_gc Panel B: are high-GC CpGs really hypomethylated, and does their
                         DNM rate really collapse? -> 90-100% hypomethylated above GC 0.70
@@ -32,13 +33,19 @@ import data as D
 from gnocchi_bias import dnm_model as M
 from gnocchi_bias import windows as W
 
-# The three strata a training site can fall into, relative to the scored population.
-# NOTE the definition, which is fig3's and is what the quoted numbers use: `noncoding`
-# is coding_prop <= 0 whether or not the window passes QC, and `coding` is everything
-# else that IS in the constraint table. That is deliberately NOT identical to panel C's
-# `analyzed` category (which also requires pass_qc), because the question here is about
-# the SEQUENCE -- coding vs noncoding vs uncallable -- not about window eligibility.
-_STRATUM = """CASE WHEN an.element_id IS NULL THEN 'no_coverage'
+# The three strata a training site can fall into, relative to the scored population:
+# its window is noncoding and in the published constraint table, coding and in it, or not
+# in it at all. The third is `failed_qc` and not `no_coverage`: every window absent from
+# that table has QC inputs on file and fails one of the paper's three conditions (>= 80%
+# of observed variants PASS, mean coverage 25-35x, >= 1000 possible variants), the first
+# of those dominating. preconditions/verify_qc_filter.py measures the split.
+#
+# An earlier comment here claimed this `noncoding` was deliberately broader than panel
+# C's `analyzed`, since that one also requires pass_qc. It is not: the published table
+# carries pass_qc = True on all 1,984,900 of its rows, so the flag is inert and the two
+# definitions pick out the same windows. Keeping both spellings anyway -- each says what
+# its own panel means, and a future unfiltered vintage of the table would separate them.
+_STRATUM = """CASE WHEN an.element_id IS NULL THEN 'failed_qc'
                    WHEN an.coding_prop <= 0.0 THEN 'noncoding'
                    ELSE 'coding' END"""
 
@@ -100,15 +107,19 @@ def dnm_rate_by_stratum(edges: np.ndarray, cache_dir: str = D.CACHE_DIR,
     """
     Empirical P(DNM) over non-CpG training sites, per GC bin, split by where the site
     sits relative to the scored population: noncoding, coding, or absent from the
-    constraint table (no gnomAD coverage).
+    constraint table because its window failed gnomAD variant-call QC.
+
+    Both classes are labelled, DNMs included -- that is what makes this a rate rather
+    than a composition. 72,801 of the non-CpG autosomal DNMs sit in the QC-failing
+    stratum, against 17,545 coding and 241,479 noncoding.
 
     THE POINT. The noncoding and coding curves are both nearly flat in GC and nearly
     equal, so the coding exclusion is not what makes the training set's GC dependence
-    steep. The no-coverage curve is not flat: it runs ~1.6x the noncoding rate in the GC
+    steep. The QC-failing curve is not flat: it runs ~1.6x the noncoding rate in the GC
     bulk and ~4.1x by GC 0.61. Essentially all of the original training set's GC
-    dependence is contributed by sequence gnomAD cannot call -- which is also where trio
-    DNM calling is least reliable, so part of the excess is plausibly false-positive DNM
-    calls rather than real mutation.
+    dependence is contributed by sequence gnomAD could not call reliably -- which is also
+    where trio DNM calling is least reliable, so part of the excess is plausibly
+    false-positive DNM calls rather than real mutation.
 
     Columns: stratum, gc_bin, gc_pct, k (DNMs), n (sites), p = k/n.
     """
@@ -135,13 +146,13 @@ def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl
     (1-p_b)/k_b), i.e. binomial noise in both strata. min_n drops bins where either
     stratum holds fewer than that many sites.
 
-    Columns: gc_bin, gc_mid, and {coding,no_coverage}_{ratio,se_log}.
+    Columns: gc_bin, gc_mid, and {coding,failed_qc}_{ratio,se_log}.
     """
     keep = st.filter(pl.col("n") >= min_n)
     base = keep.filter(pl.col("stratum") == "noncoding").select(
         ["gc_bin", pl.col("p").alias("p_nc"), pl.col("k").alias("k_nc")])
     out = base
-    for stratum in ("coding", "no_coverage"):
+    for stratum in ("coding", "failed_qc"):
         s = keep.filter(pl.col("stratum") == stratum).select(
             ["gc_bin", pl.col("p").alias("p_s"), pl.col("k").alias("k_s")])
         out = out.join(s, on="gc_bin", how="inner").with_columns([

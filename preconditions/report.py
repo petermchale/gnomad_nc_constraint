@@ -58,6 +58,11 @@ CHECKS = {
         "three utility modules are not missing",
         ".venv/bin/python preconditions/verify_missing_utils_files.py",
     ),
+    "verify_qc_filter": (
+        "the published constraint table's pass_qc column is a constant, and the windows "
+        "missing from it failed variant-call QC rather than lacking coverage",
+        ".venv/bin/python preconditions/verify_qc_filter.py",
+    ),
     "verify_training_set_counts": (
         "the four shipped training tables are the training set the paper describes",
         ".venv/bin/python preconditions/verify_training_set_counts.py",

@@ -128,23 +128,38 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # promise a curve that does not exist. That also puts the colour on the two bands whose
 # growth is the point.
 #
-# NOT violet for `no_coverage`, though it reads well here: violet already carries the
+# NOT violet for `failed_qc`, though it reads well here: violet already carries the
 # scored-population intervention through panels B, D and E, and a fourth meaning would
 # undo that thread. Aqua is the slot `analyzed` just vacated, so it collides only with
 # panel A's depletion-rank curve -- a different panel with its own legend, and not part
 # of a thread that runs across several.
-STRATUM_COLORS = {"analyzed": "0.78", "coding": "#eb6834", "no_coverage": "#1baf7a"}
+#
+# No "Excluded:" prefix, though both lower strata are indeed outside the scored
+# population. The word needs an antecedent the legend does not supply, and it papers over
+# a difference: a coding window HAS a published Gnocchi score and is dropped by this
+# analysis's noncoding restriction, while a QC-failing window was dropped by Chen et al.
+# before scoring and has none. Naming each stratum for what it is says more in fewer
+# words; the relation to the scored set is what the first label states and what the
+# notebook's panel C section spells out.
+#
+# `failed_qc`, not `no_coverage`: a window absent from the published constraint table
+# failed one of the paper's three QC conditions (>= 80% of observed variants PASS, mean
+# coverage 25-35x, >= 1000 possible variants), and it is overwhelmingly the first of
+# those, not missing coverage -- 417,097 of the 587,902 absent autosomal windows fail the
+# PASS rule against 19,396 failing coverage. preconditions/verify_qc_filter.py measures it.
+STRATUM_COLORS = {"analyzed": "0.78", "coding": "#eb6834", "failed_qc": "#1baf7a"}
 STRATUM_LABELS = {
     "analyzed": "In the analyzed noncoding genome",
-    "coding": "Excluded: coding / failed QC",
-    "no_coverage": "Excluded: no gnomAD coverage",
+    "coding": "Coding window",
+    "failed_qc": "Window failed gnomAD variant-call QC",
 }
-# The composition table names the third category `noannot` (no row in the constraint
-# table at all), which is the same thing as `no_coverage` in the ratio table.
+# The composition table names the third category `noannot`, for the mechanism that
+# defines it -- no row in the constraint table at all -- which is the same set of windows
+# as `failed_qc` in the ratio table, for the reason there is no row.
 COMPOSITION_STYLE = [
     (f"frac_{col}", STRATUM_COLORS[key], STRATUM_LABELS[key])
     for key, col in (("analyzed", "analyzed"), ("coding", "coding"),
-                     ("no_coverage", "noannot"))
+                     ("failed_qc", "noannot"))
 ]
 
 
@@ -181,7 +196,7 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
 # dicts rather than repeated, so the band and the line for a stratum always match.
 STRATUM_STYLE = {
     key: {"color": STRATUM_COLORS[key], "marker": marker, "label": STRATUM_LABELS[key]}
-    for key, marker in (("coding", "s"), ("no_coverage", "v"))
+    for key, marker in (("coding", "s"), ("failed_qc", "v"))
 }
 
 
@@ -194,10 +209,10 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     training set leaves the scored population at high GC; on its own that is only an
     absence. This row shows the excluded territory is also DIFFERENT: the coding stratum
     tracks the noncoding one within ~10% and flat across the whole GC range, while the
-    uncovered stratum runs 1.55x in the GC bulk and 4.06x by GC 0.61. So the steep GC
-    dependence the model learns comes from sequence gnomAD cannot call -- which is also
-    where trio DNM calling is least reliable, making part of that excess plausibly
-    false-positive calls rather than real mutation.
+    QC-failing stratum runs 1.55x in the GC bulk and 4.06x by GC 0.61. So the steep GC
+    dependence the model learns comes from sequence gnomAD could not call reliably --
+    which is also where trio DNM calling is least reliable, making part of that excess
+    plausibly false-positive calls rather than real mutation.
 
     A ratio of 1 is the reference: the excluded sites would then be exchangeable with
     the scored ones as far as mutation rate is concerned.

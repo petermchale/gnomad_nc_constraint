@@ -189,8 +189,8 @@ def restrict_to_analyzed_windows(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame,
 
     `element_ids` is any iterable of analyzed element_ids -- in practice
     windows.build_window_table(...)["element_id"]. Sites whose window is absent from
-    the constraint table (no gnomAD coverage) are dropped too, since they are absent
-    from that set.
+    the constraint table (it failed gnomAD's variant-call QC) are dropped too, since they
+    are absent from that set.
 
     Returns the filtered (df_dnm1, df_dnm0) and prints the retained fractions, which
     are worth reading: they are not equal, because DNMs and background sites are not

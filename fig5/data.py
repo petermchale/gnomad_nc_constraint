@@ -291,11 +291,22 @@ def dnm0_composition(edges: np.ndarray, cache_dir: str = CACHE_DIR,
     Panel C's table. Each GC bin's non-CpG background training sites, mapped to their
     containing 1 kb tile and split three ways:
 
-        n_analyzed  tile passes pass_qc, coding_prop <= threshold, autosome/PAR
-        n_coding    tile is annotated but fails one of those
-        n_noannot   tile has no row in the constraint table at all (no gnomAD coverage)
+        n_analyzed  tile is in the constraint table, coding_prop <= threshold,
+                    autosome/PAR
+        n_coding    tile is in the constraint table but coding
+        n_noannot   tile has no row in the constraint table, i.e. its window failed
+                    gnomAD's variant-call QC
 
     These partition the total exactly, which is asserted rather than assumed.
+
+    n_coding is coding and nothing else, despite the pass_qc conjunct below: every row of
+    the published constraint table has pass_qc = True, so a QC-failing window is not in
+    it at all and falls in n_noannot. Measured on this very population, n_coding is
+    247,807 sites, all coding, and the QC-failing part of it is empty. What n_noannot
+    holds is not missing coverage either: of its 537,985 sites, 88% are in windows where
+    fewer than 80% of observed variants are PASS, 14% in windows with fewer than 1,000
+    possible variants, and 1% in windows outside 25-35x mean coverage.
+    preconditions/verify_qc_filter.py measures both.
     """
     def build() -> pl.DataFrame:
         b = sql_bin_expr("ft.GC_content_1k / 100.0", edges)
@@ -311,6 +322,10 @@ def dnm0_composition(edges: np.ndarray, cache_dir: str = CACHE_DIR,
             d0 AS (SELECT context, {ELEMENT_ID_FROM_LOCUS} AS element_id
                    FROM read_csv_auto('{dnm0}', delim='\t', header=True)
                    WHERE locus NOT LIKE 'chrX:%')
+            -- pass_qc is kept in both branches although it is inert on today's file (see
+            -- the docstring): it is what the paper's window set MEANS, and an unfiltered
+            -- vintage of the table would otherwise silently move QC failures into
+            -- n_analyzed.
             SELECT {b} AS gc_bin, COUNT(*) AS n_total,
                    CAST(SUM(CASE WHEN an.pass_qc
                                   AND an.coding_prop <= {coding_prop_threshold}
