@@ -390,15 +390,34 @@ $$R_{\mathrm{eff}}(g)
 using only that expected counts add and that $\sum_g E_1^{\neg\mathcal K}/\sum_g E_1=1-\Pi(g)$.
 This is an **exact identity**, not a fit, so the panel reads additively.
 
-**The counterfactual.** Holding the non-CpG adjustment at 1 sends
-$E_2^{\neg\mathcal K}\!\to\!E_1^{\neg\mathcal K}$ and nothing else, so the dashed grey curve is
+**Reading the panel.** Its four curves are these symbols, in this order:
+$R_{\mathrm{eff}}$ (violet, what Gnocchi applies), $R_{\mathrm{non}}$ (orange) and
+$R_{\mathrm{CpG}}$ (green) — the two terms it decomposes into — and the dashed grey
+counterfactual derived next. The y-axis is $R(g)$ itself, a ratio of summed expected
+counts, so 1 means *no adjustment* and the horizontal line at 1 is the null. Since
+$R_{\mathrm{eff}}$ is a $\Pi$-weighted average of the other two, it must lie between
+them: it tracks $R_{\mathrm{non}}$ closely at low GC, where $\Pi$ is small, and is pulled
+down towards $R_{\mathrm{CpG}}\approx1$ as $\Pi$ grows.
+
+**The counterfactual, and what it intervenes on.** The question is how much of
+$R_{\mathrm{eff}}$'s rise the CpG contexts could account for on their own. So switch off
+the *non-CpG* adjustment — set $r_t\equiv1$ for $t\notin\mathcal K$, which sends
+$E_2^{\neg\mathcal K}\!\to\!E_1^{\neg\mathcal K}$ — and change nothing else: the fitted
+$r_{\mathrm{CpG}}$ stays, the weights $\Pi(g)$ stay. The dashed grey curve is
 
 $$R_{\mathrm{eff}}\big|_{r_{\mathrm{non}}\equiv1}(g)
 =\frac{\sum_g E_2^{\mathcal K}+\sum_g E_1^{\neg\mathcal K}}{\sum_g E_1}
-=\Pi(g)\,R_{\mathrm{CpG}}(g)+\big(1-\Pi(g)\big).$$
+=\Pi(g)\,R_{\mathrm{CpG}}(g)+\big(1-\Pi(g)\big),$$
 
-Its flatness is the claim: whatever CpG contexts do, and however much of the bin they
-carry, they move $R_{\mathrm{eff}}$ hardly at all.
+i.e. **what Gnocchi would apply if it adjusted CpG contexts alone**. It is flat within
+0.6% across the whole GC range while $R_{\mathrm{eff}}$ climbs to 1.44, so *none* of the
+applied trend survives the removal of the non-CpG term: the GC dependence of what Gnocchi
+applies is wholly non-CpG.
+
+Flatness here is a result, not an identity. $\Pi$ reaches **0.43** at high GC, so a GC
+trend in $R_{\mathrm{CpG}}$ would appear in this curve scaled by $\Pi$, not erased — the
+curve is flat because $R_{\mathrm{CpG}}$ itself is (0.98–1.00), which is the next
+paragraph's subject and is *correct* rather than a failure.
 
 **Where each quantity comes from.** `data._r_eff_components` builds the four per-window
 sums, one SQL query, and `data.r_eff_by_gc` does the binning and the divisions:

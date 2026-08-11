@@ -96,28 +96,40 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
                 show_xlabel: bool = True) -> None:
     """
-    Panel B. The adjustment Gnocchi actually applies, r_eff = E2/E1, split into its
-    CpG and non-CpG parts. `binned` is data.r_eff_by_gc() output.
+    Panel B. The adjustment Gnocchi actually applies to a GC bin, R_eff(g) = sum E2 /
+    sum E1, split into its CpG and non-CpG parts. `binned` is data.r_eff_by_gc() output.
 
-    The three curves are an exact decomposition, r_eff = Pi*r_CpG + (1-Pi)*r_non, so
-    the panel reads additively. The counterfactual holds the non-CpG term at 1 and
-    changes nothing else; it is drawn as a dashed grey hypothetical rather than a
-    fourth measured series. Its flatness is the claim.
+    Every label is a symbol from the notebook's panel B derivation, and the legend is
+    ordered as that derivation reads: the applied quantity first, then the two parts it
+    decomposes into, then the hypothetical.
+
+        R_eff = Pi*R_CpG + (1-Pi)*R_non          exact, bin by bin
+
+    THE COUNTERFACTUAL IS AN INTERVENTION ON THE NON-CpG TERM, not on the CpG one: it
+    sets r = 1 for non-CpG contexts and leaves the fitted r_CpG and the weights Pi
+    untouched, giving Pi*R_CpG + (1-Pi) -- what Gnocchi would apply if it adjusted CpG
+    contexts alone. Drawn as a dashed grey hypothetical rather than a fourth measured
+    series. Its flatness is the claim, and it is not automatic: Pi reaches 0.43 at high
+    GC, so a GC trend in R_CpG would show up here scaled by Pi rather than erased.
     """
     df = binned.to_pandas() if hasattr(binned, "to_pandas") else binned
     df = df[df["n"] >= min_n].sort_values("gc_mid") if min_n else df.sort_values("gc_mid")
 
-    for col, key, label in [("r_non", "step2", "Non-CpG contexts"),
-                            ("r_eff", "scored", r"All contexts (applied $r_{\mathrm{eff}}$)"),
-                            ("r_cpg", "dr", "CpG contexts")]:
+    for col, key, label in [
+            ("r_eff", "scored", r"$R_{\mathrm{eff}}$ — all contexts, what Gnocchi applies"),
+            ("r_non", "step2", r"$R_{\mathrm{non}}$ — non-CpG contexts"),
+            ("r_cpg", "dr", r"$R_{\mathrm{CpG}}$ — CpG contexts")]:
         ax.plot(df["gc_mid"], df[col], marker=SERIES_MARKERS[key],
                 color=SERIES_COLORS[key], markersize=5, linewidth=2, label=label)
     ax.plot(df["gc_mid"], df["r_counterfactual"], linestyle="--", linewidth=1.8,
-            color="0.45", label=r"Counterfactual: non-CpG $r \equiv 1$")
+            color="0.45",
+            label=r"$\Pi R_{\mathrm{CpG}} + (1-\Pi)$ — if only CpG were adjusted")
 
     ax.axhline(1.0, **REF_LINE_KW)
     _log_ratio_axis(ax, df[["r_non", "r_eff", "r_cpg"]].to_numpy())
-    _finish(ax, "Adjustment factor applied\nto expected counts, $r$", xrange, show_xlabel)
+    _finish(ax, r"Adjustment applied per GC bin," "\n"
+                r"$R(g)=\sum E_2 \,/ \sum E_1$ over its windows",
+            xrange, show_xlabel)
 
 
 # Panel C's two rows share one colour per stratum, defined once here so the band in the
