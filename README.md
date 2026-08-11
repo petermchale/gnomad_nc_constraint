@@ -55,8 +55,7 @@ Five panels, each written as a standalone vector PDF for assembly:
 | **A** | The GC bias is *introduced by* the regional adjustment `r`, not inherited from the context-only model underneath it |
 | **B** | That adjustment's GC dependence is wholly non-CpG — and `r_CpG ≈ 1` is *correct*, because GC content covaries with methylation, which is already handled in step 1 |
 | **C** | The DNM training set has a different distribution than the population Gnocchi is scored on |
-| **D** | Restricting the training set to the scored population lowers the empirical DNM rate, 
-makes it monotonic, enabling a better model fit |
+| **D** | Restricting the training set to the scored population lowers the empirical DNM rate, makes it monotonic, enabling a better model fit |
 | **E** | Refitting `r` on the scored population removes Gnocchi's bias — below the context-only model's own |
 
 Plus one supporting figure on why `r_CpG ≈ 1` is the right behaviour.
