@@ -35,6 +35,7 @@ the model, not the plots, and it must import cleanly inside a notebook.
 """
 import time
 from functools import reduce
+from typing import cast
 
 import duckdb
 import numpy as np
@@ -245,7 +246,15 @@ def fit_univariate(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, contexts: list)
                 df_1['group'] = 1
                 df_0 = df_0_[['locus', ft]].dropna().copy()
                 df_0['group'] = 0
-                df_01 = pd.concat([df_1, df_0])
+                # The cast is for the type checker, not the reader: pandas-stubs' first
+                # pd.concat overload takes `Iterable[None]` and returns Never, and a list
+                # whose element type came out of a chained df[...][...] as Unknown matches
+                # it -- which makes everything below here dead flow, so an editor greys out
+                # the rest of the loop. Naming the element type picks the right overload.
+                # A plain annotation would do it, but errors under the stubless pandas the
+                # repo actually installs, where the same expression is DataFrame | Series.
+                # Same fix in predict_training_set.
+                df_01 = pd.concat(cast("list[pd.DataFrame]", [df_1, df_0]))
 
                 df_y = df_01[['group']]
                 df_x = df_01[[ft]].apply(scipy.stats.zscore)
@@ -459,7 +468,8 @@ def predict_training_set(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame, contexts:
         df_1['label'] = 1
         df_0 = df_dnm0[df_dnm0['context'] == context][cols].dropna().copy()
         df_0['label'] = 0
-        df01 = pd.concat([df_1, df_0], ignore_index=True)
+        # cast as in fit_univariate
+        df01 = pd.concat(cast("list[pd.DataFrame]", [df_1, df_0]), ignore_index=True)
         if df01.empty:
             continue
 
