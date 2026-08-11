@@ -96,6 +96,17 @@ So the second cannot stand in for the first: E1 is a common factor on both of it
 and cancels. Were the E1 table secretly post-adjustment, `validate.expected` would still
 pass at Pearson r = 1.000000, both sides carrying the identical contamination, while
 fig5 panel A's "before" curve was silently wrong. Full contrast in `../README.md`.""",
+), (
+    "Two genome-wide window tables, and only one is the scored set",
+    """`expected_counts_by_context_methyl_genome_1kb.txt` has 2,575,299 rows and is the
+step-1 UNIVERSE: every 1 kb window with expected counts at r = 1, including every window
+Chen et al. later dropped. `fig_tables/constraint_z_genome_1kb.annot.txt` has 1,984,900
+and is the SCORED SET: the windows that carry a Gnocchi z.
+
+The 587,902-window gap is what `verify_qc_filter` is about, and reading the first file as
+"the windows Gnocchi scores" silently readmits all of it -- the same territory panel C
+shows is different, not merely absent. Both checks above need both files: the universe to
+re-evaluate the filter on, the scored set to say who survived.""",
 )]
 
 _PASS, _FAIL, _ERROR, _NOT_RUN = "PASS", "FAIL", "ERROR", "not run"

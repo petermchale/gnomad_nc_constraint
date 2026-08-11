@@ -56,6 +56,25 @@ sides, so it cancels and only r is left under test. Were
 `validate.expected` would still pass at Pearson r = 1.000000 — both sides carrying the
 identical contamination — while panel A's whole "before" curve was silently wrong.
 
+### Two genome-wide window tables, and only one of them is the scored set
+
+Both checks above turn on the difference, and the row counts in the table just above are
+the two numbers involved, so it is worth stating plainly:
+
+| file | rows | what it is |
+|---|---|---|
+| `expected_counts_by_context_methyl_genome_1kb.txt` | 2,575,299 (2,572,802 autosomal) | the **step-1 universe** — every 1 kb window with expected counts, `r ≡ 1`. Still contains every window Chen et al. later dropped |
+| `fig_tables/constraint_z_genome_1kb.annot.txt` | 1,984,900 | the **scored set** — the windows that carry a Gnocchi `z`, after the QC filter |
+
+The gap is 587,902 windows, and it is not a rounding difference: treating the step-1 file
+as "the windows Gnocchi scores" silently readmits every QC failure, which is exactly the
+territory panel C shows is *different* (its non-CpG DNM rate runs 4.06× the noncoding
+one by GC 0.61). `verify_qc_filter` needs both — the step-1 file as the universe to
+re-evaluate the filter on, the constraint table as the label saying who survived — and
+that pairing is what makes its confusion matrix meaningful. `windows.build_window_table`
+joins the two and keeps the intersection, so the analyzed set is derived from the scored
+one, never from the universe.
+
 ## Running them
 
 ```bash
