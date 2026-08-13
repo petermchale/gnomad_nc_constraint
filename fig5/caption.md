@@ -18,7 +18,7 @@
   licensed and `GENEHANCER_BED` is unset. The same definition is used in every panel,
   including the population the retrained submodel is fit on, so the comparison is internally
   consistent; but the window count (1,843,559) is larger than the paper's neutral set.
-- **A supporting figure** (`output/fig5_supp_cpg.pdf`) backs the caption's claim that
+- **Supporting Figure 7** (`output/fig5_supp_cpg.pdf`) backs the caption's claim that
   R_CpG ≈ 1 is correct: the methylation effect step 1 already absorbs (3.0–4.3× within one
   trinucleotide context), the hypomethylated character of high-GC CpGs (90–100% above GC
   0.70), the resulting 2.7-fold fall in their DNM rate, and Π itself (0.025 → 0.426), the

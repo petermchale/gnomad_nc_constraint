@@ -58,7 +58,8 @@ Five panels, each written as a standalone vector PDF for assembly:
 | **D** | Restricting the training set to the scored population lowers the empirical DNM rate, makes it monotonic, enabling a better model fit |
 | **E** | Refitting `r` on the scored population removes Gnocchi's bias — below the context-only model's own |
 
-Plus one supporting figure on why `r_CpG ≈ 1` is the right behaviour.
+Plus one supporting figure on why `r_CpG ≈ 1` is the right behaviour, and how much of
+the expected counts that covers — **Supporting Figure 7** in the manuscript.
 
 The analysis uses only public data from `gs://gnomad-nc-constraint-v31-paper`, plus the
 published constraint scores. It reimplements the per-context multivariate PCA + L1-logit

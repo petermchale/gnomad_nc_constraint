@@ -655,7 +655,7 @@ save(fig, "E")
 """)
 
 md(r"""
-## Supporting figure — why $r_{\mathrm{CpG}}\approx1$ is correct
+## Supporting figure (**Supporting Figure 7** in the manuscript) — why $r_{\mathrm{CpG}}\approx1$ is correct
 
 Panel B asserts that CpG contexts *should* apply no GC-dependent adjustment, because the
 effect that would need adjusting has already been applied in step 1. That claim rests on
@@ -727,15 +727,15 @@ shown = cpg.filter(pl.col("n") >= MIN_N_CPG)
 bulk = shown.filter((pl.col("gc_pct") > 35) & (pl.col("gc_pct") < 50))
 p_bulk = float(np.average(bulk["p"], weights=bulk["n"]))
 top = shown.sort("gc_pct")[-1]
-print(f"supporting figure B: hypomethylated fraction "
+print(f"Supporting Figure 7B: hypomethylated fraction "
       f"{float(np.average(bulk['frac_hypomethylated'], weights=bulk['n'])):.3f} in the "
       f"GC bulk -> {shown.filter(pl.col('gc_pct') > 70)['frac_hypomethylated'].min():.2f}"
       f"-{shown['frac_hypomethylated'].max():.2f} above GC 0.70")
-print(f"supporting figure C: DNM rate {p_bulk:.3f} in the GC bulk -> "
+print(f"Supporting Figure 7C: DNM rate {p_bulk:.3f} in the GC bulk -> "
       f"{float(top['p'][0]):.3f} in the top GC bin "
       f"({p_bulk / float(top['p'][0]):.1f}x lower)")
 pi = binned_b.filter(pl.col("n") >= MIN_N_WINDOWS)["pi_cpg"]
-print(f"supporting figure D: CpG share of step-1 expected counts "
+print(f"Supporting Figure 7D: CpG share of step-1 expected counts "
       f"{pi.min():.3f} -> {pi.max():.3f}")
 print(shown.select(["gc_pct", "n", "mean_methyl", "frac_hypomethylated", "p"]))
 """)

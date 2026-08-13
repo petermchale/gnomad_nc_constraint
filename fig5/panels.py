@@ -274,7 +274,7 @@ CPG_COLORS = {"ACG": "#2a78d6", "CCG": "#eb6834", "GCG": "#1baf7a", "TCG": "#4a3
 
 def panel_cpg_methylation_effect(ax, ct, show_mu: bool = True) -> None:
     """
-    Supporting figure, top. The CpG C>T rate against methylation level, per context,
+    Supporting Figure 7 (the manuscript's label), row A. The CpG C>T rate against methylation level, per context,
     each curve divided by its own value at level 0. `ct` is
     diagnostics.cpg_rate_by_methyl() output.
 
@@ -330,7 +330,7 @@ def panel_cpg_methylation_effect(ax, ct, show_mu: bool = True) -> None:
 def panel_cpg_hypomethylation(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
                               show_xlabel: bool = True) -> None:
     """
-    Supporting figure, middle. The fraction of CpG training sites that are
+    Supporting Figure 7, row B. The fraction of CpG training sites that are
     hypomethylated (level <= 1) against GC content, with mean methylation level on a
     right-hand axis. `cpg` is diagnostics.cpg_methylation_by_gc() output.
 
@@ -366,7 +366,7 @@ def panel_cpg_hypomethylation(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
 def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
                        show_xlabel: bool = True) -> None:
     """
-    Supporting figure, bottom. The empirical DNM rate over CpG training sites against GC
+    Supporting Figure 7, row C. The empirical DNM rate over CpG training sites against GC
     content, with binomial error bars.
 
     It is flat at ~0.53 through the GC bulk and collapses to ~0.195 in the top GC bin --
@@ -391,7 +391,7 @@ def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
 def panel_cpg_expected_share(ax, binned, min_n: int = 100, xrange=(0.2, 0.8),
                              show_xlabel: bool = True) -> None:
     """
-    Supporting figure, fourth row. Pi(g), the CpG contexts' share of a GC bin's step-1
+    Supporting Figure 7, row D. Pi(g), the CpG contexts' share of a GC bin's step-1
     expected counts. `binned` is data.r_eff_by_gc() output -- the same table panel B
     decomposes, so this curve is literally the weight in R_eff = Pi*R_CpG + (1-Pi)*R_non.
 
