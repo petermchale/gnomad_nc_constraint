@@ -814,6 +814,28 @@ md(r"""
   training process and was out of scope for the rebuttal.
 """)
 
+md(r"""
+## Refresh the Illustrator assembly
+
+The manuscript figure is assembled in `fig5.ai` from the panel PDFs above, as **links**.
+Any panel this run rewrote therefore leaves that file stale, and the repo -- which tracks
+`fig5.ai` and is the source of truth for it -- would carry an assembly that disagrees with
+its own panels until Illustrator reloads the links and the document is saved.
+
+The cell below does that, so a notebook run ends with everything in step. It relinks only
+the panels newer than the .ai, and prints each one: relinking preserves a placed item's
+frame rather than its aspect ratio, so a panel whose bounding box moved is worth a look.
+Nothing here is required to build the figure -- without Illustrator, or without the .ai,
+it prints a notice and moves on. `fig5/resave_ai.py` is the same code as a command.
+""")
+
+code(r"""
+import resave_ai
+
+_ = resave_ai.refresh(quiet_if_absent=True)   # the return code is for the shell, not here
+""")
+
+
 nb = {
     "cells": [
         {"cell_type": k, "metadata": {},

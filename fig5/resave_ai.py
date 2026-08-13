@@ -10,6 +10,11 @@ after every rebuild is the thing this script removes.
     .venv/bin/python fig5/resave_ai.py -dry_run   # what is stale, touching nothing
     .venv/bin/python fig5/resave_ai.py            # relink the stale ones and save
 
+fig5.ipynb's last cell calls refresh() itself, so a notebook run leaves the assembly
+current without a second command. Running the script by hand is for the case where the
+panels were rebuilt some other way, or where the first run's permission prompt needs a
+terminal to appear in front of.
+
 It talks to Illustrator over `osascript -e 'tell application ... to do javascript'`,
 i.e. ExtendScript, which is the only way in: an .ai file stores a path and a cached
 preview per link, and regenerating that preview outside the app is not something we can
@@ -49,7 +54,7 @@ OUTPUT_DIR = os.path.join(HERE, "output")
 JSX = r"""
 var target = %s;
 var stale_after = %f;
-var result = {opened: false, relinked: [], skipped: [], saved: false, note: ""};
+var result = {opened: false, relinked: [], skipped: [], links: [], saved: false};
 
 app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
 
@@ -66,6 +71,7 @@ for (var j = 0; j < doc.placedItems.length; j++) {
     var item = doc.placedItems[j];
     var f = item.file;
     if (f == null || !f.exists) { result.skipped.push("missing link"); continue; }
+    result.links.push(f.name);
     // File.modified is a Date; compare against the .ai's own mtime, passed in as epoch
     // seconds. A link older than the document cannot be the reason it is stale.
     if (f.modified.getTime() / 1000.0 <= stale_after) { result.skipped.push(f.name); continue; }
@@ -83,7 +89,8 @@ if (result.opened) { doc.close(SaveOptions.DONOTSAVECHANGES); }
 ("opened=" + (result.opened ? 1 : 0)
  + ";saved=" + (result.saved ? 1 : 0)
  + ";relinked=" + result.relinked.join(",")
- + ";skipped=" + result.skipped.join(","));
+ + ";skipped=" + result.skipped.join(",")
+ + ";links=" + result.links.join(","));
 """
 
 
@@ -102,13 +109,14 @@ def run_jsx(script: str) -> dict:
 
 
 def parse_result(out: str) -> dict:
-    """`k=v;k=v` from the JSX above, with the two list-valued keys split on commas."""
+    """`k=v;k=v` from the JSX above, with the list-valued keys split on commas."""
     fields = dict(kv.split("=", 1) for kv in out.split(";") if "=" in kv)
     if "saved" not in fields:
         raise RuntimeError(f"Illustrator returned something unparseable:\n{out}")
     return {"opened": fields["opened"] == "1", "saved": fields["saved"] == "1",
             "relinked": [n for n in fields.get("relinked", "").split(",") if n],
-            "skipped": [n for n in fields.get("skipped", "").split(",") if n]}
+            "skipped": [n for n in fields.get("skipped", "").split(",") if n],
+            "links": [n for n in fields.get("links", "").split(",") if n]}
 
 
 def applescript_str(s: str) -> str:
@@ -123,15 +131,21 @@ def stale_links(ai_mtime: float) -> list[str]:
     return [os.path.basename(p) for p in pdfs if os.path.getmtime(p) > ai_mtime]
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("-dry_run", action="store_true",
-                    help="report which panels are newer than the .ai; touch nothing")
-    args = ap.parse_args()
+def refresh(dry_run: bool = False, quiet_if_absent: bool = False) -> int:
+    """
+    The whole job, as one call: relink fig5.ai's stale panels and save it. Separate from
+    main() so fig5.ipynb's last cell can invoke it directly.
 
+    `quiet_if_absent` is for that caller: the notebook must stay runnable by someone with
+    no Illustrator and no .ai, so there the absence of either is a printed notice rather
+    than a failure. From the command line it is an error worth seeing.
+    """
     if not os.path.exists(AI_PATH):
-        print(f"no such file: {AI_PATH}", file=sys.stderr)
+        msg = f"no such file: {AI_PATH}"
+        if quiet_if_absent:
+            print(msg + " -- nothing to refresh")
+            return 0
+        print(msg, file=sys.stderr)
         return 1
 
     ai_mtime = os.path.getmtime(AI_PATH)
@@ -142,19 +156,38 @@ def main() -> int:
         return 0
 
     print(f"{len(stale)} panel PDF(s) newer than fig5.ai: {', '.join(stale)}")
-    if args.dry_run:
+    if dry_run:
         print("dry run -- Illustrator not contacted")
         return 0
 
-    result = run_jsx(JSX % (applescript_json(AI_PATH), ai_mtime))
+    try:
+        result = run_jsx(JSX % (applescript_json(AI_PATH), ai_mtime))
+    except RuntimeError as e:
+        if quiet_if_absent:
+            print(f"could not reach Illustrator, so fig5.ai is still stale:\n{e}")
+            return 0
+        raise
+
     if result["opened"]:
         print("opened fig5.ai (it was not already open)")
     if result["relinked"]:
         print(f"relinked: {', '.join(result['relinked'])}")
+    absent = [f for f in stale if f not in result["links"]]
+    if absent:
+        print(f"not linked in fig5.ai, so left alone: {', '.join(absent)}")
     print("saved fig5.ai" if result["saved"] else "nothing to save")
     print("Check the relinked panels: a changed bounding box is stretched into the old "
           "frame.\nUndo with: git checkout fig5/fig5.ai")
     return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("-dry_run", action="store_true",
+                    help="report which panels are newer than the .ai; touch nothing")
+    args = ap.parse_args()
+    return refresh(dry_run=args.dry_run)
 
 
 def applescript_json(s: str) -> str:
