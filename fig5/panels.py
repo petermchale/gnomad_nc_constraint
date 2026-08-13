@@ -388,6 +388,34 @@ def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
             legend_loc="lower left")
 
 
+def panel_cpg_expected_share(ax, binned, min_n: int = 100, xrange=(0.2, 0.8),
+                             show_xlabel: bool = True) -> None:
+    """
+    Supporting figure, fourth row. Pi(g), the CpG contexts' share of a GC bin's step-1
+    expected counts. `binned` is data.r_eff_by_gc() output -- the same table panel B
+    decomposes, so this curve is literally the weight in R_eff = Pi*R_CpG + (1-Pi)*R_non.
+
+    It is what makes R_CpG ~ 1 a finding rather than a triviality: Pi runs 0.025 in the
+    lowest GC bin to 0.426 in the highest, so by the top of the GC range nearly half the
+    expected counts sit in contexts the regional adjustment leaves alone. A GC trend in
+    R_CpG would therefore reach the applied multiplier scaled by up to 0.43, not erased
+    -- which is why the counterfactual in panel B is flat by measurement and not by
+    construction.
+
+    Drawn against the same GC axis as the rows above, so it ends earlier: Pi is binned
+    over Chen windows, whose analyzed set thins out above GC 0.73, while the CpG training
+    sites of rows B and C reach 0.8.
+    """
+    df = binned.to_pandas() if hasattr(binned, "to_pandas") else binned
+    df = df[df["n"] >= min_n].sort_values("gc_mid") if min_n else df.sort_values("gc_mid")
+
+    ax.plot(df["gc_mid"], df["pi_cpg"], marker=SERIES_MARKERS["scored"],
+            color=SERIES_COLORS["scored"], markersize=5, linewidth=2,
+            label=r"$\Pi$ — CpG share of step-1 expected counts")
+    ax.set_ylim(0, float(df["pi_cpg"].max()) * 1.15)
+    _finish(ax, "CpG share of step-1\nexpected counts, $\\Pi$", xrange, show_xlabel)
+
+
 def label_panels(axes, labels=("A", "B", "C"), x: float = -0.1, y: float = 1.02) -> None:
     """Bold panel letters in axes coordinates, for figures saved as a single file."""
     for ax, letter in zip(axes, labels, strict=True):

@@ -21,7 +21,9 @@
 - **A supporting figure** (`output/fig5_supp_cpg.pdf`) backs the caption's claim that
   R_CpG ≈ 1 is correct: the methylation effect step 1 already absorbs (3.0–4.3× within one
   trinucleotide context), the hypomethylated character of high-GC CpGs (90–100% above GC
-  0.70), and the resulting 2.7-fold fall in their DNM rate. Cite it wherever that claim is
-  made in the text.
+  0.70), the resulting 2.7-fold fall in their DNM rate, and Π itself (0.025 → 0.426), the
+  weight those contexts carry in the panel B identity — which is what makes the flatness of
+  the counterfactual a measurement rather than a consequence of negligible weight. Cite it
+  wherever that claim is made in the text.
 - Panel letters here match the files `output/fig5{A..E}.pdf`, each a standalone vector
   page for assembly.

@@ -678,24 +678,44 @@ to near zero over the same range.
 in the top GC bin — a 2.7× fall, tracking B. The top two bins hold 356 and 169 sites;
 their error bars carry that.
 
-Put together: a large, strongly GC-dependent CpG effect exists, and step 1 already
-applies it. There is nothing left for $r$ to correct, which is exactly what panel B
-measures. (Level, not rate: these are case-control-sampled training sites at ~10:1, so
-the y-axis of C is not a genome-wide mutation rate.)
+**D. And these contexts are not a rounding error.** $\Pi$, the CpG share of a bin's step-1
+expected counts — the same weight panel B's identity
+$R_{\mathrm{eff}}=\Pi R_{\mathrm{CpG}}+(1-\Pi)R_{\mathrm{non}}$ uses — rises from
+**0.025 to 0.426** across the GC range. So the flatness of panel B's counterfactual is a
+measurement and not an artifact of negligible weight: had $R_{\mathrm{CpG}}$ carried a GC
+trend, it would have reached the applied multiplier scaled by up to 0.43. This is the
+panel that says the A–C mechanism *matters* rather than merely *holds*.
+
+Put together: a large, strongly GC-dependent CpG effect exists, step 1 already applies it,
+and the contexts it applies to carry up to 43% of the expected counts. There is nothing
+left for $r$ to correct, which is exactly what panel B measures. (Level, not rate: these
+are case-control-sampled training sites at ~10:1, so the y-axis of C is not a genome-wide
+mutation rate.)
+
+D is binned over **Chen windows** and A–C over **training sites**, the same split the main
+figure runs on, so the two do not end in the same place: D's last bin above the 100-window
+floor is centred at GC 0.75 against 0.78 for B and C. Note also that D is drawn on this
+figure's wider 0.2–0.8 axis, so it shows the two bins (0.71 and 0.75, where $\Pi$ reaches
+0.38 and 0.43) that panel B's own 0.2–0.73 range cuts off — the bins where the weight is
+largest are exactly the ones the main panel cannot show.
 """)
 
 code(r"""
 ct = X.cpg_rate_by_methyl(cache_dir=CACHE_DIR)
 cpg = X.cpg_methylation_by_gc(edges, cache_dir=CACHE_DIR)
 
-fig, axes = plt.subplots(3, 1, figsize=(7.0, 12.4),
-                         gridspec_kw={"height_ratios": [1, 1, 1], "hspace": 0.32})
+fig, axes = plt.subplots(4, 1, figsize=(7.0, 16.5),
+                         gridspec_kw={"height_ratios": [1, 1, 1, 1], "hspace": 0.32})
 panels.panel_cpg_methylation_effect(axes[0], ct)
 # MIN_N_CPG, not MIN_N_SITES: the top two GC bins (n = 356 and 169) carry the claim,
 # and their error bars show how thin they are. Quote numbers from this same subset.
 panels.panel_cpg_hypomethylation(axes[1], cpg, min_n=MIN_N_CPG, show_xlabel=False)
-panels.panel_cpg_dnm_rate(axes[2], cpg, min_n=MIN_N_CPG)
-panels.label_panels(axes, ("A", "B", "C"))
+panels.panel_cpg_dnm_rate(axes[2], cpg, min_n=MIN_N_CPG, show_xlabel=False)
+# binned_b and MIN_N_WINDOWS, not cpg/MIN_N_CPG: Pi is a per-window weight, and this is
+# the same table and the same bin floor panel B decomposes, so the curve here IS the
+# weight in that identity rather than a second estimate of it.
+panels.panel_cpg_expected_share(axes[3], binned_b, min_n=MIN_N_WINDOWS)
+panels.label_panels(axes, ("A", "B", "C", "D"))
 
 for ext, kw in ((".pdf", {}), (".png", {"dpi": 200})):
     fig.savefig(os.path.join(OUTPUT_DIR, f"fig5_supp_cpg{ext}"), bbox_inches="tight", **kw)
@@ -714,6 +734,9 @@ print(f"supporting figure B: hypomethylated fraction "
 print(f"supporting figure C: DNM rate {p_bulk:.3f} in the GC bulk -> "
       f"{float(top['p'][0]):.3f} in the top GC bin "
       f"({p_bulk / float(top['p'][0]):.1f}x lower)")
+pi = binned_b.filter(pl.col("n") >= MIN_N_WINDOWS)["pi_cpg"]
+print(f"supporting figure D: CpG share of step-1 expected counts "
+      f"{pi.min():.3f} -> {pi.max():.3f}")
 print(shown.select(["gc_pct", "n", "mean_methyl", "frac_hypomethylated", "p"]))
 """)
 

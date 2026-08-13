@@ -19,7 +19,13 @@ pre-saturation), the CpG-island character of high-GC CpGs (2.5% hypomethylated i
 GC bulk rising to 90-100% above GC 0.70), and the resulting DNM-rate collapse
 (0.53 -> 0.195, a 2.7x fall). Its bin floor is 100 sites, not the main figure's 500:
 the top two GC bins hold 356 and 169 sites and they ARE the claim, so they are drawn
-with error bars rather than dropped.
+with error bars rather than dropped. **A fourth row** carries `Pi`, the CpG share of a
+bin's step-1 expected counts (0.025 -> 0.426), which is why that claim matters rather
+than merely holds: it is the weight in panel B's identity, so a GC trend in `r_CpG`
+would have reached the applied multiplier scaled by up to 0.43 rather than erased. It is
+binned over *windows* (`binned_b`, floor 100 windows) where the rows above are binned
+over *sites*, and it is drawn on this figure's wider 0.2-0.8 axis, so it shows the two
+highest-GC bins that panel B's own 0.2-0.73 range cuts off.
 
 ```
 fig5.ipynb          the figure: LaTeX derivation of each plotted quantity, then the panels
