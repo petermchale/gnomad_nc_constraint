@@ -2,8 +2,8 @@
 
 `fig5.ipynb` builds the figure and writes each panel to `output/fig5{A..E}.pdf` as a
 standalone vector file for assembly in Illustrator, plus one supporting figure,
-`output/fig5_supp_cpg.pdf` — **Supporting Figure 7** in the manuscript, whose four rows
-are cited there as 7A-7D. Run it top to bottom.
+`output/supp_fig7.pdf` — **Supporting Figure 7** in the manuscript, whose four rows are
+cited there as 7A-7D. Run it top to bottom.
 
 **Panel C is two rows** sharing a GC axis: the composition of the background training
 sites (how much of the training set is outside the scored population), and each other
@@ -14,8 +14,7 @@ coding status, because `coding_prop` comes from the constraint table and a QC-fa
 has no row in it; measured separately, that band is 6.9% coding-overlapping against the
 QC-pass windows' 7.1%.
 
-**The supporting figure (Supporting Figure 7)** backs panel B's claim that `r_CpG ~ 1`
-is *correct*: the
+**Supporting Figure 7** backs panel B's claim that `r_CpG ~ 1` is *correct*: the
 methylation effect step 1 absorbs (3.0-4.3x within one trinucleotide, against 9.7-15.2x
 pre-saturation), the CpG-island character of high-GC CpGs (2.5% hypomethylated in the
 GC bulk rising to 90-100% above GC 0.70), and the resulting DNM-rate collapse
@@ -122,7 +121,7 @@ filter, so neither is advantaged by its own window set.
   0.90–0.99 and flat), and the CpG-island character of high-GC CpGs (90–100%
   hypomethylated above GC 0.70, DNM rate 2.7x lower than the bulk, against a 3.0–4.3x
   methylation effect that step 1 already absorbs). Migrated from `fig3/` when that
-  directory was retired, and drawn in `output/fig5_supp_cpg.pdf`.
+  directory was retired, and drawn in `output/supp_fig7.pdf`.
 - **That stratum is QC failure, not absent sequence** — it was called "no gnomAD coverage"
   here until it was measured. Every one of the 587,902 windows has its QC inputs on file;
   70.9% fail Chen et al.'s ≥80%-PASS rule against 3.3% failing the 25–35× coverage band.

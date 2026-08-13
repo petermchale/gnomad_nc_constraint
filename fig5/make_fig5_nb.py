@@ -660,7 +660,7 @@ md(r"""
 Panel B asserts that CpG contexts *should* apply no GC-dependent adjustment, because the
 effect that would need adjusting has already been applied in step 1. That claim rests on
 three measurements which the panel itself does not show, so they get their own figure,
-`output/fig5_supp_cpg.pdf`:
+`output/supp_fig7.pdf`:
 
 **A. The size of the methylation effect step 1 absorbs.** $p_c$ is keyed by methylation
 level, and for CpG C>T the fitted probability spans **3.0–4.3×** from level 0 to 15 —
@@ -718,8 +718,8 @@ panels.panel_cpg_expected_share(axes[3], binned_b, min_n=MIN_N_WINDOWS)
 panels.label_panels(axes, ("A", "B", "C", "D"))
 
 for ext, kw in ((".pdf", {}), (".png", {"dpi": 200})):
-    fig.savefig(os.path.join(OUTPUT_DIR, f"fig5_supp_cpg{ext}"), bbox_inches="tight", **kw)
-print("wrote", os.path.join(OUTPUT_DIR, "fig5_supp_cpg.pdf"))
+    fig.savefig(os.path.join(OUTPUT_DIR, f"supp_fig7{ext}"), bbox_inches="tight", **kw)
+print("wrote", os.path.join(OUTPUT_DIR, "supp_fig7.pdf"))
 """)
 
 code(r"""
