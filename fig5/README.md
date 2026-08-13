@@ -31,8 +31,7 @@ highest-GC bins that panel B's own 0.2-0.73 range cuts off.
 ```
 fig5.ipynb          the figure: LaTeX derivation of each plotted quantity, then the panels
 config.py           the two hand-supplied inputs, and the refit provenance stamp
-data.py             one builder per panel, each cached as parquet in output/
-diagnostics.py      the measurements panels B and C state in prose but do not plot
+data.py             one builder per plotted quantity, each cached as parquet in output/
 panels.py           the five panels as ax-accepting functions (no figure, no file I/O)
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)
@@ -115,13 +114,15 @@ filter, so neither is advantaged by its own window set.
 - **Panel B is a decomposition identity, not a fit.** `r_eff = Pi*r_CpG + (1-Pi)*r_non`
   holds bin by bin because each bin aggregates ratios of *summed* expected counts, not
   means of per-window ratios.
-- **Two claims are made in the text and not plotted**, so `diagnostics.py` computes them
-  and the notebook prints them: the QC-fail stratum's non-CpG DNM rate (1.55x the
-  noncoding rate in the GC bulk, **4.06x by GC 0.61**, while coding/noncoding stays at
-  0.90–0.99 and flat), and the CpG-island character of high-GC CpGs (90–100%
-  hypomethylated above GC 0.70, DNM rate 2.7x lower than the bulk, against a 3.0–4.3x
-  methylation effect that step 1 already absorbs). Migrated from `fig3/` when that
-  directory was retired, and drawn in `output/supp_fig7.pdf`.
+- **Two claims the caption states as numbers are computed in `data.py` and printed by the
+  notebook**, so nothing quoted in the text is unregenerable: the QC-fail stratum's
+  non-CpG DNM rate (1.55x the noncoding rate in the GC bulk, **4.06x by GC 0.61**, while
+  coding/noncoding stays at 0.90–0.99 and flat), and the CpG-island character of high-GC
+  CpGs (90–100% hypomethylated above GC 0.70, DNM rate 2.7x lower than the bulk, against
+  a 3.0–4.3x methylation effect that step 1 already absorbs). Both are also plotted —
+  panel C's lower row and `output/supp_fig7.pdf`. Migrated from `fig3/` when that
+  directory was retired, then from `diagnostics.py` into `data.py` once they stopped
+  being prose-only.
 - **That stratum is QC failure, not absent sequence** — it was called "no gnomAD coverage"
   here until it was measured. Every one of the 587,902 windows has its QC inputs on file;
   70.9% fail Chen et al.'s ≥80%-PASS rule against 3.3% failing the 25–35× coverage band.

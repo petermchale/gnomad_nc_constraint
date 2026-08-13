@@ -177,7 +177,7 @@ def restrict_to_analyzed_windows(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame,
 
     WHY. The published models are fit on the whole genome but r(w) is applied to,
     and judged on, noncoding pass_qc autosome/PAR windows. Measured directly
-    (fig5/diagnostics.py), those two populations agree in the GC bulk
+    (fig5/data.py), those two populations agree in the GC bulk
     and come apart in the GC-rich tail: the fraction of background training sites
     inside the analyzed set falls from 0.83 at GC 0.37 to 0.30 by GC 0.68, as GC-rich
     sequence turns coding or loses gnomAD coverage. (CLAUDE.md and the README quote

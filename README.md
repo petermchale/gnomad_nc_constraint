@@ -75,7 +75,7 @@ the figure.
 |---|---|---|
 | `gnocchi_bias/` | 946 | Shared library. `windows.py` — the genome-wide 1 kb window table, z-scores, standardized ranks, GC binning. `dnm_model.py` — the DNM training set and the reimplemented per-context refit pipeline. |
 | `preconditions/` | 527 | The claims about Chen et al.'s pipeline that everything else assumes. `verify_*.py` — is what we believe about their published artifact true? `validate.py` — is our reimplementation faithful to theirs? |
-| `fig5/` | 1,951 + notebook | The figure. `fig5.ipynb` (578 source lines, 23 cells) carries the mathematical derivation of every plotted quantity and calls the code; `make_fig5_nb.py` generates it. `data.py`, `panels.py`, `diagnostics.py`, `refit.py`, `depletion_rank.py`, `config.py`. |
+| `fig5/` | 1,951 + notebook | The figure. `fig5.ipynb` (578 source lines, 23 cells) carries the mathematical derivation of every plotted quantity and calls the code; `make_fig5_nb.py` generates it. `data.py`, `panels.py`, `refit.py`, `depletion_rank.py`, `config.py`. |
 | `dnm_training_size/` | 119 | A separate experiment: Gnocchi's bias as a function of DNM training-set *size*, which is what distinguishes "less data" from "wrong data". |
 | `verify_comparisons_tables.py` | 113 | Why Extended Data Fig. 6's underlying data cannot answer the GC-bias question. A recorded dead end; `verify_comparisons_tables.log`, beside it, is the transcript of a real run, so the answer needs no re-download. |
 | `list_bucket_files.py` | 253 | Utility for browsing the public bucket without `gsutil`. `list_bucket_files.log` is the committed `-depth 2` run: every top-level directory expanded one level, so the inventory reads with no network access. |

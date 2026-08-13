@@ -223,7 +223,7 @@ STRATUM_STYLE = {
 def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = True) -> None:
     """
     Panel C, lower row. Each excluded stratum's non-CpG P(DNM) relative to the noncoding
-    stratum's, per GC bin. `ratios` is diagnostics.stratum_ratios() output.
+    stratum's, per GC bin. `ratios` is data.stratum_ratios() output.
 
     THE CLAIM, and why the two rows belong together. The row above shows that the
     training set leaves the scored population at high GC; on its own that is only an
@@ -276,7 +276,7 @@ def panel_cpg_methylation_effect(ax, ct, show_mu: bool = True) -> None:
     """
     Supporting Figure 7 (the manuscript's label), row A. The CpG C>T rate against methylation level, per context,
     each curve divided by its own value at level 0. `ct` is
-    diagnostics.cpg_rate_by_methyl() output.
+    data.cpg_rate_by_methyl() output.
 
     PLOTTED AS A FOLD-CHANGE, not an absolute rate, for two reasons: the claim being
     visualized is a span ("3.0-4.3x across methylation 0 to 15"), which is then read
@@ -332,7 +332,7 @@ def panel_cpg_hypomethylation(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
     """
     Supporting Figure 7, row B. The fraction of CpG training sites that are
     hypomethylated (level <= 1) against GC content, with mean methylation level on a
-    right-hand axis. `cpg` is diagnostics.cpg_methylation_by_gc() output.
+    right-hand axis. `cpg` is data.cpg_methylation_by_gc() output.
 
     High-GC CpGs are CpG islands: the hypomethylated fraction runs ~2.5% through the GC
     bulk and rises to 90-100% above GC 0.70, with mean methylation falling from ~6.5 to

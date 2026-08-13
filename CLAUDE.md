@@ -18,7 +18,7 @@ rate; step 2: regional-feature adjustment `r`).
 fig5/                    THE manuscript figure. Five panels, one argument; each panel a
   fig5.ipynb             standalone PDF for Illustrator. Start here.
   make_fig5_nb.py        generates fig5.ipynb -- edit prose/code HERE, not the notebook
-  config.py, data.py, diagnostics.py, panels.py, refit.py, depletion_rank.py
+  config.py, data.py, panels.py, refit.py, depletion_rank.py
 
 dnm_training_size/       the training-set-SIZE dose-response, and only that
 preconditions/           what had to be true about Chen et al.'s pipeline for any of the

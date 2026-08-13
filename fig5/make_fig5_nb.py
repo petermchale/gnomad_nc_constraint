@@ -63,7 +63,6 @@ for p in (_REPO_ROOT, _HERE):
 import config
 import data as D
 import depletion_rank as DR
-import diagnostics as X
 import panels
 
 print("repo root:", _REPO_ROOT)
@@ -541,7 +540,7 @@ plausibly false-positive DNM calls rather than real mutation.
 
 code(r"""
 comp = D.dnm0_composition(edges, cache_dir=CACHE_DIR)
-ratios = X.stratum_ratios(X.dnm_rate_by_stratum(edges, cache_dir=CACHE_DIR), edges)
+ratios = D.stratum_ratios(D.dnm_rate_by_stratum(edges, cache_dir=CACHE_DIR), edges)
 
 fig, (axC1, axC2) = plt.subplots(2, 1, figsize=(FIGSIZE[0], 7.6), sharex=True,
                                  gridspec_kw={"height_ratios": [1, 1], "hspace": 0.12})
@@ -701,8 +700,8 @@ largest are exactly the ones the main panel cannot show.
 """)
 
 code(r"""
-ct = X.cpg_rate_by_methyl(cache_dir=CACHE_DIR)
-cpg = X.cpg_methylation_by_gc(edges, cache_dir=CACHE_DIR)
+ct = D.cpg_rate_by_methyl(cache_dir=CACHE_DIR)
+cpg = D.cpg_methylation_by_gc(edges, cache_dir=CACHE_DIR)
 
 fig, axes = plt.subplots(4, 1, figsize=(7.0, 16.5),
                          gridspec_kw={"height_ratios": [1, 1, 1, 1], "hspace": 0.32})

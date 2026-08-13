@@ -13,9 +13,9 @@
 //   3. pandas-stubs cannot type `df.apply(scipy.stats.zscore)` (dnm_model.py:260), since
 //      zscore's signature does not match the `(...) -> Mapping` overload it picks.
 //
-// Four are ours rather than the stubs': `extra: list[tuple[str, str]] = ()` in fig5/data.py
-// and fig5/diagnostics.py (the default should be a Sequence, or a list), and `total_size +=
-// size` in list_bucket_files.py:237/244, where `size` is `int | None` in general but never
+// Four are ours rather than the stubs': two defaults that should be a Sequence or a list --
+// `extra: list[tuple[str, str]] = ()` and `dims: list[tuple[str, str]] = ()`, both now in
+// fig5/data.py -- and `total_size += size` in list_bucket_files.py:237/244, where `size` is `int | None` in general but never
 // None on those two paths. All four are harmless at runtime and worth fixing properly rather
 // than leaving to a blanket suppression.
 //
