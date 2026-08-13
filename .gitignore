@@ -37,9 +37,3 @@ fig3/output/training_reliability_predictions.*
 fig5/output/r_eff_components.*.parquet
 
 .trash
-# The Illustrator assembly of Fig. 5 and its export. Not repo content: the tracked
-# artifacts are the per-panel PDFs in fig5/output/, which fig5.ipynb regenerates, and
-# the assembled figure belongs to the manuscript. Saving the .ai after relinking updated
-# panels rewrites it wholesale, so tracking it churns on every rebuild of the figure.
-fig5/fig5.ai
-fig5/fig5.png
