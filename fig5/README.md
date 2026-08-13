@@ -33,6 +33,7 @@ fig5.ipynb          the figure: LaTeX derivation of each plotted quantity, then 
 config.py           the two hand-supplied inputs, and the refit provenance stamp
 data.py             one builder per plotted quantity, each cached as parquet in output/
 panels.py           the five panels as ax-accepting functions (no figure, no file I/O)
+resave_ai.py        relink fig5.ai's panel PDFs and save it, by driving Illustrator
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)
 output/             panel PDFs, the supporting figure, and this figure's own caches
@@ -42,6 +43,35 @@ output/             panel PDFs, the supporting figure, and this figure's own cac
 Shared with `dnm_training_size/`, so deliberately outside this directory:
 `gnocchi_bias/windows.py` (the window table, z-scores, ranks, GC binning) and
 `gnocchi_bias/dnm_model.py` (the DNM training set and the per-context refit pipeline).
+
+## After a rebuild: refresh the Illustrator assembly
+
+`fig5.ai` is tracked here, so the repo is the source of truth for the assembled figure --
+which means a rebuild that changes a panel leaves it stale until Illustrator reloads the
+link and the document is saved. That is what `resave_ai.py` does:
+
+```
+.venv/bin/python fig5/resave_ai.py -dry_run   # which panels are newer than the .ai
+.venv/bin/python fig5/resave_ai.py            # relink those, save, report
+```
+
+It drives Illustrator over `osascript ... do javascript`, since an .ai stores a path and
+a cached preview per link and neither can be regenerated from outside the app. It finds
+the document among the open ones before opening a copy, relinks only the links whose file
+is newer than the .ai, and closes the document again only if it opened it. macOS asks for
+Automation permission the first time.
+
+Two things it cannot do for you. **Relinking preserves the frame, not the aspect ratio** --
+panels are saved with `bbox_inches="tight"`, so one whose labels changed can come back
+slightly stretched; the script prints every link it touched, so check those. And it
+**saves whatever state the document is in**, since a document whose links just refreshed
+is dirty in exactly the way one being edited is. `git checkout fig5/fig5.ai` undoes a save
+you did not want -- but re-save from Illustrator afterwards, or the open document and the
+file on disk will disagree.
+
+A scripted save also rewrites Illustrator's private data more compactly than an
+interactive one: expect the file to roughly halve the first time. Verified lossless --
+the artwork renders byte-identically, fonts stay embedded, `AIPrivateData` survives.
 
 ## Prerequisite: three refits
 
