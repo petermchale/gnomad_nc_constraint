@@ -72,6 +72,14 @@ is dirty in exactly the way one being edited is. `git checkout fig5/fig5.ai` und
 you did not want -- but re-save from Illustrator afterwards, or the open document and the
 file on disk will disagree.
 
+The staleness check is **mtime, not content**, so anything that rewrites a panel PDF makes
+it look stale even when the artwork is unchanged — including `git checkout` of a panel that
+a rebuild changed only in its `/CreationDate` stamp, which is the usual way to keep a commit
+free of no-op binary churn. Restoring one that way *after* a resave leaves it newer than the
+`.ai`, and the next run relinks it to content already there: harmless, but it dirties
+`fig5.ai` again. `touch -r fig5/fig5.ai <restored.pdf>` after the restore avoids the round
+trip.
+
 A scripted save also rewrites Illustrator's private data more compactly than an
 interactive one: expect the file to roughly halve the first time. Verified lossless --
 the artwork renders byte-identically, fonts stay embedded, `AIPrivateData` survives.
