@@ -135,14 +135,14 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # Panel C's two rows share one colour per stratum, defined once here so the band in the
 # upper row and the line in the lower row cannot drift apart.
 #
-# `analyzed` is deliberately neutral grey for two reasons: it is the reference the lower
+# `noncoding` is deliberately neutral grey for two reasons: it is the reference the lower
 # row divides by, and it is the one stratum with no line there, so a saturated hue would
 # promise a curve that does not exist. That also puts the colour on the two bands whose
 # growth is the point.
 #
 # NOT violet for `failed_qc`, though it reads well here: violet already carries the
 # scored-population intervention through panels B, D and E, and a fourth meaning would
-# undo that thread. Aqua is the slot `analyzed` just vacated, so it collides only with
+# undo that thread. Aqua is the slot `noncoding` just vacated, so it collides only with
 # panel A's depletion-rank curve -- a different panel with its own legend, and not part
 # of a thread that runs across several.
 #
@@ -167,28 +167,30 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # coverage 25-35x, >= 1000 possible variants), and it is overwhelmingly the first of
 # those, not missing coverage -- 417,097 of the 587,902 absent autosomal windows fail the
 # PASS rule against 19,396 failing coverage. preconditions/verify_qc_filter.py measures it.
-STRATUM_COLORS = {"analyzed": "0.78", "coding": "#eb6834", "failed_qc": "#1baf7a"}
+STRATUM_COLORS = {"noncoding": "0.78", "coding": "#eb6834", "failed_qc": "#1baf7a"}
 STRATUM_LABELS = {
-    "analyzed": "In QC-pass noncoding windows",
+    "noncoding": "In QC-pass noncoding windows",
     "coding": "In QC-pass coding windows",
     "failed_qc": "In QC-fail windows",
 }
-# The composition table names the third category `noannot`, for the mechanism that
-# defines it -- no row in the constraint table at all -- which is the same set of windows
-# as `failed_qc` in the ratio table, for the reason there is no row.
+# Bottom to top, matching data._STRATA: the scored population, then the two kinds of
+# territory outside it.
 COMPOSITION_STYLE = [
-    (f"frac_{col}", STRATUM_COLORS[key], STRATUM_LABELS[key])
-    for key, col in (("analyzed", "analyzed"), ("coding", "coding"),
-                     ("failed_qc", "noannot"))
+    (f"frac_{key}", STRATUM_COLORS[key], STRATUM_LABELS[key])
+    for key in ("noncoding", "coding", "failed_qc")
 ]
 
 
 def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
                                show_xlabel: bool = True) -> None:
     """
-    Panel C. Where the non-CpG background training sites actually sit, as a stacked
-    composition per GC bin. `comp` is data.dnm0_composition() output; the three
-    fractions partition each bin exactly (asserted there), so the stack fills to 1.
+    Panel C, upper row. Where the non-CpG training sites actually sit, as a stacked
+    composition per GC bin. `comp` is data.training_composition() output; the three
+    fractions partition each bin by construction, so the stack fills to 1.
+
+    Both training classes are counted, DNMs and background sites alike: the fit minimizes
+    its loss over the mixture, so the mixture is the training distribution this row is
+    comparing against the scored one.
 
     The training and scored populations coincide in the GC bulk and come apart in the
     GC-rich tail, so a model fit on the former and applied to the latter extrapolates
@@ -208,7 +210,7 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
                  colors=[c for _, c, _ in COMPOSITION_STYLE],
                  labels=[lab for _, _, lab in COMPOSITION_STYLE], alpha=1.0)
     ax.set_ylim(0, 1)
-    _finish(ax, "Fraction of background\ntraining sites", xrange, show_xlabel,
+    _finish(ax, "Fraction of non-CpG\ntraining sites", xrange, show_xlabel,
             legend_loc="lower left", grid_axis="y")
 
 

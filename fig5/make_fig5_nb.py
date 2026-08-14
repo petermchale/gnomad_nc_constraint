@@ -34,7 +34,7 @@ vector file for assembly in Illustrator.
 |---|---|---|
 | **A** | The bias is *introduced by* the regional adjustment, not inherited from the context-only model | mean standardized rank vs GC, for $r\equiv1$ and for full Gnocchi |
 | **B** | That adjustment's GC dependence is wholly non-CpG — and $r_{\mathrm{CpG}}\approx1$ is *correct*, because methylation already carries it in step 1 | $r_{\mathrm{eff}}=E_2/E_1$, decomposed by CpG status |
-| **C** | The DNM training set is not the scored population: at high GC it is mostly coding, or sequence dropped for failing gnomAD's variant-call QC | composition of the background training sites per GC bin |
+| **C** | The DNM training set is not the scored population: at high GC it is mostly coding, or sequence dropped for failing gnomAD's variant-call QC | composition of the training sites per GC bin |
 | **D** | Restricting the training set to the scored population flattens the empirical DNM rate — and the fit then tracks it | fitted and empirical $P(\mathrm{DNM})$, non-CpG, three training populations |
 | **E** | Refitting $r$ on the scored population removes the bias in Gnocchi itself | panel A's statistic, with the retrained Gnocchi added |
 
@@ -476,14 +476,38 @@ $r$ is fit on de novo mutations and matched background sites drawn from the **wh
 genome**, but applied to — and Gnocchi scored on — noncoding, `pass_qc`, autosome/PAR
 windows. Panel C measures how far apart those two populations drift with GC.
 
-Map each non-CpG background training site to its containing 1 kb tile and partition the
-sites of GC bin $g$ three ways:
+Map each non-CpG training site — **both classes, DNMs and background sites alike** — to
+its containing 1 kb tile and partition the sites of GC bin $g$ three ways:
 
-$$N(g)=N_{\mathrm{analyzed}}(g)+N_{\mathrm{coding}}(g)+N_{\mathrm{QC}}(g),$$
+$$N(g)=N_{\mathrm{noncoding}}(g)+N_{\mathrm{coding}}(g)+N_{\mathrm{QC}}(g),$$
 
-where *analyzed* means the tile is in the scored population, *coding* that it is in the
+where *noncoding* means the tile is in the scored population, *coding* that it is in the
 constraint table but coding, and *QC* that it is not in that table at all. The stack
-plots the three fractions, which sum to 1 by construction (asserted in code).
+plots the three fractions, which sum to 1 by construction.
+
+**Why both classes.** In a case-control design it is the controls that carry the
+covariate distribution, which is the argument for stacking the background class alone —
+and it is an argument about the *design*, not about the *fit*. The fit minimizes its loss
+over the mixture of the two classes, so the mixture is the training distribution, and the
+training distribution is what this row is comparing against the scored population.
+Restricted to the background class the stack is almost the same picture — the QC-fail band
+runs 0.13 → 0.24 across the plotted range instead of 0.14 → 0.28 — because the background
+class outnumbers the DNMs about 12:1. What the DNM class adds is its own, steeper drift:
+at GC 0.64 it is 64% QC-fail against the background class's 26%.
+
+**What the two rows are between them.** The upper row is *covariate shift*: $P(x)$ in the
+training data is not $P(x)$ in the scored data, and the gap grows with GC. The lower row
+is *concept shift*: $P(\mathrm{DNM}\mid x)$ is not the same function in the territory that
+drops out. Both are driven by one latent variable — which of the three window classes a
+site sits in — and $r$ cannot see it: the model is fit per trinucleotide context on
+regional features, none of which encodes window class.
+
+One thing the drifting case-control ratio does *not* do is bias the fit by itself. Under
+case-control sampling the fitted slopes are consistent for the population slopes whatever
+the ratio; only the intercept shifts. Covariate shift alone would likewise be survivable,
+since a correctly specified model extrapolates. It is the combination — a mis-specified
+smooth fit, over a covariate range where the label-generating process is a different one —
+that puts a GC slope into $r$.
 
 **What the two lower strata are, precisely** — the labels matter here, because the
 mechanism differs. A coding window *has* a published Gnocchi score; it is this analysis
@@ -499,10 +523,10 @@ until measured: of the 587,902 absent autosomal windows, all have their QC input
 file, 417,097 fail the PASS rule and only 19,396 fail the coverage band. Weighted by
 background training sites it is starker still — 88% PASS rule, 14% too few possible
 variants, 1% coverage. Those percentages are *within* the third band, not of the training
-set: genome-wide, 86.6% of non-CpG background sites are in QC-pass windows (80.5%
-noncoding, 6.1% coding) and 13.3% in QC-fail ones, which is the stack's genome-wide
-average of what it plots per bin. `preconditions/verify_qc_filter.py` records both, and confirms the
-filter forwards too: all 1,984,900 scored windows satisfy all three conditions.
+set: 86.6% of non-CpG background sites are in QC-pass windows (80.5% noncoding, 6.1%
+coding) and 13.3% in QC-fail ones. `preconditions/verify_qc_filter.py` records both, and confirms the
+filter forwards too: all 1,984,900 scored windows satisfy all three conditions. Over both
+training classes — the stack's own genome-wide average — it is 79.9% / 6.1% / 14.0%.
 
 The three strata are therefore *QC-pass noncoding*, *QC-pass coding*, and *QC-fail* — and
 only the first two are split by coding status. **The third is a mixture**, deliberately:
@@ -512,7 +536,7 @@ windows overlap coding exons, against 7.1% of the QC-pass ones — so QC failure
 independent of coding status, and the third band is not a coding band in disguise. Site-
 weighted, 5.8% of its sites are in coding-overlapping windows.
 
-The fraction inside the scored population falls from ~0.83 in the GC bulk to under 0.30
+The fraction inside the scored population falls from ~0.82 in the GC bulk to under 0.28
 by GC 0.68. So the model is fit on one population and applied to another, and the two
 come apart exactly where panel A's bias is largest.
 
@@ -529,9 +553,10 @@ excluded sites are exchangeable with the scored ones as far as mutation rate goe
 coding stratum sits there — within ~10%, flat across the whole range — while the
 QC-failing stratum runs 1.55× in the GC bulk and **4.06× by GC 0.61**.
 
-Both classes are labelled here, DNMs as well as background sites — that is what makes
-this row a *rate* and the row above a *composition*. 72,801 of the non-CpG autosomal DNMs
-fall in the QC-failing stratum, against 17,545 coding and 241,479 noncoding.
+Both rows come from one table of per-stratum counts; this row divides the DNM count by
+the site count, the row above takes the site count as a share of its bin. 72,801 of the
+non-CpG autosomal DNMs fall in the QC-failing stratum, against 17,545 coding and 241,479
+noncoding.
 
 So the steep GC dependence the model learns comes from sequence gnomAD could not call
 reliably, which is also where trio DNM calling is least reliable: part of that excess is
@@ -539,8 +564,11 @@ plausibly false-positive DNM calls rather than real mutation.
 """)
 
 code(r"""
-comp = D.dnm0_composition(edges, cache_dir=CACHE_DIR)
-ratios = D.stratum_ratios(D.dnm_rate_by_stratum(edges, cache_dir=CACHE_DIR), edges)
+# One table, two rows: `st` carries each stratum's site count (the composition above) and
+# its DNM count (the rate below), so the two rows cannot describe different sites.
+st = D.dnm_rate_by_stratum(edges, cache_dir=CACHE_DIR)
+comp = D.training_composition(st, edges)
+ratios = D.stratum_ratios(st, edges)
 
 fig, (axC1, axC2) = plt.subplots(2, 1, figsize=(FIGSIZE[0], 7.6), sharex=True,
                                  gridspec_kw={"height_ratios": [1, 1], "hspace": 0.12})
@@ -550,7 +578,7 @@ panels.panel_stratum_ratios(axC2, ratios, xrange=XRANGE)
 save(fig, "C")
 
 print(comp.filter(pl.col("n_total") >= MIN_N_SITES)
-          .select(["gc_mid", "n_total", "frac_analyzed", "frac_coding", "frac_noannot"]))
+          .select(["gc_mid", "n_total", "frac_noncoding", "frac_coding", "frac_failed_qc"]))
 print(ratios.select(["gc_mid", "coding_ratio", "coding_se_log",
                      "failed_qc_ratio", "failed_qc_se_log"]))
 """)
@@ -768,9 +796,9 @@ print(f"  CpG share of expected counts rises {b['pi_cpg'].min():.3f} -> {b['pi_c
 # from a bin the panel does not draw.
 c = comp.filter((pl.col("n_total") >= MIN_N_SITES)
                 & pl.col("gc_mid").is_between(*XRANGE)).sort("gc_mid")
-print(f"\npanel C: {int(c['n_total'].sum()):,} non-CpG background sites in the plotted "
-      f"range; analyzed fraction {c['frac_analyzed'][0]:.2f} at GC {c['gc_mid'][0]:.2f} "
-      f"-> {c['frac_analyzed'][-1]:.2f} at GC {c['gc_mid'][-1]:.2f}")
+print(f"\npanel C: {int(c['n_total'].sum()):,} non-CpG training sites in the plotted "
+      f"range; QC-pass noncoding fraction {c['frac_noncoding'][0]:.2f} at GC "
+      f"{c['gc_mid'][0]:.2f} -> {c['frac_noncoding'][-1]:.2f} at GC {c['gc_mid'][-1]:.2f}")
 
 print("\npanel D: empirical P(DNM), max / min ratio within each population")
 for pop, tab in binned_d.items():

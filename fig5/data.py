@@ -288,94 +288,20 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
     return binned
 
 
-# ------------------------------------------------------------------- panel C
-
-def dnm0_composition(edges: np.ndarray, cache_dir: str = CACHE_DIR,
-                     coding_prop_threshold: float = 0.0, force: bool = False,
-                     memory_limit: str = "8GB") -> pl.DataFrame:
-    """
-    Panel C's table. Each GC bin's non-CpG background training sites, mapped to their
-    containing 1 kb tile and split three ways:
-
-        n_analyzed  tile is in the constraint table, coding_prop <= threshold,
-                    autosome/PAR
-        n_coding    tile is in the constraint table but coding
-        n_noannot   tile has no row in the constraint table, i.e. its window failed
-                    gnomAD's variant-call QC
-
-    These partition the total exactly, which is asserted rather than assumed.
-
-    n_coding is coding and nothing else, despite the pass_qc conjunct below: every row of
-    the published constraint table has pass_qc = True, so a QC-failing window is not in
-    it at all and falls in n_noannot. Measured on this very population, n_coding is
-    247,807 sites, all coding, and the QC-failing part of it is empty. What n_noannot
-    holds is not missing coverage either: of its 537,985 sites, 88% are in windows where
-    fewer than 80% of observed variants are PASS, 14% in windows with fewer than 1,000
-    possible variants, and 1% in windows outside 25-35x mean coverage.
-    preconditions/verify_qc_filter.py measures both.
-    """
-    def build() -> pl.DataFrame:
-        b = sql_bin_expr("ft.GC_content_1k / 100.0", edges)
-        ctx = ", ".join(f"'{c}'" for c in M.CPG_CONTEXTS)
-        features = W.download(W.REMOTE_FILES["features"], cache_dir)
-        annot = W.download(W.REMOTE_FILES["annot"], cache_dir)
-        dnm0 = W.download(M.TRAINING_FILES["dnm0_sites"], cache_dir)
-        query = f"""
-            WITH ft AS (SELECT element_id, GC_content_1k
-                        FROM read_csv_auto('{features}', delim='\t', header=True)),
-            an AS (SELECT element_id, pass_qc, coding_prop
-                   FROM read_csv_auto('{annot}', delim='\t', header=True)),
-            d0 AS (SELECT context, {ELEMENT_ID_FROM_LOCUS} AS element_id
-                   FROM read_csv_auto('{dnm0}', delim='\t', header=True)
-                   WHERE locus NOT LIKE 'chrX:%')
-            -- pass_qc is kept in both branches although it is inert on today's file (see
-            -- the docstring): it is what the paper's window set MEANS, and an unfiltered
-            -- vintage of the table would otherwise silently move QC failures into
-            -- n_analyzed.
-            SELECT {b} AS gc_bin, COUNT(*) AS n_total,
-                   CAST(SUM(CASE WHEN an.pass_qc
-                                  AND an.coding_prop <= {coding_prop_threshold}
-                                  AND ft.element_id NOT LIKE 'chrX-%'
-                                  AND ft.element_id NOT LIKE 'chrY-%'
-                             THEN 1 ELSE 0 END) AS BIGINT) AS n_analyzed,
-                   CAST(SUM(CASE WHEN an.element_id IS NOT NULL
-                                  AND NOT (an.pass_qc
-                                           AND an.coding_prop <= {coding_prop_threshold})
-                             THEN 1 ELSE 0 END) AS BIGINT) AS n_coding,
-                   CAST(SUM(CASE WHEN an.element_id IS NULL
-                             THEN 1 ELSE 0 END) AS BIGINT) AS n_noannot
-            FROM d0 JOIN ft ON d0.element_id = ft.element_id
-            LEFT JOIN an ON d0.element_id = an.element_id
-            WHERE d0.context NOT IN ({ctx})
-            GROUP BY 1
-        """
-        df = duck(memory_limit).execute(query).pl().sort("gc_bin")
-        resid = df["n_total"] - df["n_analyzed"] - df["n_coding"] - df["n_noannot"]
-        assert int(resid.abs().sum()) == 0, "composition categories do not partition the total"
-        return df.with_columns([
-            bin_centres(edges, df["gc_bin"]),
-            (pl.col("n_analyzed") / pl.col("n_total")).alias("frac_analyzed"),
-            (pl.col("n_coding") / pl.col("n_total")).alias("frac_coding"),
-            (pl.col("n_noannot") / pl.col("n_total")).alias("frac_noannot"),
-        ])
-
-    # The bin count is in the cache name because this table is keyed by gc_bin: unlike
-    # the per-window r_eff components, it would be silently stale if N_BINS changed.
-    df = cached(f"dnm0_window_composition.{len(edges) - 1}bins.parquet", build, force)
-    # Deliberately no fraction range here: the lowest-GC bins hold a handful of sites
-    # that are essentially all uncovered, so an unrestricted min() reads 0.00 and would
-    # get copied into a caption. The notebook reports the range over the plotted bins.
-    print(f"dnm0 composition: {int(df['n_total'].sum()):,} non-CpG background sites "
-          f"over {df.height} GC bins")
-    return df
-
-
-# ..................................... panel C's lower row, and Supporting Figure 7
+# --------------------------------------------- panel C, and Supporting Figure 7
 #
-# dnm0_composition above counts BACKGROUND sites only, which measures an absence: how
-# much of the training set sits outside the scored population. Everything below labels
-# BOTH classes, DNMs included, which is what turns a composition into a rate -- the
-# question of whether the excluded territory is also DIFFERENT.
+# Both of panel C's rows are views of ONE table, dnm_rate_by_stratum() below: the upper
+# row is its per-stratum site counts (a composition -- how much of the training set sits
+# outside the scored population) and the lower row is its per-stratum DNM rates (whether
+# the territory outside is also DIFFERENT). One query, so the two rows cannot end up
+# describing different sites.
+#
+# Both rows count BOTH training classes, DNMs and background alike. The upper row counted
+# background sites only until 2026-08-14, on the reasoning that the background class is
+# what carries the covariate distribution in a case-control design; that is true of the
+# design but not of the fit, which minimizes its loss over the mixture. The mixture is
+# therefore the training distribution, and it is the training distribution that the panel
+# is comparing against the scored one.
 
 # The three strata a training site can fall into, relative to the scored population:
 # its window is noncoding and in the published constraint table, coding and in it, or not
@@ -392,6 +318,10 @@ def dnm0_composition(edges: np.ndarray, cache_dir: str = CACHE_DIR,
 _STRATUM = """CASE WHEN an.element_id IS NULL THEN 'failed_qc'
                    WHEN an.coding_prop <= 0.0 THEN 'noncoding'
                    ELSE 'coding' END"""
+
+# In stacking order, bottom to top: the scored population first, then the two kinds of
+# territory outside it. panels.COMPOSITION_STYLE draws them in this order.
+_STRATA = ("noncoding", "coding", "failed_qc")
 
 # chrX/chrY dropped from BOTH classes. The published fitting code drops chrX from the
 # background class only, which inflates the apparent rate there; an empirical reference
@@ -475,6 +405,42 @@ def dnm_rate_by_stratum(edges: np.ndarray, cache_dir: str = CACHE_DIR,
 
     df = cached(f"dnm_rate_by_stratum.{len(edges) - 1}bins.parquet", build, force)
     return df.with_columns((pl.col("k") / pl.col("n")).alias("p")).sort(["stratum", "gc_bin"])
+
+
+def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
+    """
+    Panel C's upper row: each GC bin's non-CpG training sites split by stratum, as counts
+    and as fractions of the bin. `st` is dnm_rate_by_stratum() output, whose `n` is
+    exactly this count -- so the composition is a reshape of the table the lower row takes
+    its rates from, not a second query that could drift from it.
+
+    Both training classes are counted, DNMs and background alike. Restricted to the
+    background class (n - k) this reproduces the standalone dnm0-only query it replaced
+    exactly, bin by bin and stratum by stratum, on all 20 bins; what the mixture adds is
+    the DNM class's own, steeper drift out of the scored population.
+
+    The three strata partition the bin by construction -- _STRATUM is a CASE expression,
+    so a site lands in exactly one -- which is why nothing is asserted here.
+
+    Columns: gc_bin, gc_mid, n_total, n_{stratum}, frac_{stratum}.
+    """
+    # A GC bin can be missing a stratum entirely (the lowest two hold no coding sites),
+    # which pivots to null rather than to an absent row.
+    wide = (st.pivot(values="n", index="gc_bin", on="stratum", aggregate_function="first")
+              .fill_null(0).sort("gc_bin"))
+    df = wide.with_columns([
+        bin_centres(edges, wide["gc_bin"]),
+        pl.sum_horizontal([pl.col(s) for s in _STRATA]).alias("n_total"),
+    ])
+    df = df.with_columns(
+        [(pl.col(s) / pl.col("n_total")).alias(f"frac_{s}") for s in _STRATA]
+    ).rename({s: f"n_{s}" for s in _STRATA})
+    # Deliberately no fraction range printed here: the lowest-GC bins hold a handful of
+    # sites that are essentially all QC-failing, so an unrestricted min() reads 0.00 and
+    # would get copied into a caption. The notebook reports the range over plotted bins.
+    print(f"training composition: {int(df['n_total'].sum()):,} non-CpG training sites "
+          f"over {df.height} GC bins")
+    return df
 
 
 def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl.DataFrame:

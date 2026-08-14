@@ -56,8 +56,8 @@ figure.
    `r_CpG` stays 0.98-1.00, and the counterfactual holding non-CpG `r` at 1 is flat within
    0.6% even though CpG contexts carry 43% of the expected-count weight at GC 0.75. This
    is a decomposition identity, not a fit.
-3. The training set **is not the scored population**: the fraction of background training
-   sites inside the analyzed windows falls 0.85 -> 0.29 across GC, and the excluded
+3. The training set **is not the scored population**: the fraction of training sites
+   inside the analyzed windows falls 0.84 -> 0.28 across GC, and the excluded
    territory is *different*, not merely absent -- the QC-failing stratum's non-CpG DNM
    rate runs 1.55x the noncoding rate in the GC bulk and 4.06x by GC 0.61, while
    coding/noncoding stays flat at 0.90-0.99.

@@ -178,12 +178,12 @@ def restrict_to_analyzed_windows(df_dnm1: pd.DataFrame, df_dnm0: pd.DataFrame,
     WHY. The published models are fit on the whole genome but r(w) is applied to,
     and judged on, noncoding pass_qc autosome/PAR windows. Measured directly
     (fig5/data.py), those two populations agree in the GC bulk
-    and come apart in the GC-rich tail: the fraction of background training sites
-    inside the analyzed set falls from 0.83 at GC 0.37 to 0.30 by GC 0.68, as GC-rich
-    sequence turns coding or loses gnomAD coverage. (CLAUDE.md and the README quote
-    the same curve as 0.85 -> 0.29, at its sparser first and last plotted bins. One
-    curve, two endpoint pairs; both read off
-    fig5/output/dnm0_window_composition.20bins.parquet.) Restricting here is the
+    and come apart in the GC-rich tail: the fraction of training sites inside the
+    analyzed set falls from 0.82 at GC 0.37 to 0.28 by GC 0.68, as GC-rich sequence
+    turns coding or fails gnomAD's window QC. (CLAUDE.md and the README quote the same
+    curve as 0.84 -> 0.28, at its sparser first and last plotted bins. One curve, two
+    endpoint pairs; both read off fig5/output/dnm_rate_by_stratum.20bins.parquet, whose
+    per-stratum site counts are the composition.) Restricting here is the
     intervention that tests whether that mismatch is what makes the fitted non-CpG
     adjustment climb with GC.
 

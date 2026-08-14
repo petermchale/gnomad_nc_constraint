@@ -5,10 +5,13 @@ standalone vector file for assembly in Illustrator, plus one supporting figure,
 `output/supp_fig7.pdf` — **Supporting Figure 7** in the manuscript, whose four rows are
 cited there as 7A-7D. Run it top to bottom.
 
-**Panel C is two rows** sharing a GC axis: the composition of the background training
-sites (how much of the training set is outside the scored population), and each other
-stratum's DNM rate relative to the QC-pass noncoding one (whether the territory outside
-is also *different*). The upper row alone shows only an absence. Its three bands are
+**Panel C is two rows** sharing a GC axis and built from one table: the composition of
+the training sites (how much of the training set is outside the scored population --
+*covariate shift*), and each other stratum's DNM rate relative to the QC-pass noncoding
+one (whether the territory outside is also *different* -- *concept shift*). The upper row
+alone shows only an absence. Both rows count **both training classes**, DNMs and
+background sites: the fit minimizes its loss over the mixture, so the mixture is the
+training distribution being compared against the scored one. Its three bands are
 *QC-pass noncoding*, *QC-pass coding* and *QC-fail* — only the first two are split by
 coding status, because `coding_prop` comes from the constraint table and a QC-fail window
 has no row in it; measured separately, that band is 6.9% coding-overlapping against the
@@ -159,7 +162,8 @@ filter, so neither is advantaged by its own window set.
   `preconditions/verify_qc_filter.py` also confirms the filter forwards (all 1,984,900
   scored windows satisfy all three conditions) and records both denominators, since
   **86.6% of background training sites are in QC-pass windows** — the 87.8% quoted for the
-  PASS rule is *within* the 13.3% that are not.
+  PASS rule is *within* the 13.3% that are not. Panel C's stack counts both classes, so
+  its own genome-wide average is 79.9% / 6.1% / 14.0%.
 - **Panel D measures a level error**, and levels cancel in `r = sigma(b0+b.z)/sigma(b0)`.
   It diagnoses the fit; panel E is the measurement of the bias. Its y-axis is also not a
   mutation rate — the ~0.07 baseline reflects the 10:1 case-control design.
