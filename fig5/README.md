@@ -36,7 +36,7 @@ fig5.ipynb          the figure: LaTeX derivation of each plotted quantity, then 
 config.py           the two hand-supplied inputs, and the refit provenance stamp
 data.py             one builder per plotted quantity, each cached as parquet in output/
 panels.py           the five panels as ax-accepting functions (no figure, no file I/O)
-resave_ai.py        relink fig5.ai's panel PDFs and save it, by driving Illustrator
+resave_ai.py        relink fig5.ai's panel PDFs, save it, re-export fig5.png -- via Illustrator
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)
 output/             panel PDFs, the supporting figure, and this figure's own caches
@@ -49,13 +49,15 @@ Shared with `dnm_training_size/`, so deliberately outside this directory:
 
 ## After a rebuild: refresh the Illustrator assembly
 
-`fig5.ai` is tracked here, so the repo is the source of truth for the assembled figure --
-which means a rebuild that changes a panel leaves it stale until Illustrator reloads the
-link and the document is saved. That is what `resave_ai.py` does:
+`fig5.ai` and `fig5.png` are both tracked here, so the repo is the source of truth for the
+assembled figure -- which means a rebuild that changes a panel leaves both stale until
+Illustrator reloads the link, the document is saved, and the PNG is exported from it. That
+is what `resave_ai.py` does:
 
 ```
-.venv/bin/python fig5/resave_ai.py -dry_run   # which panels are newer than the .ai
-.venv/bin/python fig5/resave_ai.py            # relink those, save, report
+.venv/bin/python fig5/resave_ai.py -dry_run   # what is stale, touching nothing
+.venv/bin/python fig5/resave_ai.py            # relink, save, re-export, report
+.venv/bin/python fig5/resave_ai.py -no_png    # ... leaving fig5.png alone
 ```
 
 It drives Illustrator over `osascript ... do javascript`, since an .ai stores a path and
@@ -64,13 +66,22 @@ the document among the open ones before opening a copy, relinks only the links w
 is newer than the .ai, and closes the document again only if it opened it. macOS asks for
 Automation permission the first time.
 
+The two kinds of staleness are checked separately, because the second outlives the first:
+a panel newer than the `.ai` needs relinking, an `.ai` newer than the `.png` needs
+exporting. So a save you made by hand in Illustrator still gets its PNG, with nothing to
+relink. The export is 300 dpi, artboard-clipped, transparent -- hardcoded in the script to
+reproduce the settings the committed PNG was made with, not to redefine them. Illustrator's
+scripted export writes no resolution metadata where its dialog does, so the script stamps
+the `pHYs` chunk back in itself; without it the file declares no dpi and anything placing
+it by physical size lays it out 4x too large.
+
 Two things it cannot do for you. **Relinking preserves the frame, not the aspect ratio** --
 panels are saved with `bbox_inches="tight"`, so one whose labels changed can come back
 slightly stretched; the script prints every link it touched, so check those. And it
 **saves whatever state the document is in**, since a document whose links just refreshed
-is dirty in exactly the way one being edited is. `git checkout fig5/fig5.ai` undoes a save
-you did not want -- but re-save from Illustrator afterwards, or the open document and the
-file on disk will disagree.
+is dirty in exactly the way one being edited is. `git checkout fig5/fig5.ai fig5/fig5.png`
+undoes a save you did not want -- but re-save from Illustrator afterwards, or the open
+document and the file on disk will disagree.
 
 The staleness check is **mtime, not content**, so anything that rewrites a panel PDF makes
 it look stale even when the artwork is unchanged — including `git checkout` of a panel that
