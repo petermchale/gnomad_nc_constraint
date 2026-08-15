@@ -154,7 +154,7 @@ def restrict_to_noncoding(df: pl.DataFrame, coding_prop_threshold: float = 0.0) 
 def restrict_to_neutral_genehancer(
     df: pl.DataFrame,
     genehancer_bed_path: str | None,
-    min_frac_overlap: float | None = None,
+    min_frac_covered: float | None = None,
 ) -> pl.DataFrame:
     """
     Exclude windows overlapping a GeneHancer enhancer -- the other half of
@@ -163,11 +163,32 @@ def restrict_to_neutral_genehancer(
     downloadable, so this can't run end-to-end automatically. See CLAUDE.md,
     "GeneHancer enhancer exclusion", for the full citation trail and why.
 
-    genehancer_bed_path: a standard BED file (tab-separated, no header,
-    chrom/start/end in the first three columns; extra columns ignored).
-    min_frac_overlap: bedtools -f semantics; None (default) excludes on any
-    overlap. UNTESTED -- no GeneHancer file is available in this environment;
-    verify directly before relying on it for the rebuttal/paper.
+    genehancer_bed_path: a standard BED file (tab-separated, chrom/start/end in
+    the first three columns, 0-based half-open like the element_ids parsed here;
+    extra columns ignored, `#` comment lines skipped).
+
+    min_frac_covered: None (default) excludes a window on ANY overlap.
+    Otherwise a window is excluded when GeneHancer covers at least this fraction
+    of it -- CUMULATIVE coverage, after merging the annotation into disjoint
+    intervals, since GeneHancer elements overlap each other heavily and summing
+    raw intervals would double-count the same bases.
+
+    That is deliberately NOT bedtools `-f` semantics, which ask whether ONE
+    B feature covers that fraction of the window: three elements covering 35%
+    each pass `-f 0.5` while covering the window entirely. Cumulative is the
+    reading that answers "how much of this window is enhancer", which is what
+    "significantly overlap" has to mean about a window. The distinction is moot
+    at the default, where any overlap excludes and the two agree; it matters
+    only if a fraction is ever supplied. CLAUDE.md notes McHale et al. use
+    `-f 0.5` in a DIFFERENT intersect step -- if that turns out to be this
+    step's rule too, the change is to drop the merge and test each interval
+    separately.
+
+    UNTESTED against real GeneHancer data -- no such file is available in this
+    environment; verify directly before relying on it for the rebuttal/paper.
+    The chromosome-naming assertion and the before/after counts below exist
+    because the characteristic failure here is silent: a `chr1` vs `1` mismatch
+    filters exactly nothing and looks like a clean run.
     """
     if genehancer_bed_path is None:
         print(
@@ -178,32 +199,94 @@ def restrict_to_neutral_genehancer(
         )
         return df
 
+    # element_id is 0-based half-open (chr-start-end), the same convention as
+    # BED, which is what makes the `start < fin AND end > beg` test below right.
     windows = df.with_columns([
         pl.col("element_id").str.extract(r"^(chr[^-]+)-").alias("_chrom"),
         pl.col("element_id").str.extract(r"^chr[^-]+-(\d+)-").cast(pl.Int64).alias("_start"),
         pl.col("element_id").str.extract(r"^chr[^-]+-\d+-(\d+)$").cast(pl.Int64).alias("_end"),
     ])
 
-    con = duckdb.connect()
-    con.register("windows", windows.to_pandas())
+    with duckdb.connect() as con:
+        con.register("windows", windows)
 
-    overlap_condition = "w._chrom = g.column0 AND w._start < g.column2 AND w._end > g.column1"
-    if min_frac_overlap is not None:
-        overlap_condition += f"""
-            AND (LEAST(w._end, g.column2) - GREATEST(w._start, g.column1))::DOUBLE
-                / (w._end - w._start) >= {min_frac_overlap}
-        """
+        # Read once into a table rather than leaving read_csv in a correlated
+        # subquery, and pin the schema: auto-detection on a headerless BED reads
+        # a `#chrom` header line as data and then types the coordinate columns
+        # as VARCHAR. A short `types` list applies to the leading columns, so
+        # files with the usual extra BED fields are fine. A UCSC `track` or
+        # `browser` line is not skipped by `comment` and will raise a
+        # conversion error here -- loud, which is the point; strip it.
+        con.execute("""
+            CREATE TEMP TABLE gh AS
+            SELECT column0 AS chrom, column1 AS beg, column2 AS fin
+            FROM read_csv(?, delim='\t', header=false, comment='#',
+                          types=['VARCHAR', 'BIGINT', 'BIGINT'])
+        """, [genehancer_bed_path])
 
-    query = f"""
-        SELECT w.* EXCLUDE (_chrom, _start, _end)
-        FROM windows w
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM read_csv_auto('{genehancer_bed_path}', header=False) g
-            WHERE {overlap_condition}
-        )
-    """
-    return con.execute(query).pl()
+        shared, = con.execute(
+            "SELECT COUNT(*) FROM (SELECT DISTINCT chrom FROM gh "
+            "INTERSECT SELECT DISTINCT _chrom FROM windows)").fetchone()
+        if not shared:
+            w_ex = con.execute("SELECT DISTINCT _chrom FROM windows LIMIT 3").fetchall()
+            g_ex = con.execute("SELECT DISTINCT chrom FROM gh LIMIT 3").fetchall()
+            raise ValueError(
+                "GeneHancer BED and the window table share no chromosome name "
+                f"(windows: {[c for c, in w_ex]}, BED: {[c for c, in g_ex]}). "
+                "A chr-prefix mismatch would silently filter nothing.")
+
+        # Merge the annotation into disjoint intervals per chromosome
+        # (gaps-and-islands): a new island starts wherever an interval begins
+        # past the running maximum end of the ones before it.
+        con.execute("""
+            CREATE TEMP TABLE gh_merged AS
+            WITH ends AS (
+                SELECT chrom, beg, fin,
+                       MAX(fin) OVER (PARTITION BY chrom ORDER BY beg, fin
+                                      ROWS BETWEEN UNBOUNDED PRECEDING
+                                               AND 1 PRECEDING) AS prev_max
+                FROM gh
+            ), islands AS (
+                SELECT *, SUM(CASE WHEN prev_max IS NULL OR beg > prev_max
+                                   THEN 1 ELSE 0 END)
+                          OVER (PARTITION BY chrom ORDER BY beg, fin) AS island
+                FROM ends
+            )
+            SELECT chrom, MIN(beg) AS beg, MAX(fin) AS fin
+            FROM islands GROUP BY chrom, island
+        """)
+
+        # NULLIF guards a zero-length window: it would divide by zero, and the
+        # resulting NULL fails the < comparison, silently KEEPING the window.
+        # These are 1 kb tiles, so this cannot fire -- it is here so that the
+        # failure mode, if the input ever changes, is not silent retention.
+        keep = "cov.bp IS NULL" if min_frac_covered is None else (
+            f"COALESCE(cov.bp, 0)::DOUBLE / NULLIF(w._end - w._start, 0) "
+            f"< {float(min_frac_covered)}")
+
+        out = con.execute(f"""
+            WITH w AS (SELECT *, row_number() OVER () AS _rid FROM windows),
+            cov AS (
+                SELECT w._rid,
+                       SUM(LEAST(w._end, g.fin) - GREATEST(w._start, g.beg)) AS bp
+                FROM w JOIN gh_merged g
+                  ON w._chrom = g.chrom AND w._start < g.fin AND w._end > g.beg
+                GROUP BY w._rid
+            )
+            SELECT w.* EXCLUDE (_chrom, _start, _end, _rid)
+            FROM w LEFT JOIN cov USING (_rid)
+            WHERE {keep}
+            ORDER BY w._rid
+        """).pl()
+
+    rule = ("any overlap" if min_frac_covered is None
+            else f"cumulative coverage >= {min_frac_covered}")
+    print(f"GeneHancer exclusion ({rule}): {df.height:,} windows -> "
+          f"{out.height:,} ({df.height - out.height:,} dropped)")
+    if out.height in (0, df.height):
+        print("  WARNING: that filter removed all windows or none -- the "
+              "signature of a coordinate or chromosome-naming mismatch.")
+    return out
 
 
 def maybe_downsample(df: pl.DataFrame, frac: float | None, n: int | None, seed: int) -> pl.DataFrame:
@@ -421,7 +504,7 @@ def bin_by_gc(df: pl.DataFrame, gc_col: str, n_bins: int, bin_method: str,
 def build_window_table(cache_dir: str, exclude_sex: bool = True,
                         noncoding: bool = True, apply_qc: bool = True,
                         genehancer_bed: str | None = None,
-                        genehancer_min_frac_overlap: float | None = None,
+                        genehancer_min_frac_covered: float | None = None,
                         downsample_frac: float | None = None,
                         downsample_n: int | None = None,
                         random_seed: int = 0) -> pl.DataFrame:
@@ -446,7 +529,7 @@ def build_window_table(cache_dir: str, exclude_sex: bool = True,
         df = restrict_to_noncoding(df)
     if apply_qc:
         df = df.filter(pl.col("pass_qc"))
-    df = restrict_to_neutral_genehancer(df, genehancer_bed, genehancer_min_frac_overlap)
+    df = restrict_to_neutral_genehancer(df, genehancer_bed, genehancer_min_frac_covered)
     df = maybe_downsample(df, downsample_frac, downsample_n, random_seed)
     df = add_gc_content_fraction(df)
     return df

@@ -380,13 +380,17 @@ local GeneHancer BED file, because GeneHancer can't be downloaded automatically:
 Practically: if you (as a paper co-author) have access to that HPC path or another
 licensed GeneHancer BED file, pass it via `-genehancer_bed`. Without it, "neutral" here is
 only noncoding + `pass_qc` + non-sex-chromosome — NOT excluding enhancer-overlapping
-(and therefore potentially actually constrained) windows. `min_frac_overlap` (bedtools
-`-f` semantics) defaults to `None` (any overlap excludes the window); McHale et al.'s own
-codebase uses `-f 0.5` in a *different* intersect step (assigning external
-constraint-score features to truth-set windows, same notebook,
-`intersect_and_aggregate()`) — a plausible hint for what "significantly" might mean here
-too, but not confirmed for this specific labeling step, so not applied as a default.
-**UNTESTED**: no GeneHancer file is available in this environment, so this exclusion
+(and therefore potentially actually constrained) windows. `min_frac_covered` defaults to
+`None` (any overlap excludes the window); McHale et al.'s own codebase uses `-f 0.5` in a
+*different* intersect step (assigning external constraint-score features to truth-set
+windows, same notebook, `intersect_and_aggregate()`) — a plausible hint for what
+"significantly" might mean here too, but not confirmed for this specific labeling step, so
+not applied as a default. **Note the parameter is not bedtools `-f`**: it is CUMULATIVE
+coverage of the window by the merged annotation, where `-f` asks whether one B feature
+covers that fraction. GeneHancer elements overlap heavily, so the two genuinely differ —
+three elements covering 35% each pass `-f 0.5` while covering the window entirely — and
+they agree only at the `None` default. **UNTESTED**: no GeneHancer file is available in
+this environment, so this exclusion
 logic has not been run against real GeneHancer data — verify directly before relying on
 it for anything reported in the rebuttal/paper.
 
