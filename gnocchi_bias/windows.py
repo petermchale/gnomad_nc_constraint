@@ -24,7 +24,9 @@ inside a notebook running an interactive backend. Callers that need "Agg" set
 it themselves.
 """
 import os
+import shutil
 import subprocess
+import tempfile
 import time
 
 import duckdb
@@ -165,30 +167,36 @@ def restrict_to_neutral_genehancer(
 
     genehancer_bed_path: a standard BED file (tab-separated, chrom/start/end in
     the first three columns, 0-based half-open like the element_ids parsed here;
-    extra columns ignored, `#` comment lines skipped).
+    extra columns and `#`/`track`/`browser` lines are bedtools' problem, not
+    ours).
 
     min_frac_covered: None (default) excludes a window on ANY overlap.
     Otherwise a window is excluded when GeneHancer covers at least this fraction
-    of it -- CUMULATIVE coverage, after merging the annotation into disjoint
-    intervals, since GeneHancer elements overlap each other heavily and summing
-    raw intervals would double-count the same bases.
+    of it -- CUMULATIVE coverage, which is what `bedtools coverage` reports:
+    bases of the window covered by at least one element, so the heavy mutual
+    overlap between GeneHancer elements is counted once rather than summed.
 
-    That is deliberately NOT bedtools `-f` semantics, which ask whether ONE
-    B feature covers that fraction of the window: three elements covering 35%
-    each pass `-f 0.5` while covering the window entirely. Cumulative is the
-    reading that answers "how much of this window is enhancer", which is what
-    "significantly overlap" has to mean about a window. The distinction is moot
-    at the default, where any overlap excludes and the two agree; it matters
-    only if a fraction is ever supplied. CLAUDE.md notes McHale et al. use
-    `-f 0.5` in a DIFFERENT intersect step -- if that turns out to be this
-    step's rule too, the change is to drop the merge and test each interval
-    separately.
+    That is deliberately NOT `bedtools intersect -f` semantics, which ask
+    whether ONE element covers that fraction of the window: three elements
+    covering 35% each pass `-f 0.5` while covering the window entirely.
+    Cumulative is the reading that answers "how much of this window is
+    enhancer", which is what "significantly overlap" has to mean about a window.
+    The distinction is moot at the default, where any overlap excludes and the
+    two agree; it matters only if a fraction is ever supplied. CLAUDE.md notes
+    McHale et al. use `-f 0.5` in a DIFFERENT intersect step -- if that turns
+    out to be this step's rule too, this becomes `bedtools intersect -v -f`.
+
+    Needs bedtools on PATH (`brew install bedtools`, or the module on an HPC).
+    An earlier version did the interval arithmetic in duckdb to avoid the
+    dependency; the machine that has the licensed BED will have bedtools, and
+    `bedtools coverage` states the intent in one line where the SQL needed a
+    gaps-and-islands merge to say the same thing.
 
     UNTESTED against real GeneHancer data -- no such file is available in this
     environment; verify directly before relying on it for the rebuttal/paper.
-    The chromosome-naming assertion and the before/after counts below exist
-    because the characteristic failure here is silent: a `chr1` vs `1` mismatch
-    filters exactly nothing and looks like a clean run.
+    The chromosome-naming check and the before/after counts below exist because
+    the characteristic failure here is silent: a `chr1` vs `1` mismatch makes
+    bedtools report zero coverage everywhere, which looks like a clean run.
     """
     if genehancer_bed_path is None:
         print(
@@ -198,86 +206,66 @@ def restrict_to_neutral_genehancer(
             "'GeneHancer enhancer exclusion'."
         )
         return df
+    if shutil.which("bedtools") is None:
+        raise RuntimeError(
+            "bedtools is not on PATH, and the GeneHancer exclusion needs it "
+            "(`brew install bedtools`, or load the module on an HPC).")
 
-    # element_id is 0-based half-open (chr-start-end), the same convention as
-    # BED, which is what makes the `start < fin AND end > beg` test below right.
-    windows = df.with_columns([
-        pl.col("element_id").str.extract(r"^(chr[^-]+)-").alias("_chrom"),
-        pl.col("element_id").str.extract(r"^chr[^-]+-(\d+)-").cast(pl.Int64).alias("_start"),
-        pl.col("element_id").str.extract(r"^chr[^-]+-\d+-(\d+)$").cast(pl.Int64).alias("_end"),
+    # element_id is 0-based half-open (chr-start-end), the same convention BED
+    # uses -- which is the whole reason these coordinates can go straight to
+    # bedtools. The row number rides along as the BED name field so the result
+    # can be joined back to the input.
+    windows = df.select([
+        pl.col("element_id").str.extract(r"^(chr[^-]+)-").alias("chrom"),
+        pl.col("element_id").str.extract(r"^chr[^-]+-(\d+)-").cast(pl.Int64).alias("start"),
+        pl.col("element_id").str.extract(r"^chr[^-]+-\d+-(\d+)$").cast(pl.Int64).alias("end"),
+        pl.int_range(pl.len()).alias("rid"),
     ])
 
-    with duckdb.connect() as con:
-        con.register("windows", windows)
+    with tempfile.TemporaryDirectory() as tmp:
+        windows_bed = os.path.join(tmp, "windows.bed")
+        covered_bed = os.path.join(tmp, "covered.bed")
+        windows.write_csv(windows_bed, separator="\t", include_header=False)
 
-        # Read once into a table rather than leaving read_csv in a correlated
-        # subquery, and pin the schema: auto-detection on a headerless BED reads
-        # a `#chrom` header line as data and then types the coordinate columns
-        # as VARCHAR. A short `types` list applies to the leading columns, so
-        # files with the usual extra BED fields are fine. A UCSC `track` or
-        # `browser` line is not skipped by `comment` and will raise a
-        # conversion error here -- loud, which is the point; strip it.
-        con.execute("""
-            CREATE TEMP TABLE gh AS
-            SELECT column0 AS chrom, column1 AS beg, column2 AS fin
-            FROM read_csv(?, delim='\t', header=false, comment='#',
-                          types=['VARCHAR', 'BIGINT', 'BIGINT'])
-        """, [genehancer_bed_path])
+        # coverage, not intersect: it reports bases of A covered by B and the
+        # fraction they make up, counting a base once however many B features
+        # cover it. Not -sorted -- that needs both inputs in the same chromosome
+        # order and a -g file to check it, and B here is small enough to hold.
+        with open(covered_bed, "w") as out_fh:
+            subprocess.run(["bedtools", "coverage",
+                            "-a", windows_bed, "-b", genehancer_bed_path],
+                           stdout=out_fh, check=True)
 
-        shared, = con.execute(
-            "SELECT COUNT(*) FROM (SELECT DISTINCT chrom FROM gh "
-            "INTERSECT SELECT DISTINCT _chrom FROM windows)").fetchone()
-        if not shared:
-            w_ex = con.execute("SELECT DISTINCT _chrom FROM windows LIMIT 3").fetchall()
-            g_ex = con.execute("SELECT DISTINCT chrom FROM gh LIMIT 3").fetchall()
-            raise ValueError(
-                "GeneHancer BED and the window table share no chromosome name "
-                f"(windows: {[c for c, in w_ex]}, BED: {[c for c, in g_ex]}). "
-                "A chr-prefix mismatch would silently filter nothing.")
+        cov = pl.read_csv(
+            covered_bed, separator="\t", has_header=False,
+            new_columns=["chrom", "start", "end", "rid",
+                         "n_elements", "bases_covered", "window_length", "frac_covered"],
+            schema_overrides={"rid": pl.Int64, "n_elements": pl.Int64,
+                              "bases_covered": pl.Int64, "frac_covered": pl.Float64})
 
-        # Merge the annotation into disjoint intervals per chromosome
-        # (gaps-and-islands): a new island starts wherever an interval begins
-        # past the running maximum end of the ones before it.
-        con.execute("""
-            CREATE TEMP TABLE gh_merged AS
-            WITH ends AS (
-                SELECT chrom, beg, fin,
-                       MAX(fin) OVER (PARTITION BY chrom ORDER BY beg, fin
-                                      ROWS BETWEEN UNBOUNDED PRECEDING
-                                               AND 1 PRECEDING) AS prev_max
-                FROM gh
-            ), islands AS (
-                SELECT *, SUM(CASE WHEN prev_max IS NULL OR beg > prev_max
-                                   THEN 1 ELSE 0 END)
-                          OVER (PARTITION BY chrom ORDER BY beg, fin) AS island
-                FROM ends
-            )
-            SELECT chrom, MIN(beg) AS beg, MAX(fin) AS fin
-            FROM islands GROUP BY chrom, island
-        """)
+    if cov.height != df.height:
+        raise RuntimeError(
+            f"bedtools coverage returned {cov.height:,} rows for "
+            f"{df.height:,} windows -- expected one row per window.")
 
-        # NULLIF guards a zero-length window: it would divide by zero, and the
-        # resulting NULL fails the < comparison, silently KEEPING the window.
-        # These are 1 kb tiles, so this cannot fire -- it is here so that the
-        # failure mode, if the input ever changes, is not silent retention.
-        keep = "cov.bp IS NULL" if min_frac_covered is None else (
-            f"COALESCE(cov.bp, 0)::DOUBLE / NULLIF(w._end - w._start, 0) "
-            f"< {float(min_frac_covered)}")
+    # Compare chromosome NAMES, not whether anything overlapped: a BED that
+    # legitimately misses every window is a real (if odd) answer, while
+    # `chr1` against `1` is a bug that produces the same zero. bedtools warns
+    # about it on stderr as well, but only warns.
+    bed_chroms = set(pl.read_csv(
+        genehancer_bed_path, separator="\t", has_header=False, columns=[0],
+        new_columns=["chrom"], comment_prefix="#", truncate_ragged_lines=True,
+        schema_overrides={"chrom": pl.String})["chrom"].unique())
+    win_chroms = set(windows["chrom"].unique())
+    if not (bed_chroms & win_chroms):
+        raise ValueError(
+            "GeneHancer BED and the window table share no chromosome name "
+            f"(windows: {sorted(win_chroms)[:3]}, BED: {sorted(bed_chroms)[:3]}). "
+            "A chr-prefix mismatch would silently filter nothing.")
 
-        out = con.execute(f"""
-            WITH w AS (SELECT *, row_number() OVER () AS _rid FROM windows),
-            cov AS (
-                SELECT w._rid,
-                       SUM(LEAST(w._end, g.fin) - GREATEST(w._start, g.beg)) AS bp
-                FROM w JOIN gh_merged g
-                  ON w._chrom = g.chrom AND w._start < g.fin AND w._end > g.beg
-                GROUP BY w._rid
-            )
-            SELECT w.* EXCLUDE (_chrom, _start, _end, _rid)
-            FROM w LEFT JOIN cov USING (_rid)
-            WHERE {keep}
-            ORDER BY w._rid
-        """).pl()
+    keep = (pl.col("n_elements") == 0 if min_frac_covered is None
+            else pl.col("frac_covered") < float(min_frac_covered))
+    out = df.filter(cov.sort("rid").select(keep).to_series())
 
     rule = ("any overlap" if min_frac_covered is None
             else f"cumulative coverage >= {min_frac_covered}")

@@ -89,6 +89,8 @@ the figure.
 
 ```bash
 pip install -r requirements.txt
+# bedtools is needed only by the GeneHancer exclusion, which is off by default
+# (the BED is licensed and not in this repo): brew install bedtools
 
 # 1. Confirm the reimplementation reproduces Chen et al.'s pipeline (~10 min)
 python preconditions/validate.py

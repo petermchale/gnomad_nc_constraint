@@ -359,9 +359,15 @@ strict zero, but no numeric value is given in the text.
 windows, those that don't significantly overlap Genehancer enhancers (Fishilevich et al.
 2017) were labeled 'neutral' ... Noncoding windows that do significantly overlap
 Genehancer enhancers were labeled 'constrained'." ("significantly" is not numerically
-defined in the text.) The script's `restrict_to_neutral_genehancer()` implements the
-actual exclusion logic (a genomic-interval anti-join in duckdb — no bedtools dependency,
-and bedtools isn't installed in this environment anyway), but it's a no-op without a
+defined in the text.) `gnocchi_bias/windows.py`'s `restrict_to_neutral_genehancer()`
+implements the actual exclusion logic — one `bedtools coverage -a windows -b genehancer`
+call, whose `frac_covered` column is the union of the elements' coverage, so the heavy
+mutual overlap between GeneHancer elements counts once. **bedtools v2.31.1 is installed
+here now** (`brew install bedtools`, 2026-08-14); it was not when this section was
+written, which is why the logic was a duckdb interval anti-join until then. Measured on
+1.84M synthetic windows against 250k GeneHancer-sized elements, bedtools is **4.0s against
+duckdb's 22.5s**, for identical output — the CLI is both the clearer statement of intent
+and the faster one, so nothing argues for the SQL. Either way it is a no-op without a
 local GeneHancer BED file, because GeneHancer can't be downloaded automatically:
 - Confirmed via web search (2026-07-21): "GeneHancer data must be obtained from the
   source database directly in the original format or licensed, rather from UCSC. Files
