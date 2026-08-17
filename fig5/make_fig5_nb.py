@@ -385,9 +385,17 @@ $$R_{\mathrm{eff}}(g)=\frac{\sum_{w\in g}E_2(w)}{\sum_{w\in g}E_1(w)}
 \qquad W(w)=\frac{E_1(w)}{\sum_{w'\in g}E_1(w')},$$
 
 again an $E_1$-weighted mean, of the window-level $r_{\mathrm{eff}}$ this time. Expected
-counts add, so this is the adjustment the bin actually receives; an unweighted mean of
-$r_{\mathrm{eff}}(w)$ would weight a 3-site window like a 400-site one and answer a
-different question. **Case carries the level throughout this notebook:** lowercase
+counts add, so this is the adjustment the bin actually receives, and the weights are not a
+separate choice — they fall out of dividing one sum by another. An unweighted mean of
+$r_{\mathrm{eff}}(w)$ answers a different question, and would break the CpG decomposition
+below, which is an identity only for ratios of sums: bin by bin it reproduces
+$R_{\mathrm{eff}}$ to floating point ($\le2\times10^{-16}$), where the unweighted version
+misses by up to $4.9\times10^{-3}$ because a window's CpG share and its non-CpG adjustment
+are correlated within a bin. The two aggregations agree closely here in any case: Chen et
+al.'s QC filter admits only windows with $\ge1{,}000$ possible variants, so $E_1$ spans
+just 55.5–345.7 across the analyzed set, and switching to the unweighted mean would move
+$R_{\mathrm{eff}}$ by ~0.1% through the GC bulk and 0.79% at worst, in the sparsest
+low-GC bin. **Case carries the level throughout this notebook:** lowercase
 $r$ is per context or per window, capital $R$ is the bin-level aggregate, a ratio of
 summed expected counts.
 
