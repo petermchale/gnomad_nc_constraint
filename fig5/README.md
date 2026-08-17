@@ -14,9 +14,13 @@ background sites: the fit minimizes its loss over the mixture, so the mixture is
 training distribution being compared against the scored one. Its bottom band is the
 scored population itself, defined by MEMBERSHIP in the analyzed window table (`data.py`,
 `_STRATA`) rather than by re-deriving that table's filters -- so it follows
-`GENEHANCER_BED` automatically, which a re-derivation did not. The bands above it name
-the reason a site is outside: *QC-pass coding*, *QC-pass enhancer* (empty and undrawn
-unless `GENEHANCER_BED` is set) and *QC-fail*. Only the QC-pass ones are split by coding
+`NEUTRAL_WINDOWS_BED` automatically, which a re-derivation did not. The bands above it
+name the reason a site is outside: *QC-pass coding*, *QC-pass non-neutral* (empty and
+undrawn unless `NEUTRAL_WINDOWS_BED` is set) and *QC-fail*. The non-neutral band is the
+one to read when asking whether the figure survives on McHale et al.'s window set: it is
+the territory given up in narrowing 1,843,559 windows to their 693,270, and if its DNM
+rate matches the scored population's, that narrowing costs sample size and nothing else.
+Only the QC-pass ones are split by coding
 status, because `coding_prop` comes from the constraint table and a QC-fail window has no
 row in it; measured separately, that band is 6.9% coding-overlapping against the QC-pass
 windows' 7.1%.
@@ -125,9 +129,20 @@ the notebook.
 | Constant | What it needs | Effect if left `None` |
 |---|---|---|
 | `DEPLETION_RANK_BED` | `41586_2022_4965_MOESM3_ESM.noncoding.enhancer.BGS.gBGC.GC_content.bed` from the constraint-tools `CONSTRAINT_TOOLS_DATA` path | Panel A builds with two curves instead of three |
-| `GENEHANCER_BED` | A licensed GeneHancer BED | "Neutral" is noncoding + `pass_qc` + autosome/PAR without the enhancer exclusion |
+| `NEUTRAL_WINDOWS_BED` | `41586_2023_6045_MOESM4_ESM/Supplementary_Data_2.features.constraint_scores.bed` from the same path — McHale et al.'s window file | The analyzed set is this repo's 1,843,559 noncoding + `pass_qc` + autosome/PAR windows rather than their 693,270 putatively neutral ones |
 
-`GENEHANCER_BED` lives in a module, not the notebook, because it defines the analyzed
+**Set `NEUTRAL_WINDOWS_BED` and the whole figure recomputes on their windows** — the
+file is read, filtered to `window overlaps enhancer == False`, and inner-joined on
+`element_id`, which is how the enhancer exclusion (GeneHancer is licensed) and their
+interval exclusions (assembly gaps, ENCODE exclude regions, low coverage) arrive without
+being re-derived. Run it both ways: the two sets differ 2.66x, and a conclusion that
+holds on only one of them is a conclusion about the window definition. Costs of
+switching: the `scored` and `sizematched` refits must be rerun (~6 min each) and are
+keyed by population alone, so one window set's refits overwrite the other's; the panel-C
+and CpG caches in `output/` carry a fingerprint of the edges and window set, so those
+coexist.
+
+`NEUTRAL_WINDOWS_BED` lives in a module, not the notebook, because it defines the analyzed
 window set — which `refit.py` uses to decide what the model is **fit** on and the notebook
 uses to decide what the panels are **evaluated** on. Disagreement would train on one
 population and score on another, the defect this figure is about. `config.py`'s docstring

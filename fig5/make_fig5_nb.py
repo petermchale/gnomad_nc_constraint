@@ -85,9 +85,26 @@ there too — see below for why that matters.
 
 Left `None`, panel A builds with two curves instead of three and prints a notice.
 
-`GENEHANCER_BED` — the enhancer-exclusion half of McHale et al.'s "neutral" window
-definition. GeneHancer is licensed and cannot be downloaded here. Left `None`,
-*neutral* means noncoding + `pass_qc` + autosome/PAR throughout.
+`NEUTRAL_WINDOWS_BED` — **which window set the whole figure is computed on.** Left
+`None`, that is the 1,843,559 windows this repo builds from the public bucket: noncoding
++ `pass_qc` + autosome/PAR. Set to McHale et al.'s own file, it is their 693,270
+putatively neutral windows instead — the set behind their Fig. 1:
+
+```
+{CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/41586_2023_6045_MOESM4_ESM/Supplementary_Data_2.features.constraint_scores.bed
+```
+
+filtered to `window overlaps enhancer == False`, exactly as
+`get_unconstrained_noncoding_chen_windows` does in their
+`9.regression/experiment.1.ipynb`. A join on their file rather than a re-derivation here,
+because the two things separating the sets are both unavailable: the enhancer flag comes
+from GeneHancer, which is licensed, and their interval exclusions (hg38 assembly gaps,
+ENCODE exclude regions, low-coverage regions) are not reproducible from the bucket.
+
+**Run it both ways.** The 2.66x gap between the two sets is large enough that a result
+holding on only one of them would be a result about the window definition. The figure is
+built to be recomputed by changing this one line — see the caveats at the end for what
+that costs.
 
 **Why this one is not just a notebook constant.** It defines the analyzed window set,
 which is used in two separate processes: `refit.py -population scored` uses it to decide
@@ -110,7 +127,7 @@ refit to rerun.
 
 (~6 min each), into the repo-root `refits/` — one copy of each table, also read
 directly by `dnm_training_size/`. `D.refit_path` raises with the exact
-command if one is missing or was built under a different `GENEHANCER_BED`.
+command if one is missing or was built under a different `NEUTRAL_WINDOWS_BED`.
 """)
 
 code(r"""
@@ -120,8 +137,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Set these in fig5/config.py, NOT here -- fig5/refit.py reads them from there too.
 DEPLETION_RANK_BED = config.DEPLETION_RANK_BED
-GENEHANCER_BED = config.GENEHANCER_BED
-print(f"DEPLETION_RANK_BED = {DEPLETION_RANK_BED!r}\nGENEHANCER_BED     = {GENEHANCER_BED!r}")
+NEUTRAL_WINDOWS_BED = config.NEUTRAL_WINDOWS_BED
+print(f"DEPLETION_RANK_BED  = {DEPLETION_RANK_BED!r}\n"
+      f"NEUTRAL_WINDOWS_BED = {NEUTRAL_WINDOWS_BED!r}")
 
 N_BINS = D.N_BINS           # 20
 XRANGE = D.XRANGE           # (0.2, 0.73), visually matched to Fig. 2A
@@ -301,7 +319,7 @@ are not a second-order concern; they are the whole effect.
 """)
 
 code(r"""
-df_win = D.window_table(CACHE_DIR, genehancer_bed=GENEHANCER_BED)
+df_win = D.window_table(CACHE_DIR, neutral_windows_bed=NEUTRAL_WINDOWS_BED)
 edges = D.gc_edges(df_win["GC_content"].to_numpy(), N_BINS)
 print(f"analyzed window set: {df_win.height:,} windows, "
       f"GC {df_win['GC_content'].min():.3f}-{df_win['GC_content'].max():.3f}")
@@ -515,15 +533,21 @@ that puts a GC slope into $r$.
 *in the scored population* exactly when its 1 kb window is a row of the analyzed window
 table, the same table `refit.py` restricts the training set with and the same one panels
 A, B and E are evaluated on. So this row measures the population those panels actually
-use, whatever defines it — and when `GENEHANCER_BED` is supplied, the enhancer exclusion
-comes along automatically rather than having to be remembered here.
+use, whatever defines it — and when `NEUTRAL_WINDOWS_BED` is supplied, the narrowing to
+McHale et al.'s 693,270 windows comes along automatically rather than having to be
+remembered here.
 
 **What the bands above it are, precisely** — the labels matter here, because the
 mechanism differs. A coding window *has* a published Gnocchi score; it is this analysis
-that sets it aside, following McHale et al.'s noncoding restriction. So does an enhancer
-window, under the other half of McHale et al.'s neutral definition; that band is empty
-and undrawn unless `GENEHANCER_BED` is set. A window in the QC-fail
-stratum has no score at all: Chen et al. dropped it before scoring, keeping only
+that sets it aside, following McHale et al.'s noncoding restriction. So does a
+*non-neutral* window: noncoding and QC-pass, but not in McHale et al.'s 693,270 — the
+territory given up in narrowing to their set, whether for overlapping a GeneHancer
+enhancer or for one of their interval exclusions. **That band is the direct answer to
+"do the conclusions survive on their windows?"**: if the territory being given up has the
+scored population's own DNM rate, then restricting to their set costs sample size and
+nothing else. It is empty and undrawn unless `NEUTRAL_WINDOWS_BED` is set. A window in
+the QC-fail stratum has no score at all: Chen et al. dropped it before scoring, keeping
+only
 windows with $\ge1{,}000$ possible variants, $\ge80\%$ of observed variants PASS, and
 mean coverage 25–35× (Methods; `run_nc_constraint_gnomad_v31_main.py:296`). The published
 table carries `pass_qc = True` on all 1,984,900 of its rows, so that flag is inert
@@ -539,7 +563,7 @@ population, 6.1% coding) and 13.3% in QC-fail ones. `preconditions/verify_qc_fil
 filter forwards too: all 1,984,900 scored windows satisfy all three conditions. Over both
 training classes — the stack's own genome-wide average — it is 79.9% / 6.1% / 14.0%.
 
-The bands are therefore *the scored population*, *QC-pass coding*, *QC-pass enhancer*
+The bands are therefore *the scored population*, *QC-pass coding*, *QC-pass non-neutral*
 (empty here) and *QC-fail* — and only the QC-pass ones are split by coding status.
 **QC-fail is a mixture**, deliberately: `coding_prop` lives in the constraint table and
 these windows have no row in it. Read from
@@ -590,7 +614,8 @@ panels.panel_stratum_ratios(axC2, ratios, xrange=XRANGE)
 save(fig, "C")
 
 # Columns from D._STRATA and from whatever stratum_ratios built, rather than a hardcoded
-# list: with GENEHANCER_BED set there is a fourth stratum, and both tables gain columns.
+# list: with NEUTRAL_WINDOWS_BED set there is a fourth stratum, and both tables gain
+# columns.
 print(comp.filter(pl.col("n_total") >= MIN_N_SITES)
           .select(["gc_mid", "n_total"] + [f"frac_{s}" for s in D._STRATA]))
 print(ratios.select([c for c in ratios.columns if c != "gc_bin"]))
@@ -839,15 +864,22 @@ md(r"""
 * **The depletion-rank curve comes from a different window set** (Halldorsson windows, a
   different window size) than the two Gnocchi curves. They are not joined; each is
   ranked within itself.
-* **`GENEHANCER_BED` is unavailable**, so "the scored population" is noncoding +
-  `pass_qc` + autosome/PAR without the enhancer exclusion — the same definition in every
-  panel, including the population the retrained model is fit on, and including panel C's
-  bottom band, which is defined by membership in that population rather than by
-  re-deriving its filters. Supplying the file therefore moves every panel: A, B and E
-  directly, D through the `scored` and `sizematched` refits (which must be rerun —
-  `config.check()` refuses a refit stamped with a different value), and C both through
-  its bottom band and through the shared GC bin edges, which span the window set's own
-  GC range.
+* **`NEUTRAL_WINDOWS_BED` is unset in this run**, so the analyzed set is the 1,843,559
+  noncoding + `pass_qc` + autosome/PAR windows, not McHale et al.'s 693,270. That is one
+  definition applied consistently — every panel, the population the retrained model is
+  fit on, and panel C's bottom band, which is defined by membership in that population
+  rather than by re-deriving its filters — but it is 2.66x their set, and the difference
+  is not only enhancer-overlapping windows: their assembly-gap, ENCODE-exclude and
+  low-coverage exclusions are in it too.
+
+  Setting the file recomputes everything: A, B and E directly, D through the `scored`
+  and `sizematched` refits, and C through both its bottom band and the shared GC bin
+  edges, which span the window set's own GC range. Two operational costs. The refits
+  must be rerun (`config.check()` refuses one stamped with a different value, naming the
+  command), and since they are keyed by population alone, one window set's refits
+  overwrite the other's — switching back means rerunning again, ~6 min each. The panel-C
+  and CpG caches in `output/` are keyed by a fingerprint of the edges and the window
+  set, so those two do coexist.
 * **This is not a proposed Gnocchi 2.0.** It is a demonstration that the bias is
   attributable to the training/scoring population mismatch. A corrected score would have
   to decide what the scored population is *before* fitting, and that choice is not

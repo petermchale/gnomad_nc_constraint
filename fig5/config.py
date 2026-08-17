@@ -2,8 +2,8 @@
 The two inputs that are not in this repo, in ONE place -- plus the provenance stamp that
 keeps the expensive refits honest about them.
 
-WHY THIS FILE EXISTS RATHER THAN A CONSTANT IN THE NOTEBOOK. GENEHANCER_BED defines the
-analyzed window set, and that set is used twice, in two separate processes:
+WHY THIS FILE EXISTS RATHER THAN A CONSTANT IN THE NOTEBOOK. NEUTRAL_WINDOWS_BED defines
+the analyzed window set, and that set is used twice, in two separate processes:
 
   * fig5/refit.py -population scored (and sizematched) -- it decides which training
     sites survive the restriction, i.e. what the model is FIT on;
@@ -33,14 +33,24 @@ import os
 # None -> panel A builds with two curves instead of three.
 DEPLETION_RANK_BED = None
 
-# The enhancer-exclusion half of McHale et al.'s "neutral" window definition.
-# GeneHancer is licensed and cannot be downloaded here. None -> "neutral" is
-# noncoding + pass_qc + autosome/PAR, consistently everywhere.
-GENEHANCER_BED = None
+# McHale et al.'s putatively neutral window set -- the 693,270 windows behind their
+# Fig. 1 -- as their own analysis reads it:
+#   {CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/
+#       41586_2023_6045_MOESM4_ESM/Supplementary_Data_2.features.constraint_scores.bed
+# (filtered to `window overlaps enhancer == False`; see
+# windows.load_mchale_neutral_element_ids, and their
+# papers/neutral_models_are_biased/9.regression/experiment.1.ipynb).
+#
+# SET IT AND THE WHOLE FIGURE RECOMPUTES ON THEIR WINDOWS. None -> the analyzed set is
+# the 1,843,559 windows that are noncoding + pass_qc + autosome/PAR, consistently
+# everywhere. Both are meant to be run: the second is this repo's reproduction of their
+# definition from public data, the first is their definition itself, and a result that
+# holds on both is a result that does not depend on which one is right.
+NEUTRAL_WINDOWS_BED = None
 
 # Populations whose training set is defined BY the analyzed window set, and so by
-# GENEHANCER_BED. "full" is not one of them -- it never builds the window table -- so a
-# change to GENEHANCER_BED does not invalidate it.
+# NEUTRAL_WINDOWS_BED. "full" is not one of them -- it never builds the window table --
+# so a change to NEUTRAL_WINDOWS_BED does not invalidate it.
 WINDOW_DEPENDENT = ("scored", "sizematched")
 
 _PROVENANCE = "provenance.json"
@@ -54,19 +64,23 @@ def _read(refits_dir: str) -> dict:
         return json.load(fh)
 
 
-def record(refits_dir: str, population: str, genehancer_bed: str | None) -> None:
+def record(refits_dir: str, population: str, neutral_windows_bed: str | None) -> None:
     """Stamp the setting a refit was built under. Called by refit.py after it writes."""
     prov = _read(refits_dir)
-    prov[population] = {"genehancer_bed": genehancer_bed}
+    prov[population] = {"neutral_windows_bed": neutral_windows_bed}
     with open(os.path.join(refits_dir, _PROVENANCE), "w") as fh:
         json.dump(prov, fh, indent=1, sort_keys=True)
 
 
 def check(refits_dir: str, population: str) -> None:
     """
-    Raise if `population`'s refit was built under a different GENEHANCER_BED than the
-    one set above, or if it carries no stamp at all. Populations outside
+    Raise if `population`'s refit was built under a different NEUTRAL_WINDOWS_BED than
+    the one set above, or if it carries no stamp at all. Populations outside
     WINDOW_DEPENDENT are unaffected by the setting and are not checked.
+
+    A stamp written before this key existed (it was `genehancer_bed`, and always null)
+    reads as None here, which is the correct answer for it: those refits were built with
+    no neutral restriction. The next refit rewrites its own entry outright.
     """
     if population not in WINDOW_DEPENDENT:
         return
@@ -76,9 +90,10 @@ def check(refits_dir: str, population: str) -> None:
             f"{os.path.join(refits_dir, _PROVENANCE)} has no entry for {population!r}, "
             f"so the training population it was built on is unknown.\n"
             f"Rerun:  .venv/bin/python fig5/refit.py -population {population}")
-    if stamped.get("genehancer_bed") != GENEHANCER_BED:
+    if stamped.get("neutral_windows_bed") != NEUTRAL_WINDOWS_BED:
         raise RuntimeError(
-            f"the {population!r} refit was built with GENEHANCER_BED="
-            f"{stamped.get('genehancer_bed')!r}, but fig5/config.py now says "
-            f"{GENEHANCER_BED!r}. It would be fit on one window population and scored "
-            f"on another.\nRerun:  .venv/bin/python fig5/refit.py -population {population}")
+            f"the {population!r} refit was built with NEUTRAL_WINDOWS_BED="
+            f"{stamped.get('neutral_windows_bed')!r}, but fig5/config.py now says "
+            f"{NEUTRAL_WINDOWS_BED!r}. It would be fit on one window population and "
+            f"scored on another.\nRerun:  .venv/bin/python fig5/refit.py "
+            f"-population {population}")

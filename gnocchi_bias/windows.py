@@ -24,9 +24,7 @@ inside a notebook running an interactive backend. Callers that need "Agg" set
 it themselves.
 """
 import os
-import shutil
 import subprocess
-import tempfile
 import time
 
 import duckdb
@@ -158,135 +156,131 @@ def restrict_to_noncoding(df: pl.DataFrame,
                           ) -> pl.DataFrame:
     """
     Filter to noncoding 1kb windows (coding_prop <= threshold) -- half of
-    McHale et al.'s "neutral" window definition. See
-    restrict_to_neutral_genehancer() for the other half, and CLAUDE.md,
-    "Noncoding restriction", for the Methods citation and the still-unconfirmed
-    exact threshold.
+    McHale et al.'s "neutral" window definition, and the half this repo can
+    reproduce from the public bucket. See restrict_to_mchale_neutral_windows()
+    for the rest of it, which arrives as a join on their own window file, and
+    CLAUDE.md, "Noncoding restriction", for the Methods citation and the
+    still-unconfirmed exact threshold.
     """
     return df.filter(pl.col("coding_prop") <= coding_prop_threshold)
 
 
-def restrict_to_neutral_genehancer(
+# The header of the column that carries the enhancer flag in McHale et al.'s window
+# file. Spaces, not underscores -- the file mixes both conventions (`window overlaps
+# enhancer` beside `window_overlaps_cpg_island`), so names are normalised before lookup.
+MCHALE_ENHANCER_COLUMN = "window_overlaps_enhancer"
+MCHALE_NEUTRAL_WINDOW_COUNT = 693_270
+
+
+def load_mchale_neutral_element_ids(neutral_windows_bed: str) -> pl.Series:
+    """
+    The element_ids of McHale et al.'s putatively neutral window set, read from the file
+    their own analysis reads.
+
+    WHAT THE FILE IS. `Supplementary_Data_2.features.constraint_scores.bed` under
+    `{CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/41586_2023_6045_MOESM4_ESM/`
+    -- Chen et al.'s published Supplementary Data 2 (the noncoding 1 kb windows with
+    their Gnocchi scores), re-annotated by constraint-tools with regional features and
+    two booleans, `window overlaps enhancer` and `window overlaps merged_exon`. It is
+    tab-separated with a header; coordinates are `chrom, start, end`, 0-based half-open,
+    the same convention as Chen et al.'s `element_id`.
+
+    THE NEUTRAL SET IS THAT FILE FILTERED TO `window overlaps enhancer == False`, which
+    is 693,270 windows. That is the definition, verbatim, from
+    `papers/neutral_models_are_biased/9.regression/experiment.1.ipynb`
+    (`get_unconstrained_noncoding_chen_windows`), and it is the window set behind McHale
+    et al.'s Fig. 1. Taking the set from their file rather than rebuilding it here is the
+    point: the enhancer flag came from GeneHancer, which is licensed and not
+    redistributable, and their interval exclusions (hg38 assembly gaps, ENCODE exclude
+    regions, low-coverage regions) are not reproducible from the public bucket either.
+    One join settles all of it.
+
+    Not in this repo, and not fetchable: it lives on the constraint-tools HPC path.
+    fig5/config.py holds the path; None there means the restriction is skipped.
+    """
+    # chrom as String explicitly: a file written without the `chr` prefix parses as
+    # Int64 and dies mid-scan on the first `X`, which reads as a corrupt file rather
+    # than the coordinate-convention mismatch it is. Held as text, it reaches the join
+    # and trips the loud check below.
+    df = (pl.read_csv(neutral_windows_bed, separator="\t", infer_schema_length=10_000,
+                      schema_overrides={"chrom": pl.String})
+            .rename(lambda c: c.strip().replace(" ", "_")))
+    if MCHALE_ENHANCER_COLUMN not in df.columns:
+        raise ValueError(
+            f"{neutral_windows_bed} has no {MCHALE_ENHANCER_COLUMN!r} column "
+            f"(found {df.columns[:8]}...). This should be constraint-tools' "
+            "Supplementary_Data_2.features.constraint_scores.bed.")
+
+    neutral = df.filter(~pl.col(MCHALE_ENHANCER_COLUMN).cast(pl.Boolean))
+    print(f"McHale et al. neutral windows: {df.height:,} rows in file -> "
+          f"{neutral.height:,} with {MCHALE_ENHANCER_COLUMN} == False")
+    if neutral.height != MCHALE_NEUTRAL_WINDOW_COUNT:
+        print(f"  NOTE: expected {MCHALE_NEUTRAL_WINDOW_COUNT:,} (their Fig. 1 window "
+              "set). A different count means a different vintage of the file -- worth "
+              "resolving before quoting either window count in the paper.")
+
+    return (neutral.select(
+        (pl.col("chrom").cast(pl.String) + "-"
+         + pl.col("start").cast(pl.Int64).cast(pl.String) + "-"
+         + pl.col("end").cast(pl.Int64).cast(pl.String)).alias("element_id"))
+        ["element_id"])
+
+
+def restrict_to_mchale_neutral_windows(
     df: pl.DataFrame,
-    genehancer_bed_path: str | None,
-    min_frac_covered: float | None = None,
+    neutral_windows_bed: str | None,
+    df_prefilter: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """
-    Exclude windows overlapping a GeneHancer enhancer -- the other half of
-    McHale et al.'s "neutral" definition. No-op (with a printed warning)
-    unless genehancer_bed_path is given: GeneHancer isn't freely
-    downloadable, so this can't run end-to-end automatically. See CLAUDE.md,
-    "GeneHancer enhancer exclusion", for the full citation trail and why.
+    Restrict the window table to McHale et al.'s putatively neutral set, by an inner join
+    on element_id. No-op (with a printed warning) when neutral_windows_bed is None.
 
-    genehancer_bed_path: a standard BED file (tab-separated, chrom/start/end in
-    the first three columns, 0-based half-open like the element_ids parsed here;
-    extra columns and `#`/`track`/`browser` lines are bedtools' problem, not
-    ours).
+    This REPLACES the GeneHancer exclusion that used to live here (`bedtools coverage`
+    against a licensed BED, never once run against real GeneHancer data). Their file
+    already carries the result of that exclusion, so the enhancer question is answered by
+    a join instead of re-derived from an annotation this repo cannot obtain -- and the
+    join also brings along the interval exclusions their Methods describe but this repo
+    never implemented, which is why 1,843,559 was 2.66x their 693,270 rather than merely
+    enhancer-inflated.
 
-    min_frac_covered: None (default) excludes a window on ANY overlap.
-    Otherwise a window is excluded when GeneHancer covers at least this fraction
-    of it -- CUMULATIVE coverage, which is what `bedtools coverage` reports:
-    bases of the window covered by at least one element, so the heavy mutual
-    overlap between GeneHancer elements is counted once rather than summed.
+    `df_prefilter`, if given, is the window table BEFORE the noncoding/sex-chromosome
+    filters. It is used only to explain a shortfall: any neutral window that fails to
+    join is looked up there, so the message can say whether it is missing because this
+    repo filtered it out or because it is absent from Chen et al.'s constraint table
+    entirely. Diagnosis only -- it never changes what is returned.
 
-    That is deliberately NOT `bedtools intersect -f` semantics, which ask
-    whether ONE element covers that fraction of the window: three elements
-    covering 35% each pass `-f 0.5` while covering the window entirely.
-    Cumulative is the reading that answers "how much of this window is
-    enhancer", which is what "significantly overlap" has to mean about a window.
-    The distinction is moot at the default, where any overlap excludes and the
-    two agree; it matters only if a fraction is ever supplied. CLAUDE.md notes
-    McHale et al. use `-f 0.5` in a DIFFERENT intersect step -- if that turns
-    out to be this step's rule too, this becomes `bedtools intersect -v -f`.
-
-    Needs bedtools on PATH (`brew install bedtools`, or the module on an HPC).
-    An earlier version did the interval arithmetic in duckdb to avoid the
-    dependency; the machine that has the licensed BED will have bedtools, and
-    `bedtools coverage` states the intent in one line where the SQL needed a
-    gaps-and-islands merge to say the same thing.
-
-    UNTESTED against real GeneHancer data -- no such file is available in this
-    environment; verify directly before relying on it for the rebuttal/paper.
-    The chromosome-naming check and the before/after counts below exist because
-    the characteristic failure here is silent: a `chr1` vs `1` mismatch makes
-    bedtools report zero coverage everywhere, which looks like a clean run.
+    LOUD ON FAILURE, because the failure mode is silent. A chr-prefix or coordinate-
+    convention mismatch produces an empty or near-empty join, which otherwise just looks
+    like a very strict filter. Anything below half the file's windows raises.
     """
-    if genehancer_bed_path is None:
+    if neutral_windows_bed is None:
         print(
-            "WARNING: genehancer_bed_path is None -- 'neutral' here is only "
-            "noncoding + pass_qc (+ non-sex-chromosome), NOT excluding "
-            "GeneHancer-enhancer-overlapping windows. See CLAUDE.md, "
-            "'GeneHancer enhancer exclusion'."
-        )
+            "WARNING: neutral_windows_bed is None -- the analyzed set is noncoding + "
+            "pass_qc (+ non-sex-chromosome), NOT restricted to McHale et al.'s 693,270 "
+            "putatively neutral windows. See CLAUDE.md, 'The neutral window set'.")
         return df
-    if shutil.which("bedtools") is None:
-        raise RuntimeError(
-            "bedtools is not on PATH, and the GeneHancer exclusion needs it "
-            "(`brew install bedtools`, or load the module on an HPC).")
 
-    # element_id is 0-based half-open (chr-start-end), the same convention BED
-    # uses -- which is the whole reason these coordinates can go straight to
-    # bedtools. The row number rides along as the BED name field so the result
-    # can be joined back to the input.
-    windows = df.select([
-        pl.col("element_id").str.extract(r"^(chr[^-]+)-").alias("chrom"),
-        pl.col("element_id").str.extract(r"^chr[^-]+-(\d+)-").cast(pl.Int64).alias("start"),
-        pl.col("element_id").str.extract(r"^chr[^-]+-\d+-(\d+)$").cast(pl.Int64).alias("end"),
-        pl.int_range(pl.len()).alias("rid"),
-    ])
+    neutral_ids = load_mchale_neutral_element_ids(neutral_windows_bed)
+    out = df.filter(pl.col("element_id").is_in(neutral_ids))
+    n_neutral = neutral_ids.len()
+    print(f"neutral-window restriction: {df.height:,} windows -> {out.height:,} "
+          f"({n_neutral - out.height:,} of the file's {n_neutral:,} not matched)")
 
-    with tempfile.TemporaryDirectory() as tmp:
-        windows_bed = os.path.join(tmp, "windows.bed")
-        covered_bed = os.path.join(tmp, "covered.bed")
-        windows.write_csv(windows_bed, separator="\t", include_header=False)
-
-        # coverage, not intersect: it reports bases of A covered by B and the
-        # fraction they make up, counting a base once however many B features
-        # cover it. Not -sorted -- that needs both inputs in the same chromosome
-        # order and a -g file to check it, and B here is small enough to hold.
-        with open(covered_bed, "w") as out_fh:
-            subprocess.run(["bedtools", "coverage",
-                            "-a", windows_bed, "-b", genehancer_bed_path],
-                           stdout=out_fh, check=True)
-
-        cov = pl.read_csv(
-            covered_bed, separator="\t", has_header=False,
-            new_columns=["chrom", "start", "end", "rid",
-                         "n_elements", "bases_covered", "window_length", "frac_covered"],
-            schema_overrides={"rid": pl.Int64, "n_elements": pl.Int64,
-                              "bases_covered": pl.Int64, "frac_covered": pl.Float64})
-
-    if cov.height != df.height:
-        raise RuntimeError(
-            f"bedtools coverage returned {cov.height:,} rows for "
-            f"{df.height:,} windows -- expected one row per window.")
-
-    # Compare chromosome NAMES, not whether anything overlapped: a BED that
-    # legitimately misses every window is a real (if odd) answer, while
-    # `chr1` against `1` is a bug that produces the same zero. bedtools warns
-    # about it on stderr as well, but only warns.
-    bed_chroms = set(pl.read_csv(
-        genehancer_bed_path, separator="\t", has_header=False, columns=[0],
-        new_columns=["chrom"], comment_prefix="#", truncate_ragged_lines=True,
-        schema_overrides={"chrom": pl.String})["chrom"].unique())
-    win_chroms = set(windows["chrom"].unique())
-    if not (bed_chroms & win_chroms):
+    if out.height < n_neutral // 2:
         raise ValueError(
-            "GeneHancer BED and the window table share no chromosome name "
-            f"(windows: {sorted(win_chroms)[:3]}, BED: {sorted(bed_chroms)[:3]}). "
-            "A chr-prefix mismatch would silently filter nothing.")
+            f"only {out.height:,} of {n_neutral:,} neutral windows joined. That is the "
+            "signature of a coordinate or chromosome-naming mismatch, not a filter: "
+            f"windows look like {df['element_id'][0]!r}, the file's like "
+            f"{neutral_ids[0]!r}.")
 
-    keep = (pl.col("n_elements") == 0 if min_frac_covered is None
-            else pl.col("frac_covered") < float(min_frac_covered))
-    out = df.filter(cov.sort("rid").select(keep).to_series())
-
-    rule = ("any overlap" if min_frac_covered is None
-            else f"cumulative coverage >= {min_frac_covered}")
-    print(f"GeneHancer exclusion ({rule}): {df.height:,} windows -> "
-          f"{out.height:,} ({df.height - out.height:,} dropped)")
-    if out.height in (0, df.height):
-        print("  WARNING: that filter removed all windows or none -- the "
-              "signature of a coordinate or chromosome-naming mismatch.")
+    missing = neutral_ids.filter(~neutral_ids.is_in(out["element_id"]))
+    if missing.len() and df_prefilter is not None:
+        known = df_prefilter.filter(pl.col("element_id").is_in(missing))
+        n_coding = int(known.filter(pl.col("coding_prop") > NONCODING_MAX_CODING_PROP).height)
+        print(f"  of the {missing.len():,} unmatched: {known.height:,} are in Chen et "
+              f"al.'s constraint table ({n_coding:,} of those dropped here as coding, "
+              f"{known.height - n_coding:,} for another filter), "
+              f"{missing.len() - known.height:,} are absent from it altogether")
     return out
 
 
@@ -504,8 +498,7 @@ def bin_by_gc(df: pl.DataFrame, gc_col: str, n_bins: int, bin_method: str,
 
 def build_window_table(cache_dir: str, exclude_sex: bool = True,
                         noncoding: bool = True, apply_qc: bool = True,
-                        genehancer_bed: str | None = None,
-                        genehancer_min_frac_covered: float | None = None,
+                        neutral_windows_bed: str | None = None,
                         downsample_frac: float | None = None,
                         downsample_n: int | None = None,
                         random_seed: int = 0) -> pl.DataFrame:
@@ -515,22 +508,27 @@ def build_window_table(cache_dir: str, exclude_sex: bool = True,
 
     This is the download -> join -> filter -> GC-units chain that used to live
     inline in compute_gc_bias_step1_vs_step2.py's main() (since deleted); extracting it is
-    what makes the analysis usable from a notebook. Defaults match that
-    script's own defaults, i.e. McHale et al.'s window definition as far as it
-    is reproducible here (see restrict_to_neutral_genehancer for the part that
-    is not).
+    what makes the analysis usable from a notebook.
+
+    TWO WINDOW SETS, ONE ARGUMENT. Without `neutral_windows_bed` this returns the
+    1,843,559 windows that are noncoding + pass_qc + autosome/PAR -- McHale et al.'s
+    definition as far as the public bucket reproduces it. With it, the same table is
+    joined down to their own 693,270 putatively neutral windows. Both are legitimate
+    analysis populations and the figure is meant to be run on each; see
+    restrict_to_mchale_neutral_windows for what the file is and what the join buys.
     """
     os.makedirs(cache_dir, exist_ok=True)
     local_paths = {k: download(v, cache_dir) for k, v in REMOTE_FILES.items()}
 
     df = load_joined_table(local_paths)
+    prefilter = df
     if exclude_sex:
         df = exclude_sex_chromosomes(df)
     if noncoding:
         df = restrict_to_noncoding(df)
     if apply_qc:
         df = df.filter(pl.col("pass_qc"))
-    df = restrict_to_neutral_genehancer(df, genehancer_bed, genehancer_min_frac_covered)
+    df = restrict_to_mchale_neutral_windows(df, neutral_windows_bed, prefilter)
     df = maybe_downsample(df, downsample_frac, downsample_n, random_seed)
     df = add_gc_content_fraction(df)
     return df

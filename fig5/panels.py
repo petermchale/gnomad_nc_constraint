@@ -144,9 +144,10 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # scored-population intervention through panels B, D and E, and a fourth meaning would
 # undo that thread. Aqua is the slot the bottom band vacated, so it collides only with
 # panel A's depletion-rank curve -- a different panel with its own legend, and not part
-# of a thread that runs across several. `enhancer` takes the palette's blue on the same
-# reasoning: blue means the context-only model in panels A and E, but nothing in panel C
-# does, and blue is the last categorical slot that is not load-bearing across panels.
+# of a thread that runs across several. `non_neutral` takes the palette's blue on the
+# same reasoning: blue means the context-only model in panels A and E, but nothing in
+# panel C does, and blue is the last categorical slot that is not load-bearing across
+# panels.
 #
 # No "Excluded:" prefix, though both lower strata are indeed outside the scored
 # population. The word needs an antecedent the legend does not supply, and it papers over
@@ -172,24 +173,25 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 #
 # The bottom band is named for what it IS -- the population Gnocchi is scored on and the
 # retrained model is fit on -- rather than for the filters that define it, because those
-# filters change: with GENEHANCER_BED supplied it is noncoding AND non-enhancer, and a
-# legend reading "QC-pass noncoding windows" would then be quietly wrong. The bands above
+# filters change: with NEUTRAL_WINDOWS_BED supplied it is McHale et al.'s 693,270
+# neutral windows, and a legend reading "QC-pass noncoding windows" would then be
+# quietly wrong. The bands above
 # it keep naming their filter, since each one IS a reason for exclusion.
 STRATUM_COLORS = {"scored": "0.78", "coding": "#eb6834",
-                  "enhancer": "#2a78d6", "failed_qc": "#1baf7a"}
+                  "non_neutral": "#2a78d6", "failed_qc": "#1baf7a"}
 STRATUM_LABELS = {
     "scored": "In the scored population",
     "coding": "In QC-pass coding windows",
-    "enhancer": "In QC-pass enhancer windows",
+    "non_neutral": "In QC-pass non-neutral windows",
     "failed_qc": "In QC-fail windows",
 }
 # Bottom to top, matching data._STRATA: the scored population, then each kind of territory
-# outside it. `enhancer` is empty unless config.GENEHANCER_BED is set, and an empty
-# stratum is dropped at draw time rather than conditioned on here -- the panel functions
-# take a table, not a configuration.
+# outside it. `non_neutral` is empty unless config.NEUTRAL_WINDOWS_BED is set, and an
+# empty stratum is dropped at draw time rather than conditioned on here -- the panel
+# functions take a table, not a configuration.
 COMPOSITION_STYLE = [
     (f"frac_{key}", STRATUM_COLORS[key], STRATUM_LABELS[key])
-    for key in ("scored", "coding", "enhancer", "failed_qc")
+    for key in ("scored", "coding", "non_neutral", "failed_qc")
 ]
 
 
@@ -217,7 +219,7 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     df = df[(df["gc_mid"] >= xrange[0]) & (df["gc_mid"] <= xrange[1])].sort_values("gc_mid")
 
     # A stratum with no sites in any plotted bin gets no band and no legend entry --
-    # `enhancer` whenever config.GENEHANCER_BED is unset. Drawn, it would be an invisible
+    # `non_neutral` whenever config.NEUTRAL_WINDOWS_BED is unset. Drawn, it would be an invisible
     # zero-height band with a legend swatch promising territory that does not exist.
     style = [(c, col, lab) for c, col, lab in COMPOSITION_STYLE
              if c in df.columns and float(df[c].max()) > 0]
@@ -236,7 +238,7 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
 # dicts rather than repeated, so the band and the line for a stratum always match.
 STRATUM_STYLE = {
     key: {"color": STRATUM_COLORS[key], "marker": marker, "label": STRATUM_LABELS[key]}
-    for key, marker in (("coding", "s"), ("enhancer", "o"), ("failed_qc", "v"))
+    for key, marker in (("coding", "s"), ("non_neutral", "o"), ("failed_qc", "v"))
 }
 
 
@@ -265,7 +267,7 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     df = ratios.to_pandas() if hasattr(ratios, "to_pandas") else ratios
     df = df.sort_values("gc_mid")
     # Whichever strata the table carries: data.stratum_ratios omits one with no bins
-    # left, so an unsupplied GeneHancer file costs a curve rather than a KeyError.
+    # left, so an unsupplied neutral-window file costs a curve rather than a KeyError.
     drawn = [s for s in STRATUM_STYLE if f"{s}_ratio" in df.columns]
     for stratum in drawn:
         style = STRATUM_STYLE[stratum]

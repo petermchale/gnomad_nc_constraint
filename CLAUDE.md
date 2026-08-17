@@ -82,8 +82,8 @@ figure.
    draws the scored population as its bottom band and names the territory outside it
    *QC-pass coding*, *QC-pass enhancer* and *QC-fail*, splitting only the QC-pass ones by
    coding status. The bottom band is defined by MEMBERSHIP in the analyzed window table,
-   not by re-deriving its filters in SQL, so it follows `GENEHANCER_BED` the moment that
-   file is supplied; the enhancer band is empty and undrawn until then.
+   not by re-deriving its filters in SQL, so it follows `NEUTRAL_WINDOWS_BED` the moment
+   that file is supplied; the `non_neutral` band is empty and undrawn until then.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
    smooth 1.57x, and the logistic regression can then track it instead of missing by 26%
@@ -357,56 +357,58 @@ Exact threshold still unconfirmed against their Methods — default guess remain
 wording (mirroring the enhancer criterion below) suggests a threshold rather than a
 strict zero, but no numeric value is given in the text.
 
-**GeneHancer enhancer exclusion** — the other half of "neutral", **not fully automatable**
-(`-genehancer_bed`, off by default): McHale et al.'s Methods continue: "Of the noncoding
-windows, those that don't significantly overlap Genehancer enhancers (Fishilevich et al.
-2017) were labeled 'neutral' ... Noncoding windows that do significantly overlap
-Genehancer enhancers were labeled 'constrained'." ("significantly" is not numerically
-defined in the text.) `gnocchi_bias/windows.py`'s `restrict_to_neutral_genehancer()`
-implements the actual exclusion logic — one `bedtools coverage -a windows -b genehancer`
-call, whose `frac_covered` column is the union of the elements' coverage, so the heavy
-mutual overlap between GeneHancer elements counts once. **bedtools v2.31.1 is installed
-here now** (`brew install bedtools`, 2026-08-14); it was not when this section was
-written, which is why the logic was a duckdb interval anti-join until then. Measured on
-1.84M synthetic windows against 250k GeneHancer-sized elements, bedtools is **4.0s against
-duckdb's 22.5s**, for identical output — the CLI is both the clearer statement of intent
-and the faster one, so nothing argues for the SQL. Either way it is a no-op without a
-local GeneHancer BED file, because GeneHancer can't be downloaded automatically:
-- Confirmed via web search (2026-07-21): "GeneHancer data must be obtained from the
-  source database directly in the original format or licensed, rather from UCSC. Files
-  for these tracks are not available from their download servers" — UCSC displays the
-  track interactively but doesn't serve the file; it requires a GeneCards Suite/LifeMap
-  Sciences license.
-- McHale et al.'s own reference notebook
-  (`github.com/quinlan-lab/constraint-tools/blob/main/papers/neutral_models_are_biased/8.labeled-enhancers/main.2.ipynb`,
-  fetched and read directly) doesn't show a GeneHancer-download-and-intersect step
-  either — it reads an already-enhancer-labeled file,
-  `Supplementary_Data_2.features.constraint_scores.bed`, carrying a boolean `window
-  overlaps enhancer` column, from a private HPC path (`CONSTRAINT_TOOLS_DATA`, not
-  publicly accessible). Even the paper's own code doesn't publicly show the raw
-  GeneHancer acquisition/intersection step.
+**The neutral window set** — the other half of "neutral", and as of 2026-08-17 it
+arrives as a **join on McHale et al.'s own window file** rather than as an exclusion
+re-derived here. Their Methods say: "Of the noncoding windows, those that don't
+significantly overlap Genehancer enhancers (Fishilevich et al. 2017) were labeled
+'neutral' ... Noncoding windows that do significantly overlap Genehancer enhancers were
+labeled 'constrained'" ("significantly" is never numerically defined). Two separate
+things make that unreproducible here: GeneHancer is licensed (confirmed 2026-07-21 —
+"GeneHancer data must be obtained from the source database directly ... rather from
+UCSC", and UCSC does not serve the file), and their *other* interval exclusions (hg38
+assembly gaps, ENCODE exclude regions, low-coverage regions) are not in the public bucket
+either.
 
-Practically: if you (as a paper co-author) have access to that HPC path or another
-licensed GeneHancer BED file, pass it via `-genehancer_bed`. Without it, "neutral" here is
-only noncoding + `pass_qc` + non-sex-chromosome — NOT excluding enhancer-overlapping
-(and therefore potentially actually constrained) windows. `min_frac_covered` defaults to
-`None` (any overlap excludes the window); McHale et al.'s own codebase uses `-f 0.5` in a
-*different* intersect step (assigning external constraint-score features to truth-set
-windows, same notebook, `intersect_and_aggregate()`) — a plausible hint for what
-"significantly" might mean here too, but not confirmed for this specific labeling step, so
-not applied as a default. **Note the parameter is not bedtools `-f`**: it is CUMULATIVE
-coverage of the window by the merged annotation, where `-f` asks whether one B feature
-covers that fraction. GeneHancer elements overlap heavily, so the two genuinely differ —
-three elements covering 35% each pass `-f 0.5` while covering the window entirely — and
-they agree only at the `None` default. **UNTESTED**: no GeneHancer file is available in
-this environment, so this exclusion
-logic has not been run against real GeneHancer data — verify directly before relying on
-it for anything reported in the rebuttal/paper.
+So the file is the definition. `gnocchi_bias/windows.py`'s
+`load_mchale_neutral_element_ids()` / `restrict_to_mchale_neutral_windows()` read
+
+```
+{CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/41586_2023_6045_MOESM4_ESM/Supplementary_Data_2.features.constraint_scores.bed
+```
+
+— Chen et al.'s published Supplementary Data 2 re-annotated by constraint-tools with
+regional features and a boolean `window overlaps enhancer` — filter it to
+`window overlaps enhancer == False` (**693,270 rows**), and inner-join on `element_id`.
+That is verbatim what `get_unconstrained_noncoding_chen_windows()` does in their
+`papers/neutral_models_are_biased/9.regression/experiment.1.ipynb`, so the join reproduces
+their Fig. 1 window set exactly rather than approximating it. Tab-separated with a header;
+`chrom, start, end` are 0-based half-open, the same convention as `element_id`; the file
+also carries `window overlaps merged_exon`, `B`, `GC_content_1000bp` and more.
+
+Set it in `fig5/config.py` as `NEUTRAL_WINDOWS_BED` (path only; `None` skips the
+restriction). **Both window sets are meant to be run** — 1,843,559 and 693,270 — since a
+result holding on only one is a result about the window definition. Operational costs of
+switching: the `scored` and `sizematched` refits must be rerun (~6 min each) and are keyed
+by population alone, so one set's refits overwrite the other's; the panel-C and CpG caches
+in `fig5/output/` carry a fingerprint of the GC edges and the window set, so those coexist.
+Panel C gains a fourth band, `non_neutral`, counting exactly the territory given up in the
+narrowing — the band to read when asking whether the figure's conclusions survive it.
+
+Untested against the real file (it is not available in this environment): verified instead
+against a synthetic stand-in with the same column names and coordinate convention — the
+join, the shortfall diagnostic that says whether an unmatched window was filtered here or
+is absent from Chen et al.'s table, and the guard that raises when fewer than half the
+file's windows match (the signature of a `chr1`-vs-`1` mismatch, which would otherwise
+look like a very strict filter). **Deleted with this change**: the `bedtools coverage`
+GeneHancer exclusion (`restrict_to_neutral_genehancer`, its `min_frac_covered` cumulative-
+coverage semantics, and the chromosome-naming check), recoverable at `fe51e63`. It never
+ran against real GeneHancer data, and a join on their file answers the same question
+without the licensed input.
 
 **Window count vs. the paper** (explains the wider GC-content "fringe" visible in this
 script's heat maps vs. Figure 2A): measured directly (2026-07-21, full non-downsampled
 dataset, default filters — `exclude_sex_chromosomes` + `restrict_to_noncoding` +
-`pass_qc`, no GeneHancer exclusion): this script's default window set has **1,843,559**
+`pass_qc`, no neutral-set join): this script's default window set has **1,843,559**
 windows, vs. the paper's stated **693,270** "putatively neutral" windows (page 5) — 2.66x
 more. GC content (fraction) in our set ranges 0.14–0.837 (mean 0.399) — genuinely wider
 than the ~0.2–0.73 plotted range, though only 414 of 1,843,559 windows (0.02%) fall
@@ -417,8 +419,9 @@ near the plot edges more populated/visible here than in the paper's smaller set 
 separately that matplotlib's `hexbin` `extent` correctly drops out-of-range points rather
 than piling them at the boundary, so the fringe is real data, not a plotting artifact).
 Likely, only partially confirmed causes of the 2.66x gap:
-1. The missing GeneHancer exclusion above (confirmed missing; effect size on count not
-   separately measured).
+1. Enhancer-overlapping windows, which their file excludes and this repo cannot identify
+   without it (effect size on the count not separately measured; supplying
+   `NEUTRAL_WINDOWS_BED` now measures it directly, as the `non_neutral` stratum).
 2. McHale et al.'s Methods ("Construction of the window sets...", p.14) additionally
    exclude windows overlapping "gaps in the hg38 genome assembly, Encode 'exclude
    regions' (Amemiya et al. 2019), and regions with insufficient read coverage in Gnomad
@@ -437,10 +440,12 @@ Likely, only partially confirmed causes of the 2.66x gap:
    detail; `fig5/fig5.ipynb` carries the derivation of every plotted quantity.
 2. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E
    already is, on gnomAD counts the DNM model never sees).
-3. **Still unavailable**: `DEPLETION_RANK_BED` (panel A's third curve, on the
-   constraint-tools HPC path) and `GENEHANCER_BED` (licensed). Both are `None` in
-   `fig5/config.py`; the figure builds without them, and `depletion_rank.py` has never
-   been run against the real file.
+3. **Still unavailable**: `DEPLETION_RANK_BED` (panel A's third curve) and
+   `NEUTRAL_WINDOWS_BED` (McHale et al.'s 693,270-window file). Both live on the
+   constraint-tools HPC path and are `None` in `fig5/config.py`; the figure builds
+   without them. Neither `depletion_rank.py` nor the neutral-set join has been run
+   against its real file. Running the figure on BOTH window sets is the open item --
+   see "The neutral window set" above.
 4. **Before quoting anything in the rebuttal**, re-read the callability caveat above:
    it brackets the over-adjustment across 1.22-1.44, so the figure must not be
    captioned with 1.22 as though it were tight.

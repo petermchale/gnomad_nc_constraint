@@ -62,11 +62,12 @@ def main() -> None:
 
     if args.population != "full":
         # The analyzed window set, defined exactly as everywhere else in fig5/.
-        # GENEHANCER_BED comes from config.py, which the notebook reads too, so the
+        # NEUTRAL_WINDOWS_BED comes from config.py, which the notebook reads too, so the
         # population fit on here is the population the panels are scored on. The value
         # is stamped below and re-checked at read time.
         element_ids = W.build_window_table(
-            args.cache_dir, genehancer_bed=config.GENEHANCER_BED)["element_id"].to_list()
+            args.cache_dir,
+            neutral_windows_bed=config.NEUTRAL_WINDOWS_BED)["element_id"].to_list()
         n1, n0 = M.count_in_analyzed_windows(df_dnm1, df_dnm0, element_ids)
         if args.population == "scored":
             df_dnm1, df_dnm0 = M.restrict_to_analyzed_windows(df_dnm1, df_dnm0, element_ids)
@@ -108,8 +109,9 @@ def main() -> None:
     df_pred.to_csv(pred_out, sep="\t", index=False)
     print(f"wrote {pred_out}  ({len(df_pred):,} sites)")
 
-    config.record(args.output_dir, args.population, config.GENEHANCER_BED)
-    print(f"stamped GENEHANCER_BED={config.GENEHANCER_BED!r} for {args.population!r}")
+    config.record(args.output_dir, args.population, config.NEUTRAL_WINDOWS_BED)
+    print(f"stamped NEUTRAL_WINDOWS_BED={config.NEUTRAL_WINDOWS_BED!r} "
+          f"for {args.population!r}")
     print(f"total {time.time() - t_start:.0f}s")
 
 

@@ -5,7 +5,7 @@ place.
 
 | Module | Contents |
 |---|---|
-| `windows.py` | Genome-wide 1kb window table: bucket download, duckdb column-pruned join, the McHale et al. window filters (sex chromosomes, noncoding, `pass_qc`, GeneHancer), GC units, the Gnocchi z-score, standardized ranks, GC binning, shared plot-style constants |
+| `windows.py` | Genome-wide 1kb window table: bucket download, duckdb column-pruned join, the McHale et al. window filters (sex chromosomes, noncoding, `pass_qc`, and an optional join to their own neutral-window file), GC units, the Gnocchi z-score, standardized ranks, GC binning, shared plot-style constants |
 | `dnm_model.py` | The DNM training set and the per-context mutation model: loading, regime-1 subsampling, univariate feature selection, the multivariate PCA+logit fit, genome-wide `r(w)` apply, and training-set prediction |
 
 ## Two rules

@@ -89,9 +89,6 @@ the figure.
 
 ```bash
 pip install -r requirements.txt
-# bedtools is needed only by the GeneHancer exclusion, which is off by default
-# (the BED is licensed and not in this repo): brew install bedtools
-
 # 1. Confirm the reimplementation reproduces Chen et al.'s pipeline (~10 min)
 python preconditions/validate.py
 
@@ -120,9 +117,9 @@ same reason: `fig5/output/r_eff_components.full.parquet` (81 MB) and the two
 `dnm_training_size/output/expected_counts_*.dnm_refit_frac*.txt` tables (121 MB each).
 
 Two inputs are **not** obtainable from public sources and are set to `None` in
-`fig5/config.py`: a depletion-rank BED (panel A's third curve) and a GeneHancer BED (the
-enhancer half of the "neutral" window definition, which is licensed). The figure builds
-without either; see `fig5/README.md` for what changes.
+`fig5/config.py`: a depletion-rank BED (panel A's third curve) and McHale et al.'s
+neutral-window file (which narrows the analyzed set from this repo's 1,843,559 windows to
+their 693,270). The figure builds without either; see `fig5/README.md` for what changes.
 
 ## Sanity checks and controls
 

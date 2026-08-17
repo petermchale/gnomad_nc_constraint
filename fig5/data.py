@@ -16,9 +16,9 @@ Inputs, in three groups:
     the repo-root refits/ -- ONE copy, also read directly by dnm_training_size/;
   * two files that are NOT in this repo, read from fig5/config.py (NOT set in the
     notebook -- refit.py reads the same module, and the two must agree) -- a
-    depletion-rank BED (panel A's third curve) and a GeneHancer BED (the enhancer half
-    of the "neutral" window definition). Both default to None; the figure builds
-    without them.
+    depletion-rank BED (panel A's third curve) and McHale et al.'s neutral-window file
+    (which narrows the analyzed set to their 693,270 windows). Both default to None;
+    the figure builds without them.
 """
 import hashlib
 import os
@@ -60,7 +60,8 @@ ELEMENT_ID_FROM_LOCUS = (
 
 def refit_path(kind: str, pop: str, refits_dir: str = REFITS_DIR) -> str:
     """
-    A refit table, verified to have been built under the CURRENT config.GENEHANCER_BED.
+    A refit table, verified to have been built under the CURRENT
+    config.NEUTRAL_WINDOWS_BED.
     That check is the reason to route every read through here: `scored` is fit on the
     analyzed window set, so a refit built under a different setting than the panels are
     evaluated under is trained on one population and scored on another.
@@ -128,17 +129,20 @@ def bin_centres(edges: np.ndarray, gc_bin) -> pl.Series:
 # ------------------------------------------------------------ panels A and E
 
 def window_table(cache_dir: str = CACHE_DIR,
-                 genehancer_bed: str | None = config.GENEHANCER_BED) -> pl.DataFrame:
+                 neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED
+                 ) -> pl.DataFrame:
     """
     The analyzed window population: noncoding, pass_qc, autosome/PAR, with GC content
-    as a 0-1 fraction. This is both the test set Gnocchi is scored on and (in panels
-    C-E) the population the retrained adjustment is fit on.
+    as a 0-1 fraction -- and, if config.NEUTRAL_WINDOWS_BED is set, narrowed by a join
+    to McHale et al.'s own 693,270 putatively neutral windows. This is both the test set
+    Gnocchi is scored on and (in panels C-E) the population the retrained adjustment is
+    fit on.
 
     The default comes from fig5/config.py, which fig5/refit.py reads too -- so the
     population fit on and the population scored on cannot drift apart. Do not pass this
     explicitly unless you also rerun the refits with the same value.
     """
-    return W.build_window_table(cache_dir, genehancer_bed=genehancer_bed)
+    return W.build_window_table(cache_dir, neutral_windows_bed=neutral_windows_bed)
 
 
 def rank_bias(binned: pl.DataFrame, label: str, min_n: int = 0) -> float:
@@ -309,28 +313,36 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 # THE FIRST ONE IS DEFINED BY MEMBERSHIP, not by re-deriving the window filters here.
 # `scored` means the site's 1 kb window is a row of the analyzed window table --
 # windows.build_window_table, which carries the coding restriction, the QC filter, the
-# autosome/PAR restriction and, once config.GENEHANCER_BED is set, the enhancer
-# exclusion. That table is also what dnm_model.restrict_to_analyzed_windows filters the
-# training set with, so `scored` here is exactly "survives the panel D/E intervention".
+# autosome/PAR restriction and, once config.NEUTRAL_WINDOWS_BED is set, the join down to
+# McHale et al.'s 693,270 neutral windows. That table is also what
+# dnm_model.restrict_to_analyzed_windows filters the training set with, so `scored` here
+# is exactly "survives the panel D/E intervention".
 # Re-deriving those filters in SQL is how this panel silently stops describing the
 # population the retrained model is fit and scored on: until 2026-08-17 the first stratum
-# tested `an.coding_prop <= 0.0` and so would have counted GeneHancer-excluded windows as
-# inside the scored population the moment that file was supplied.
+# tested `an.coding_prop <= 0.0` and so would have counted windows outside the neutral
+# set as inside the scored population the moment that file was supplied.
 #
 # The other three name the REASON a site is outside it, in stacking order:
-#   coding     scored by Chen et al., but the window overlaps coding exons
-#   enhancer   noncoding and in the constraint table, but dropped by the GeneHancer
-#              exclusion. Necessarily empty while config.GENEHANCER_BED is None, and an
-#              empty stratum draws no band and no legend entry (panels.py).
-#   failed_qc  no row in the constraint table at all, so it has no coding_prop to test.
-#              `failed_qc` and not `no_coverage`: every absent window has its QC inputs on
-#              file and fails one of the paper's three conditions (>= 80% of observed
-#              variants PASS, mean coverage 25-35x, >= 1000 possible variants), the first
-#              of those dominating. preconditions/verify_qc_filter.py measures the split.
+#   coding      scored by Chen et al., but the window overlaps coding exons
+#   non_neutral noncoding, QC-pass, and in the constraint table, but NOT in McHale et
+#               al.'s neutral set -- the territory dropped in going from 1,843,559
+#               windows to their 693,270 (enhancer-overlapping windows, plus their
+#               assembly-gap / ENCODE-exclude / low-coverage exclusions; the file does
+#               not say which, and this band does not need to). Necessarily empty while
+#               config.NEUTRAL_WINDOWS_BED is None, and an empty stratum draws no band
+#               and no legend entry (panels.py). It is the band to read when asking
+#               whether the figure's conclusions survive on their window set: if the
+#               removed territory has the scored population's own DNM rate, restricting
+#               to it costs sample size and nothing else.
+#   failed_qc   no row in the constraint table at all, so it has no coding_prop to test.
+#               `failed_qc` and not `no_coverage`: every absent window has its QC inputs
+#               on file and fails one of the paper's three conditions (>= 80% of observed
+#               variants PASS, mean coverage 25-35x, >= 1000 possible variants), the
+#               first dominating. preconditions/verify_qc_filter.py measures the split.
 #
 # The order of the CASE arms is load-bearing: membership is tested first, so a window in
 # the analyzed table can never be relabelled by one of the reason arms below it.
-_STRATA = ("scored", "coding", "enhancer", "failed_qc")
+_STRATA = ("scored", "coding", "non_neutral", "failed_qc")
 
 
 def _stratum_expr() -> str:
@@ -345,7 +357,7 @@ def _stratum_expr() -> str:
     return f"""CASE WHEN sw.element_id IS NOT NULL THEN 'scored'
                     WHEN an.element_id IS NULL THEN 'failed_qc'
                     WHEN an.coding_prop > {W.NONCODING_MAX_CODING_PROP!r} THEN 'coding'
-                    ELSE 'enhancer' END"""
+                    ELSE 'non_neutral' END"""
 
 # chrX/chrY dropped from BOTH classes. The published fitting code drops chrX from the
 # background class only, which inflates the apparent rate there; an empirical reference
@@ -404,20 +416,24 @@ def _binned_training_query(cache_dir: str, edges: np.ndarray, where: str,
     """
 
 
-def _fingerprint(edges: np.ndarray, df_win: pl.DataFrame) -> str:
+def _fingerprint(edges: np.ndarray, df_win: pl.DataFrame | None = None) -> str:
     """
     Six hex characters standing for "these GC edges over this window population", for a
-    cache key.
+    cache key. `df_win` is omitted by builders that bin the whole training population
+    rather than a window set -- they still depend on the edges, which move with it.
 
-    Both inputs move when config.GENEHANCER_BED changes -- the window set directly, the
-    edges because gc_edges spans its GC min and max -- and neither is visible in the
+    Both inputs move when config.NEUTRAL_WINDOWS_BED changes -- the window set directly,
+    the edges because gc_edges spans its GC min and max -- and neither is visible in the
     old `{n}bins` key, so a cached table built under one setting would be silently
-    reused under the other. Order-independent (xor over per-id hashes), and a polars
+    reused under the other. It also keeps the two window sets' tables side by side in
+    fig5/output/ instead of one overwriting the other. Order-independent (xor over per-id hashes), and a polars
     version bump can only cost a rebuild, never a wrong answer.
     """
     h = hashlib.blake2s(np.asarray(edges, float).tobytes(), digest_size=3)
-    ids = df_win["element_id"]
-    h.update(f"{ids.len()}:{int(np.bitwise_xor.reduce(ids.hash(seed=0).to_numpy()))}".encode())
+    if df_win is not None:
+        ids = df_win["element_id"]
+        h.update(f"{ids.len()}:"
+                 f"{int(np.bitwise_xor.reduce(ids.hash(seed=0).to_numpy()))}".encode())
     return h.hexdigest()
 
 
@@ -427,8 +443,8 @@ def dnm_rate_by_stratum(edges: np.ndarray, df_win: pl.DataFrame,
     """
     Empirical P(DNM) over non-CpG training sites, per GC bin, split by where the site
     sits relative to the scored population: inside it, or outside it because the window
-    is coding, enhancer-overlapping, or absent from the constraint table for failing
-    gnomAD variant-call QC. See _STRATA above for what defines each.
+    is coding, outside McHale et al.'s neutral set, or absent from the constraint table
+    for failing gnomAD variant-call QC. See _STRATA above for what defines each.
 
     `df_win` is the analyzed window table (data.window_table). It is required, and it is
     the SAME frame the panels are evaluated on -- passing a different one would label
@@ -480,8 +496,8 @@ def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
     so a site lands in exactly one -- which is why nothing is asserted here.
 
     Columns: gc_bin, gc_mid, n_total, n_{stratum}, frac_{stratum}, for every stratum in
-    _STRATA including any that is empty genome-wide (`enhancer`, while GENEHANCER_BED is
-    None) -- the shape does not depend on the configuration, and panels.py drops a band
+    _STRATA including any that is empty genome-wide (`non_neutral`, while
+    NEUTRAL_WINDOWS_BED is None) -- the shape does not depend on the configuration, and panels.py drops a band
     that is zero everywhere rather than drawing an invisible one with a legend entry.
     """
     # A GC bin can be missing a stratum entirely (the lowest two hold no coding sites),
@@ -521,8 +537,8 @@ def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl
     stratum holds fewer than that many sites.
 
     Columns: gc_bin, gc_mid, and {stratum}_{ratio,se_log} for each excluded stratum that
-    has any bin left after min_n -- so an empty `enhancer` stratum contributes no columns
-    rather than a column of nulls, and panels.py plots whichever it finds.
+    has any bin left after min_n -- so an empty `non_neutral` stratum contributes no
+    columns rather than a column of nulls, and panels.py plots whichever it finds.
     """
     keep = st.filter(pl.col("n") >= min_n)
     base = keep.filter(pl.col("stratum") == "scored").select(
@@ -604,7 +620,9 @@ def cpg_methylation_by_gc(edges: np.ndarray, cache_dir: str = CACHE_DIR,
     adjustment to correct.
 
     Measured over the whole training population, not restricted to the analyzed windows:
-    the claim is about CpG biology, not about the scored population.
+    the claim is about CpG biology, not about the scored population. The GC bin EDGES
+    still come from the analyzed windows, though, which is why the cache key
+    fingerprints them.
 
     Columns: gc_bin, gc_pct, n, k, p (DNM rate), mean_methyl, frac_hypomethylated.
     """
@@ -617,7 +635,8 @@ def cpg_methylation_by_gc(edges: np.ndarray, cache_dir: str = CACHE_DIR,
             where=f"s.context IN ({', '.join(repr(c) for c in M.CPG_CONTEXTS)})")
         return duck(memory_limit).execute(q).pl()
 
-    df = cached(f"cpg_methylation_by_gc.{len(edges) - 1}bins.parquet", build, force)
+    df = cached(f"cpg_methylation_by_gc.{len(edges) - 1}bins."
+                f"{_fingerprint(edges)}.parquet", build, force)
     return df.with_columns((pl.col("k") / pl.col("n")).alias("p")).sort("gc_bin")
 
 
