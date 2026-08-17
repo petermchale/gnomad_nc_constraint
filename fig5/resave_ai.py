@@ -64,7 +64,7 @@ OUTPUT_DIR = os.path.join(HERE, "output")
 
 # The PNG beside the .ai is the readable copy of the assembled figure -- what a reader
 # sees on GitHub, where an .ai renders as nothing. 300 dpi, artboard-clipped, transparent
-# background: read back off the committed export (1438 x 1393 px for a 344.9 x 334.1 pt
+# background: read back off the committed export (1438 x 1392 px for a 344.9 x 334.1 pt
 # artboard is 300/72), so re-exporting reproduces it rather than redefining it.
 PNG_DPI = 300
 
@@ -298,7 +298,17 @@ def read_links_manifest() -> dict:
 
 
 def write_links_manifest() -> None:
-    """Record what the panels hash to now. Called after a successful save."""
+    """
+    Record what the panels hash to now -- written whenever refresh() has reconciled the
+    assembly, which includes the case where it found nothing to reconcile. A save made
+    by hand in Illustrator lands there: the document already holds the current panels, so
+    the next run should record that rather than stay on the mtime fallback forever.
+
+    It covers every panel PDF, including supp_fig7.pdf, which is not a link in fig5.ai at
+    all. Recording it is deliberate -- it is what stops a rebuilt supporting figure from
+    being reported as stale on every run when there is nothing in the assembly to do
+    about it.
+    """
     manifest = {os.path.basename(p): _sha(p) for p in panel_pdfs()}
     with open(LINKS_MANIFEST, "w") as fh:
         json.dump(manifest, fh, indent=1, sort_keys=True)
@@ -357,6 +367,7 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
     if not stale and not png_stale:
         print(f"every panel PDF in {os.path.relpath(OUTPUT_DIR)}/ matches fig5.ai, "
               "and fig5.png is newer than fig5.ai -- nothing to do")
+        write_links_manifest()
         return 0
     if dry_run:
         print("dry run -- Illustrator not contacted")
@@ -382,14 +393,13 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
     absent = [f for f in stale if f not in result["links"]]
     if absent:
         print(f"not linked in fig5.ai, so left alone: {', '.join(absent)}")
-    if result["saved"]:
-        # The manifest describes the saved document, so it is written only after a save
-        # that succeeded -- and for every panel, not just the relinked ones, since the
-        # unchanged ones' hashes are what let the next run leave them alone.
-        write_links_manifest()
-        print(f"saved fig5.ai, and recorded {os.path.basename(LINKS_MANIFEST)}")
-    else:
-        print("nothing to save")
+    print("saved fig5.ai" if result["saved"] else "nothing to save (already saved)")
+    # For every panel, not just the relinked ones: the unchanged ones' hashes are what
+    # let the next run leave them alone. Written after the run rather than only after a
+    # save, so a document saved by hand in Illustrator -- nothing here to save, links
+    # already current -- still gets recorded.
+    write_links_manifest()
+    print(f"recorded {os.path.basename(LINKS_MANIFEST)}")
     if result["exported"]:
         stamped = stamp_png_dpi(PNG_PATH)
         print("exported fig5.png" + (f" at {PNG_DPI} dpi" if stamped
