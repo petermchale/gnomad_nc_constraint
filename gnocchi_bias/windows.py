@@ -142,7 +142,20 @@ def add_gc_content_fraction(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns((pl.col("GC_content_1k") / 100.0).alias("GC_content"))
 
 
-def restrict_to_noncoding(df: pl.DataFrame, coding_prop_threshold: float = 0.0) -> pl.DataFrame:
+# The "noncoding" half of McHale et al.'s neutral definition, as ONE number: a window is
+# noncoding if at most this fraction of it is coding exon. Their Methods say "don't
+# significantly overlap merged exons" without giving a value (CLAUDE.md, "Noncoding
+# restriction"), so 0.0 -- no coding overlap at all -- is the conservative reading.
+# It lives here rather than as a bare literal at each use because fig5's panel C has to
+# label training sites by the same criterion this filter selects windows by; two spellings
+# of "noncoding" that can drift apart is exactly the bug that panel is about. Change it
+# here and both move together.
+NONCODING_MAX_CODING_PROP = 0.0
+
+
+def restrict_to_noncoding(df: pl.DataFrame,
+                          coding_prop_threshold: float = NONCODING_MAX_CODING_PROP
+                          ) -> pl.DataFrame:
     """
     Filter to noncoding 1kb windows (coding_prop <= threshold) -- half of
     McHale et al.'s "neutral" window definition. See

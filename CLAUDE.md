@@ -79,8 +79,11 @@ figure.
    step-1 universe and still contains every QC failure. The QC-fail stratum is a **mixture
    of coding and noncoding** windows (6.9% coding-overlapping, against 7.1% among the
    QC-pass ones, so QC failure is near-independent of coding status); panel C therefore
-   names its three bands *QC-pass noncoding*, *QC-pass coding* and *QC-fail*, splitting
-   only the first two by coding status.
+   draws the scored population as its bottom band and names the territory outside it
+   *QC-pass coding*, *QC-pass enhancer* and *QC-fail*, splitting only the QC-pass ones by
+   coding status. The bottom band is defined by MEMBERSHIP in the analyzed window table,
+   not by re-deriving its filters in SQL, so it follows `GENEHANCER_BED` the moment that
+   file is supplied; the enhancer band is empty and undrawn until then.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
    smooth 1.57x, and the logistic regression can then track it instead of missing by 26%

@@ -500,7 +500,7 @@ at GC 0.64 it is 64% QC-fail against the background class's 26%.
 **What the two rows are between them.** The upper row is *covariate shift*: $P(x)$ in the
 training data is not $P(x)$ in the scored data, and the gap grows with GC. The lower row
 is *concept shift*: $P(\mathrm{DNM}\mid x)$ is not the same function in the territory that
-drops out. Both are driven by one latent variable — which of the three window classes a
+drops out. Both are driven by one latent variable — which window class a
 site sits in — and $r$ cannot see it: the model is fit per trinucleotide context on
 regional features, none of which encodes window class.
 
@@ -511,31 +511,41 @@ since a correctly specified model extrapolates. It is the combination — a mis-
 smooth fit, over a covariate range where the label-generating process is a different one —
 that puts a GC slope into $r$.
 
-**What the two lower strata are, precisely** — the labels matter here, because the
+**How a site is assigned.** The bottom band is not a filter re-derived here: a site is
+*in the scored population* exactly when its 1 kb window is a row of the analyzed window
+table, the same table `refit.py` restricts the training set with and the same one panels
+A, B and E are evaluated on. So this row measures the population those panels actually
+use, whatever defines it — and when `GENEHANCER_BED` is supplied, the enhancer exclusion
+comes along automatically rather than having to be remembered here.
+
+**What the bands above it are, precisely** — the labels matter here, because the
 mechanism differs. A coding window *has* a published Gnocchi score; it is this analysis
-that sets it aside, following McHale et al.'s noncoding restriction. A window in the
-third stratum has no score at all: Chen et al. dropped it before scoring, keeping only
+that sets it aside, following McHale et al.'s noncoding restriction. So does an enhancer
+window, under the other half of McHale et al.'s neutral definition; that band is empty
+and undrawn unless `GENEHANCER_BED` is set. A window in the QC-fail
+stratum has no score at all: Chen et al. dropped it before scoring, keeping only
 windows with $\ge1{,}000$ possible variants, $\ge80\%$ of observed variants PASS, and
 mean coverage 25–35× (Methods; `run_nc_constraint_gnomad_v31_main.py:296`). The published
 table carries `pass_qc = True` on all 1,984,900 of its rows, so that flag is inert
 downstream and a QC failure shows up only as an absent row.
 
-That third stratum is therefore **not** "no gnomAD coverage", the name it carried here
+That last stratum is therefore **not** "no gnomAD coverage", the name it carried here
 until measured: of the 587,902 absent autosomal windows, all have their QC inputs on
 file, 417,097 fail the PASS rule and only 19,396 fail the coverage band. Weighted by
 background training sites it is starker still — 88% PASS rule, 14% too few possible
-variants, 1% coverage. Those percentages are *within* the third band, not of the training
-set: 86.6% of non-CpG background sites are in QC-pass windows (80.5% noncoding, 6.1%
-coding) and 13.3% in QC-fail ones. `preconditions/verify_qc_filter.py` records both, and confirms the
+variants, 1% coverage. Those percentages are *within* the QC-fail band, not of the training
+set: 86.6% of non-CpG background sites are in QC-pass windows (80.5% in the scored
+population, 6.1% coding) and 13.3% in QC-fail ones. `preconditions/verify_qc_filter.py` records both, and confirms the
 filter forwards too: all 1,984,900 scored windows satisfy all three conditions. Over both
 training classes — the stack's own genome-wide average — it is 79.9% / 6.1% / 14.0%.
 
-The three strata are therefore *QC-pass noncoding*, *QC-pass coding*, and *QC-fail* — and
-only the first two are split by coding status. **The third is a mixture**, deliberately:
-`coding_prop` lives in the constraint table and these windows have no row in it. Read from
+The bands are therefore *the scored population*, *QC-pass coding*, *QC-pass enhancer*
+(empty here) and *QC-fail* — and only the QC-pass ones are split by coding status.
+**QC-fail is a mixture**, deliberately: `coding_prop` lives in the constraint table and
+these windows have no row in it. Read from
 Chen et al.'s own upstream input (`misc/genome_1kb_coding_exons.txt`), 6.9% of the QC-fail
 windows overlap coding exons, against 7.1% of the QC-pass ones — so QC failure is close to
-independent of coding status, and the third band is not a coding band in disguise. Site-
+independent of coding status, and that band is not a coding band in disguise. Site-
 weighted, 5.8% of its sites are in coding-overlapping windows.
 
 The fraction inside the scored population falls from ~0.82 in the GC bulk to under 0.28
@@ -546,9 +556,9 @@ come apart exactly where panel A's bias is largest.
 that the difference is not mainly the coding part. Writing $\bar y_s(g)$ for the
 empirical non-CpG DNM rate in stratum $s$ and bin $g$, it plots
 
-$$\frac{\bar y_{\mathrm{coding}}(g)}{\bar y_{\mathrm{noncoding}}(g)}
+$$\frac{\bar y_{\mathrm{coding}}(g)}{\bar y_{\mathrm{scored}}(g)}
 \qquad\text{and}\qquad
-\frac{\bar y_{\mathrm{QC}}(g)}{\bar y_{\mathrm{noncoding}}(g)},$$
+\frac{\bar y_{\mathrm{QC}}(g)}{\bar y_{\mathrm{scored}}(g)},$$
 
 with delta-method binomial error bars on the log ratio. A ratio of 1 would mean the
 excluded sites are exchangeable with the scored ones as far as mutation rate goes. The
@@ -558,7 +568,7 @@ QC-failing stratum runs 1.55× in the GC bulk and **4.06× by GC 0.61**.
 Both rows come from one table of per-stratum counts; this row divides the DNM count by
 the site count, the row above takes the site count as a share of its bin. 72,801 of the
 non-CpG autosomal DNMs fall in the QC-failing stratum, against 17,545 coding and 241,479
-noncoding.
+in the scored population.
 
 So the steep GC dependence the model learns comes from sequence gnomAD could not call
 reliably, which is also where trio DNM calling is least reliable: part of that excess is
@@ -568,7 +578,7 @@ plausibly false-positive DNM calls rather than real mutation.
 code(r"""
 # One table, two rows: `st` carries each stratum's site count (the composition above) and
 # its DNM count (the rate below), so the two rows cannot describe different sites.
-st = D.dnm_rate_by_stratum(edges, cache_dir=CACHE_DIR)
+st = D.dnm_rate_by_stratum(edges, df_win, cache_dir=CACHE_DIR)
 comp = D.training_composition(st, edges)
 ratios = D.stratum_ratios(st, edges)
 
@@ -579,10 +589,11 @@ panels.panel_training_composition(axC1, comp, min_n=MIN_N_SITES, xrange=XRANGE,
 panels.panel_stratum_ratios(axC2, ratios, xrange=XRANGE)
 save(fig, "C")
 
+# Columns from D._STRATA and from whatever stratum_ratios built, rather than a hardcoded
+# list: with GENEHANCER_BED set there is a fourth stratum, and both tables gain columns.
 print(comp.filter(pl.col("n_total") >= MIN_N_SITES)
-          .select(["gc_mid", "n_total", "frac_noncoding", "frac_coding", "frac_failed_qc"]))
-print(ratios.select(["gc_mid", "coding_ratio", "coding_se_log",
-                     "failed_qc_ratio", "failed_qc_se_log"]))
+          .select(["gc_mid", "n_total"] + [f"frac_{s}" for s in D._STRATA]))
+print(ratios.select([c for c in ratios.columns if c != "gc_bin"]))
 """)
 
 md(r"""
@@ -799,8 +810,8 @@ print(f"  CpG share of expected counts rises {b['pi_cpg'].min():.3f} -> {b['pi_c
 c = comp.filter((pl.col("n_total") >= MIN_N_SITES)
                 & pl.col("gc_mid").is_between(*XRANGE)).sort("gc_mid")
 print(f"\npanel C: {int(c['n_total'].sum()):,} non-CpG training sites in the plotted "
-      f"range; QC-pass noncoding fraction {c['frac_noncoding'][0]:.2f} at GC "
-      f"{c['gc_mid'][0]:.2f} -> {c['frac_noncoding'][-1]:.2f} at GC {c['gc_mid'][-1]:.2f}")
+      f"range; scored-population fraction {c['frac_scored'][0]:.2f} at GC "
+      f"{c['gc_mid'][0]:.2f} -> {c['frac_scored'][-1]:.2f} at GC {c['gc_mid'][-1]:.2f}")
 
 print("\npanel D: empirical P(DNM), max / min ratio within each population")
 for pop, tab in binned_d.items():
@@ -830,7 +841,13 @@ md(r"""
   ranked within itself.
 * **`GENEHANCER_BED` is unavailable**, so "the scored population" is noncoding +
   `pass_qc` + autosome/PAR without the enhancer exclusion — the same definition in every
-  panel, including the population the retrained model is fit on.
+  panel, including the population the retrained model is fit on, and including panel C's
+  bottom band, which is defined by membership in that population rather than by
+  re-deriving its filters. Supplying the file therefore moves every panel: A, B and E
+  directly, D through the `scored` and `sizematched` refits (which must be rerun —
+  `config.check()` refuses a refit stamped with a different value), and C both through
+  its bottom band and through the shared GC bin edges, which span the window set's own
+  GC range.
 * **This is not a proposed Gnocchi 2.0.** It is a demonstration that the bias is
   attributable to the training/scoring population mismatch. A corrected score would have
   to decide what the scored population is *before* fitting, and that choice is not

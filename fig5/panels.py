@@ -135,16 +135,18 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # Panel C's two rows share one colour per stratum, defined once here so the band in the
 # upper row and the line in the lower row cannot drift apart.
 #
-# `noncoding` is deliberately neutral grey for two reasons: it is the reference the lower
+# `scored` is deliberately neutral grey for two reasons: it is the reference the lower
 # row divides by, and it is the one stratum with no line there, so a saturated hue would
-# promise a curve that does not exist. That also puts the colour on the two bands whose
+# promise a curve that does not exist. That also puts the colour on the bands whose
 # growth is the point.
 #
 # NOT violet for `failed_qc`, though it reads well here: violet already carries the
 # scored-population intervention through panels B, D and E, and a fourth meaning would
-# undo that thread. Aqua is the slot `noncoding` just vacated, so it collides only with
+# undo that thread. Aqua is the slot the bottom band vacated, so it collides only with
 # panel A's depletion-rank curve -- a different panel with its own legend, and not part
-# of a thread that runs across several.
+# of a thread that runs across several. `enhancer` takes the palette's blue on the same
+# reasoning: blue means the context-only model in panels A and E, but nothing in panel C
+# does, and blue is the last categorical slot that is not load-bearing across panels.
 #
 # No "Excluded:" prefix, though both lower strata are indeed outside the scored
 # population. The word needs an antecedent the legend does not supply, and it papers over
@@ -153,31 +155,41 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # before scoring and has none. Naming each stratum by the two properties that define it --
 # did the window pass QC, does it overlap coding exons -- says more in fewer words.
 #
-# The labels also stop the third stratum from reading as "the noncoding remainder". It is
+# The labels also stop `failed_qc` from reading as "the noncoding remainder". It is
 # a MIXTURE: 40,509 of the 587,902 QC-fail autosomal windows overlap coding exons (6.9%),
 # against 7.1% among the QC-pass ones, so QC failure is close to independent of coding
 # status. Site-weighted, which is what the band counts, 5.8% of its sites sit in
-# coding-overlapping windows. Only the first two strata are separated by coding status;
-# the third deliberately is not, because `coding_prop` comes from the constraint table and
-# these windows have no row in it (measured here from Chen et al.'s own upstream input,
-# misc/genome_1kb_coding_exons.txt, in preconditions/verify_qc_filter.py).
+# coding-overlapping windows. Only the QC-pass strata are separated by coding status;
+# `failed_qc` deliberately is not, because `coding_prop` comes from the constraint table
+# and these windows have no row in it (measured here from Chen et al.'s own upstream
+# input, misc/genome_1kb_coding_exons.txt, in preconditions/verify_qc_filter.py).
 #
 # `failed_qc`, not `no_coverage`: a window absent from the published constraint table
 # failed one of the paper's three QC conditions (>= 80% of observed variants PASS, mean
 # coverage 25-35x, >= 1000 possible variants), and it is overwhelmingly the first of
 # those, not missing coverage -- 417,097 of the 587,902 absent autosomal windows fail the
 # PASS rule against 19,396 failing coverage. preconditions/verify_qc_filter.py measures it.
-STRATUM_COLORS = {"noncoding": "0.78", "coding": "#eb6834", "failed_qc": "#1baf7a"}
+#
+# The bottom band is named for what it IS -- the population Gnocchi is scored on and the
+# retrained model is fit on -- rather than for the filters that define it, because those
+# filters change: with GENEHANCER_BED supplied it is noncoding AND non-enhancer, and a
+# legend reading "QC-pass noncoding windows" would then be quietly wrong. The bands above
+# it keep naming their filter, since each one IS a reason for exclusion.
+STRATUM_COLORS = {"scored": "0.78", "coding": "#eb6834",
+                  "enhancer": "#2a78d6", "failed_qc": "#1baf7a"}
 STRATUM_LABELS = {
-    "noncoding": "In QC-pass noncoding windows",
+    "scored": "In the scored population",
     "coding": "In QC-pass coding windows",
+    "enhancer": "In QC-pass enhancer windows",
     "failed_qc": "In QC-fail windows",
 }
-# Bottom to top, matching data._STRATA: the scored population, then the two kinds of
-# territory outside it.
+# Bottom to top, matching data._STRATA: the scored population, then each kind of territory
+# outside it. `enhancer` is empty unless config.GENEHANCER_BED is set, and an empty
+# stratum is dropped at draw time rather than conditioned on here -- the panel functions
+# take a table, not a configuration.
 COMPOSITION_STYLE = [
     (f"frac_{key}", STRATUM_COLORS[key], STRATUM_LABELS[key])
-    for key in ("noncoding", "coding", "failed_qc")
+    for key in ("scored", "coding", "enhancer", "failed_qc")
 ]
 
 
@@ -185,8 +197,8 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
                                show_xlabel: bool = True) -> None:
     """
     Panel C, upper row. Where the non-CpG training sites actually sit, as a stacked
-    composition per GC bin. `comp` is data.training_composition() output; the three
-    fractions partition each bin by construction, so the stack fills to 1.
+    composition per GC bin. `comp` is data.training_composition() output; the fractions
+    partition each bin by construction, so the stack fills to 1.
 
     Both training classes are counted, DNMs and background sites alike: the fit minimizes
     its loss over the mixture, so the mixture is the training distribution this row is
@@ -204,11 +216,17 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     # which would draw a steep edge artifact at x = xrange[0] where there is no bin.
     df = df[(df["gc_mid"] >= xrange[0]) & (df["gc_mid"] <= xrange[1])].sort_values("gc_mid")
 
+    # A stratum with no sites in any plotted bin gets no band and no legend entry --
+    # `enhancer` whenever config.GENEHANCER_BED is unset. Drawn, it would be an invisible
+    # zero-height band with a legend swatch promising territory that does not exist.
+    style = [(c, col, lab) for c, col, lab in COMPOSITION_STYLE
+             if c in df.columns and float(df[c].max()) > 0]
+
     # alpha=1: the lower row draws these same colours as solid lines, and any
     # transparency here would make the band read as a slightly different hue.
-    ax.stackplot(df["gc_mid"], *[df[c] for c, _, _ in COMPOSITION_STYLE],
-                 colors=[c for _, c, _ in COMPOSITION_STYLE],
-                 labels=[lab for _, _, lab in COMPOSITION_STYLE], alpha=1.0)
+    ax.stackplot(df["gc_mid"], *[df[c] for c, _, _ in style],
+                 colors=[c for _, c, _ in style],
+                 labels=[lab for _, _, lab in style], alpha=1.0)
     ax.set_ylim(0, 1)
     _finish(ax, "Fraction of non-CpG\ntraining sites", xrange, show_xlabel,
             legend_loc="lower left", grid_axis="y")
@@ -218,19 +236,19 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
 # dicts rather than repeated, so the band and the line for a stratum always match.
 STRATUM_STYLE = {
     key: {"color": STRATUM_COLORS[key], "marker": marker, "label": STRATUM_LABELS[key]}
-    for key, marker in (("coding", "s"), ("failed_qc", "v"))
+    for key, marker in (("coding", "s"), ("enhancer", "o"), ("failed_qc", "v"))
 }
 
 
 def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = True) -> None:
     """
-    Panel C, lower row. Each excluded stratum's non-CpG P(DNM) relative to the noncoding
-    stratum's, per GC bin. `ratios` is data.stratum_ratios() output.
+    Panel C, lower row. Each excluded stratum's non-CpG P(DNM) relative to the scored
+    population's, per GC bin. `ratios` is data.stratum_ratios() output.
 
     THE CLAIM, and why the two rows belong together. The row above shows that the
     training set leaves the scored population at high GC; on its own that is only an
     absence. This row shows the excluded territory is also DIFFERENT: the QC-pass coding
-    stratum tracks the QC-pass noncoding one within ~10% and flat across the whole GC
+    stratum tracks the scored population within ~10% and flat across the whole GC
     range, while the QC-fail stratum runs 1.55x in the GC bulk and 4.06x by GC 0.61.
 
     The QC-fail stratum mixes coding and noncoding windows (6.9% of it overlaps coding
@@ -246,16 +264,20 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     """
     df = ratios.to_pandas() if hasattr(ratios, "to_pandas") else ratios
     df = df.sort_values("gc_mid")
-    for stratum, style in STRATUM_STYLE.items():
+    # Whichever strata the table carries: data.stratum_ratios omits one with no bins
+    # left, so an unsupplied GeneHancer file costs a curve rather than a KeyError.
+    drawn = [s for s in STRATUM_STYLE if f"{s}_ratio" in df.columns]
+    for stratum in drawn:
+        style = STRATUM_STYLE[stratum]
         r, se = df[f"{stratum}_ratio"], df[f"{stratum}_se_log"]
         # Symmetric in log space -> asymmetric in linear space, correct for a ratio.
         ax.errorbar(df["gc_mid"], r, yerr=[r - r * np.exp(-se), r * np.exp(se) - r],
                     marker=style["marker"], color=style["color"], markersize=5,
                     linewidth=2, capsize=3, elinewidth=1, label=style["label"])
     ax.axhline(1.0, **REF_LINE_KW)
-    _log_ratio_axis(ax, df[[f"{s}_ratio" for s in STRATUM_STYLE]].to_numpy(),
+    _log_ratio_axis(ax, df[[f"{s}_ratio" for s in drawn]].to_numpy(),
                     ticks=(0.8, 0.9, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0))
-    _finish(ax, "P(DNM) relative to the\nnoncoding stratum (non-CpG)", xrange, show_xlabel)
+    _finish(ax, "P(DNM) relative to the\nscored population (non-CpG)", xrange, show_xlabel)
 
 
 PAIR_STYLE = {

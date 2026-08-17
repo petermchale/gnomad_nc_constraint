@@ -7,15 +7,19 @@ cited there as 7A-7D. Run it top to bottom.
 
 **Panel C is two rows** sharing a GC axis and built from one table: the composition of
 the training sites (how much of the training set is outside the scored population --
-*covariate shift*), and each other stratum's DNM rate relative to the QC-pass noncoding
-one (whether the territory outside is also *different* -- *concept shift*). The upper row
+*covariate shift*), and each other stratum's DNM rate relative to the scored
+population's (whether the territory outside is also *different* -- *concept shift*). The upper row
 alone shows only an absence. Both rows count **both training classes**, DNMs and
 background sites: the fit minimizes its loss over the mixture, so the mixture is the
-training distribution being compared against the scored one. Its three bands are
-*QC-pass noncoding*, *QC-pass coding* and *QC-fail* — only the first two are split by
-coding status, because `coding_prop` comes from the constraint table and a QC-fail window
-has no row in it; measured separately, that band is 6.9% coding-overlapping against the
-QC-pass windows' 7.1%.
+training distribution being compared against the scored one. Its bottom band is the
+scored population itself, defined by MEMBERSHIP in the analyzed window table (`data.py`,
+`_STRATA`) rather than by re-deriving that table's filters -- so it follows
+`GENEHANCER_BED` automatically, which a re-derivation did not. The bands above it name
+the reason a site is outside: *QC-pass coding*, *QC-pass enhancer* (empty and undrawn
+unless `GENEHANCER_BED` is set) and *QC-fail*. Only the QC-pass ones are split by coding
+status, because `coding_prop` comes from the constraint table and a QC-fail window has no
+row in it; measured separately, that band is 6.9% coding-overlapping against the QC-pass
+windows' 7.1%.
 
 **Supporting Figure 7** backs panel B's claim that `R_CpG ~ 1` is *correct*: the
 methylation effect step 1 absorbs (3.0-4.3x within one trinucleotide, against 9.7-15.2x

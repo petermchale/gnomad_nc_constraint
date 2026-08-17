@@ -20,6 +20,7 @@ Inputs, in three groups:
     of the "neutral" window definition). Both default to None; the figure builds
     without them.
 """
+import hashlib
 import os
 
 import duckdb
@@ -303,25 +304,48 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 # therefore the training distribution, and it is the training distribution that the panel
 # is comparing against the scored one.
 
-# The three strata a training site can fall into, relative to the scored population:
-# its window is noncoding and in the published constraint table, coding and in it, or not
-# in it at all. The third is `failed_qc` and not `no_coverage`: every window absent from
-# that table has QC inputs on file and fails one of the paper's three conditions (>= 80%
-# of observed variants PASS, mean coverage 25-35x, >= 1000 possible variants), the first
-# of those dominating. preconditions/verify_qc_filter.py measures the split.
+# The strata a training site can fall into, relative to the scored population.
 #
-# An earlier comment here claimed this `noncoding` was deliberately broader than panel
-# C's `analyzed`, since that one also requires pass_qc. It is not: the published table
-# carries pass_qc = True on all 1,984,900 of its rows, so the flag is inert and the two
-# definitions pick out the same windows. Keeping both spellings anyway -- each says what
-# its own panel means, and a future unfiltered vintage of the table would separate them.
-_STRATUM = """CASE WHEN an.element_id IS NULL THEN 'failed_qc'
-                   WHEN an.coding_prop <= 0.0 THEN 'noncoding'
-                   ELSE 'coding' END"""
+# THE FIRST ONE IS DEFINED BY MEMBERSHIP, not by re-deriving the window filters here.
+# `scored` means the site's 1 kb window is a row of the analyzed window table --
+# windows.build_window_table, which carries the coding restriction, the QC filter, the
+# autosome/PAR restriction and, once config.GENEHANCER_BED is set, the enhancer
+# exclusion. That table is also what dnm_model.restrict_to_analyzed_windows filters the
+# training set with, so `scored` here is exactly "survives the panel D/E intervention".
+# Re-deriving those filters in SQL is how this panel silently stops describing the
+# population the retrained model is fit and scored on: until 2026-08-17 the first stratum
+# tested `an.coding_prop <= 0.0` and so would have counted GeneHancer-excluded windows as
+# inside the scored population the moment that file was supplied.
+#
+# The other three name the REASON a site is outside it, in stacking order:
+#   coding     scored by Chen et al., but the window overlaps coding exons
+#   enhancer   noncoding and in the constraint table, but dropped by the GeneHancer
+#              exclusion. Necessarily empty while config.GENEHANCER_BED is None, and an
+#              empty stratum draws no band and no legend entry (panels.py).
+#   failed_qc  no row in the constraint table at all, so it has no coding_prop to test.
+#              `failed_qc` and not `no_coverage`: every absent window has its QC inputs on
+#              file and fails one of the paper's three conditions (>= 80% of observed
+#              variants PASS, mean coverage 25-35x, >= 1000 possible variants), the first
+#              of those dominating. preconditions/verify_qc_filter.py measures the split.
+#
+# The order of the CASE arms is load-bearing: membership is tested first, so a window in
+# the analyzed table can never be relabelled by one of the reason arms below it.
+_STRATA = ("scored", "coding", "enhancer", "failed_qc")
 
-# In stacking order, bottom to top: the scored population first, then the two kinds of
-# territory outside it. panels.COMPOSITION_STYLE draws them in this order.
-_STRATA = ("noncoding", "coding", "failed_qc")
+
+def _stratum_expr() -> str:
+    """
+    Panel C's CASE expression. `sw` is the analyzed window table registered as a duckdb
+    relation by dnm_rate_by_stratum; `an` is the published constraint table.
+
+    The coding arm reads its threshold from windows.NONCODING_MAX_CODING_PROP -- the same
+    constant restrict_to_noncoding filters on -- rather than repeating a literal, so
+    "overlaps coding exons" means one thing in this figure.
+    """
+    return f"""CASE WHEN sw.element_id IS NOT NULL THEN 'scored'
+                    WHEN an.element_id IS NULL THEN 'failed_qc'
+                    WHEN an.coding_prop > {W.NONCODING_MAX_CODING_PROP!r} THEN 'coding'
+                    ELSE 'enhancer' END"""
 
 # chrX/chrY dropped from BOTH classes. The published fitting code drops chrX from the
 # background class only, which inflates the apparent rate there; an empirical reference
@@ -345,11 +369,14 @@ def _training_sql(cache_dir: str) -> str:
 
 
 def _binned_training_query(cache_dir: str, edges: np.ndarray, where: str,
-                           dims: list[tuple[str, str]] = (), aggs: str = "") -> str:
+                           dims: list[tuple[str, str]] = (), aggs: str = "",
+                           extra_joins: str = "") -> str:
     """
     Training sites joined to their 1 kb tile's GC and constraint annotation, aggregated
     per GC bin (plus any extra grouping `dims`, each an (expression, alias) pair).
-    `aggs` adds further aggregate select items.
+    `aggs` adds further aggregate select items. `extra_joins` appends further join
+    clauses, for a relation the caller registered on its own connection -- panel C
+    joins the analyzed window table that way, rather than re-deriving it from `an`.
 
     GROUP BY repeats the expressions rather than using positional indices: the two
     callers have different select-list shapes, and positional GROUP BY silently grouped
@@ -371,25 +398,49 @@ def _binned_training_query(cache_dir: str, edges: np.ndarray, where: str,
                AVG(ft.GC_content_1k) AS gc_pct{"," if aggs else ""} {aggs}
         FROM s JOIN ft ON s.element_id = ft.element_id
                LEFT JOIN an ON s.element_id = an.element_id
+               {extra_joins}
         WHERE {where}
         GROUP BY {group_by}
     """
 
 
-def dnm_rate_by_stratum(edges: np.ndarray, cache_dir: str = CACHE_DIR,
-                        force: bool = False, memory_limit: str = "10GB") -> pl.DataFrame:
+def _fingerprint(edges: np.ndarray, df_win: pl.DataFrame) -> str:
+    """
+    Six hex characters standing for "these GC edges over this window population", for a
+    cache key.
+
+    Both inputs move when config.GENEHANCER_BED changes -- the window set directly, the
+    edges because gc_edges spans its GC min and max -- and neither is visible in the
+    old `{n}bins` key, so a cached table built under one setting would be silently
+    reused under the other. Order-independent (xor over per-id hashes), and a polars
+    version bump can only cost a rebuild, never a wrong answer.
+    """
+    h = hashlib.blake2s(np.asarray(edges, float).tobytes(), digest_size=3)
+    ids = df_win["element_id"]
+    h.update(f"{ids.len()}:{int(np.bitwise_xor.reduce(ids.hash(seed=0).to_numpy()))}".encode())
+    return h.hexdigest()
+
+
+def dnm_rate_by_stratum(edges: np.ndarray, df_win: pl.DataFrame,
+                        cache_dir: str = CACHE_DIR, force: bool = False,
+                        memory_limit: str = "10GB") -> pl.DataFrame:
     """
     Empirical P(DNM) over non-CpG training sites, per GC bin, split by where the site
-    sits relative to the scored population: noncoding, coding, or absent from the
-    constraint table because its window failed gnomAD variant-call QC.
+    sits relative to the scored population: inside it, or outside it because the window
+    is coding, enhancer-overlapping, or absent from the constraint table for failing
+    gnomAD variant-call QC. See _STRATA above for what defines each.
+
+    `df_win` is the analyzed window table (data.window_table). It is required, and it is
+    the SAME frame the panels are evaluated on -- passing a different one would label
+    sites against a population no panel uses.
 
     Both classes are labelled, DNMs included -- that is what makes this a rate rather
     than a composition. 72,801 of the non-CpG autosomal DNMs sit in the QC-failing
-    stratum, against 17,545 coding and 241,479 noncoding.
+    stratum, against 17,545 coding and 241,479 in the scored population.
 
-    THE POINT. The noncoding and coding curves are both nearly flat in GC and nearly
+    THE POINT. The scored and coding curves are both nearly flat in GC and nearly
     equal, so the coding exclusion is not what makes the training set's GC dependence
-    steep. The QC-failing curve is not flat: it runs ~1.6x the noncoding rate in the GC
+    steep. The QC-failing curve is not flat: it runs ~1.6x the scored rate in the GC
     bulk and ~4.1x by GC 0.61. Essentially all of the original training set's GC
     dependence is contributed by sequence gnomAD could not call reliably -- which is also
     where trio DNM calling is least reliable, so part of the excess is plausibly
@@ -398,12 +449,18 @@ def dnm_rate_by_stratum(edges: np.ndarray, cache_dir: str = CACHE_DIR,
     Columns: stratum, gc_bin, gc_pct, k (DNMs), n (sites), p = k/n.
     """
     def build():
+        con = duck(memory_limit)
+        # Registered rather than written out: duckdb reads the polars frame in place, so
+        # the analyzed window set enters the query as itself, not as a re-derivation.
+        con.register("scored_windows", df_win.select("element_id"))
         q = _binned_training_query(
-            cache_dir, edges, dims=[(_STRATUM, "stratum")],
+            cache_dir, edges, dims=[(_stratum_expr(), "stratum")],
+            extra_joins="LEFT JOIN scored_windows sw ON s.element_id = sw.element_id",
             where=f"s.context NOT IN ({', '.join(repr(c) for c in M.CPG_CONTEXTS)})")
-        return duck(memory_limit).execute(q).pl()
+        return con.execute(q).pl()
 
-    df = cached(f"dnm_rate_by_stratum.{len(edges) - 1}bins.parquet", build, force)
+    df = cached(f"dnm_rate_by_stratum.{len(edges) - 1}bins."
+                f"{_fingerprint(edges, df_win)}.parquet", build, force)
     return df.with_columns((pl.col("k") / pl.col("n")).alias("p")).sort(["stratum", "gc_bin"])
 
 
@@ -419,15 +476,22 @@ def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
     exactly, bin by bin and stratum by stratum, on all 20 bins; what the mixture adds is
     the DNM class's own, steeper drift out of the scored population.
 
-    The three strata partition the bin by construction -- _STRATUM is a CASE expression,
+    The strata partition the bin by construction -- _stratum_expr() is a CASE expression,
     so a site lands in exactly one -- which is why nothing is asserted here.
 
-    Columns: gc_bin, gc_mid, n_total, n_{stratum}, frac_{stratum}.
+    Columns: gc_bin, gc_mid, n_total, n_{stratum}, frac_{stratum}, for every stratum in
+    _STRATA including any that is empty genome-wide (`enhancer`, while GENEHANCER_BED is
+    None) -- the shape does not depend on the configuration, and panels.py drops a band
+    that is zero everywhere rather than drawing an invisible one with a legend entry.
     """
     # A GC bin can be missing a stratum entirely (the lowest two hold no coding sites),
-    # which pivots to null rather than to an absent row.
+    # which pivots to null rather than to an absent row. A stratum missing from EVERY bin
+    # has no column at all, hence the explicit zero fill below.
     wide = (st.pivot(values="n", index="gc_bin", on="stratum", aggregate_function="first")
               .fill_null(0).sort("gc_bin"))
+    absent = [s for s in _STRATA if s not in wide.columns]
+    if absent:
+        wide = wide.with_columns([pl.lit(0, dtype=pl.Int64).alias(s) for s in absent])
     df = wide.with_columns([
         bin_centres(edges, wide["gc_bin"]),
         pl.sum_horizontal([pl.col(s) for s in _STRATA]).alias("n_total"),
@@ -445,26 +509,30 @@ def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
 
 def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl.DataFrame:
     """
-    dnm_rate_by_stratum() reshaped to the two ratios panel C plots: each excluded
-    stratum's non-CpG DNM rate over the noncoding stratum's, per GC bin.
+    dnm_rate_by_stratum() reshaped to the ratios panel C plots: each excluded stratum's
+    non-CpG DNM rate over the scored population's, per GC bin.
 
     Ratios rather than raw rates because the question is comparative -- is the excluded
     territory DIFFERENT from the territory Gnocchi is scored on -- and because the
-    noncoding rate itself drifts mildly with GC, which a ratio divides out.
+    scored population's own rate drifts mildly with GC, which a ratio divides out.
 
     Error bars are the delta-method SE of log(ratio), SE = sqrt((1-p_a)/k_a +
     (1-p_b)/k_b), i.e. binomial noise in both strata. min_n drops bins where either
     stratum holds fewer than that many sites.
 
-    Columns: gc_bin, gc_mid, and {coding,failed_qc}_{ratio,se_log}.
+    Columns: gc_bin, gc_mid, and {stratum}_{ratio,se_log} for each excluded stratum that
+    has any bin left after min_n -- so an empty `enhancer` stratum contributes no columns
+    rather than a column of nulls, and panels.py plots whichever it finds.
     """
     keep = st.filter(pl.col("n") >= min_n)
-    base = keep.filter(pl.col("stratum") == "noncoding").select(
+    base = keep.filter(pl.col("stratum") == "scored").select(
         ["gc_bin", pl.col("p").alias("p_nc"), pl.col("k").alias("k_nc")])
     out = base
-    for stratum in ("coding", "failed_qc"):
+    for stratum in [s for s in _STRATA if s != "scored"]:
         s = keep.filter(pl.col("stratum") == stratum).select(
             ["gc_bin", pl.col("p").alias("p_s"), pl.col("k").alias("k_s")])
+        if s.height == 0:
+            continue
         out = out.join(s, on="gc_bin", how="inner").with_columns([
             (pl.col("p_s") / pl.col("p_nc")).alias(f"{stratum}_ratio"),
             (((1 - pl.col("p_s")) / pl.col("k_s")
