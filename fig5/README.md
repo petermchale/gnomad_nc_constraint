@@ -142,6 +142,13 @@ keyed by population alone, so one window set's refits overwrite the other's; the
 and CpG caches in `output/` carry a fingerprint of the edges and window set, so those
 coexist.
 
+**`window_set_sensitivity.py` asks in advance whether the narrowing will change the
+answer**, by rerunning panel A's statistic on same-sized stand-in subsets (random, and
+GC-tilted in the direction the enhancer exclusion pulls). It found the per-bin curves
+near superimposable and step2/step1 at 2.64-2.68x across all arms -- so neither sample
+size nor a GC-tilted removal moves the conclusion. Read its docstring for what it cannot
+test (removal correlated with constraint) before treating it as settled.
+
 `NEUTRAL_WINDOWS_BED` lives in a module, not the notebook, because it defines the analyzed
 window set — which `refit.py` uses to decide what the model is **fit** on and the notebook
 uses to decide what the panels are **evaluated** on. Disagreement would train on one

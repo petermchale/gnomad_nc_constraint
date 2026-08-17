@@ -394,6 +394,22 @@ in `fig5/output/` carry a fingerprint of the GC edges and the window set, so tho
 Panel C gains a fourth band, `non_neutral`, counting exactly the territory given up in the
 narrowing — the band to read when asking whether the figure's conclusions survive it.
 
+**Will the narrowing change the answer? Probably not, but it is not yet settled.**
+`fig5/window_set_sensitivity.py` reruns panel A's statistic on same-sized stand-in
+subsets. Over the 13 GC bins every arm draws: step1 / step2 / scored = 0.067 / 0.177 /
+0.034 on the full set, 0.066 / 0.177 / 0.033 on a random 693,270, and 0.067 / 0.180 /
+0.033 under a GC-tilted removal that keeps GC > 0.5 windows at 15% against 37% overall.
+step2/step1 holds at 2.64-2.68x in all three, and step 2's per-bin curve is near
+superimposable. What shrinks under each arm's own binning (0.212 -> 0.207 -> 0.182) is
+the 100-window floor dropping high-GC bins, not the bias: step 2's mean rank in the top
+drawn bin stays 0.877 / 0.876 / 0.875 as that bin moves from GC 0.75 to 0.65. **So quote
+the per-bin curve, or say which bins the average covers.** What no stand-in can test is
+removal correlated with *constraint* — enhancer windows are GC-rich AND variation-
+depleted, so the real narrowing deletes high-z windows preferentially at high GC. A hard
+cut doing exactly that does break the result (2.64x -> 0.96x), but it keeps 1.0% of
+GC > 0.5 windows, deletes the (GC > 0.5, z > 2) corner outright, and selects on the
+quantity being ranked, distorting all three curves together — a bound, not an estimate.
+
 Untested against the real file (it is not available in this environment): verified instead
 against a synthetic stand-in with the same column names and coordinate convention — the
 join, the shortfall diagnostic that says whether an unmatched window was filtered here or
