@@ -106,7 +106,7 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
         R_eff = Pi*R_CpG + (1-Pi)*R_non          exact, bin by bin
 
     THE COUNTERFACTUAL IS AN INTERVENTION ON THE NON-CpG TERM, not on the CpG one: it
-    sets r = 1 for non-CpG contexts and leaves the fitted r_CpG and the weights Pi
+    sets r_t = 1 for non-CpG contexts and leaves the fitted CpG r_t and the weights Pi
     untouched, giving Pi*R_CpG + (1-Pi) -- what Gnocchi would apply if it adjusted CpG
     contexts alone. Drawn as a dashed grey hypothetical rather than a fourth measured
     series. Its flatness is the claim, and it is not automatic: Pi reaches 0.43 at high
@@ -288,7 +288,7 @@ def panel_cpg_methylation_effect(ax, ct, show_mu: bool = True) -> None:
 
     Solid: `fitted_po`, the probability step 1 actually applies -- a 3.0-4.3x range
     within a SINGLE trinucleotide context, the largest single rate effect in the model,
-    and the reason step 1 already absorbs the CpG-island signal that r_CpG would
+    and the reason step 1 already absorbs the CpG-island signal that R_CpG would
     otherwise have to correct.
 
     Dashed: `mu`, the independent pre-saturation estimate, spanning 9.7-15.2x over the
@@ -374,7 +374,7 @@ def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
     It is flat at ~0.53 through the GC bulk and collapses to ~0.195 in the top GC bin --
     a 2.7x fall, tracking the hypomethylation above. This is the effect step 1 models
     (via fitted_po's methylation key) and step 2 does not need to: it is why
-    r_CpG ~ 1 in panel B is correct rather than a failure.
+    R_CpG ~ 1 in panel B is correct rather than a failure.
 
     The level is not a genome-wide mutation rate -- these are case-control-sampled
     training sites at ~10:1, and CpG contexts are the mutable ones.

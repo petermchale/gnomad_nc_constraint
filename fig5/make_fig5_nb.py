@@ -33,7 +33,7 @@ vector file for assembly in Illustrator.
 | | Claim | Quantity |
 |---|---|---|
 | **A** | The bias is *introduced by* the regional adjustment, not inherited from the context-only model | mean standardized rank vs GC, for $r\equiv1$ and for full Gnocchi |
-| **B** | That adjustment's GC dependence is wholly non-CpG — and $r_{\mathrm{CpG}}\approx1$ is *correct*, because methylation already carries it in step 1 | $r_{\mathrm{eff}}=E_2/E_1$, decomposed by CpG status |
+| **B** | That adjustment's GC dependence is wholly non-CpG — and $R_{\mathrm{CpG}}\approx1$ is *correct*, because methylation already carries it in step 1 | $R_{\mathrm{eff}}=\sum E_2/\sum E_1$ per GC bin, decomposed by CpG status |
 | **C** | The DNM training set is not the scored population: at high GC it is mostly coding, or sequence dropped for failing gnomAD's variant-call QC | composition of the training sites per GC bin |
 | **D** | Restricting the training set to the scored population flattens the empirical DNM rate — and the fit then tracks it | fitted and empirical $P(\mathrm{DNM})$, non-CpG, three training populations |
 | **E** | Refitting $r$ on the scored population removes the bias in Gnocchi itself | panel A's statistic, with the retrained Gnocchi added |
@@ -205,7 +205,7 @@ $$r_c(x) \;\approx\; \frac{\hat p_c(x)}{\hat p_c(\bar x)},
 Two consequences follow immediately, and both matter later. $\hat p_c$ is sensitive to the
 class balance of the training set (the DNM-to-background ratio), but $r_c$, being a ratio
 of two such probabilities, **is not** — this is why panel D's levels are not comparable
-across populations while panel B's $r$ is. And although the DNM training set can be
+across populations while panel B's $R$ is. And although the DNM training set can be
 trusted to be neutral even in the tails, it is *far* smaller than the set behind
 $p_c(\bar x)$, so $r_c$ is the noisier of the two factors by construction.
 
@@ -214,7 +214,7 @@ $p_c(\bar x)$, so $r_c$ is the noisier of the two factors by construction.
 
 1. $r$ is fit **per trinucleotide context only**, not per $c = (\text{trinucleotide},
    \text{methylation})$. Methylation enters in step 1 alone, through $p_c(\bar x)$. That
-   is why $r_{\mathrm{CpG}} \approx 1$ in panel B is *correct* rather than a failure — the
+   is why $R_{\mathrm{CpG}} \approx 1$ in panel B is *correct* rather than a failure — the
    large methylation effect has already been applied upstream.
 2. The published Methods state $r$ as a ratio of **logits**; the code computes the ratio
    of **probabilities** written above. The code is what produced the published scores
@@ -365,7 +365,9 @@ $$R_{\mathrm{eff}}(g)=\frac{\sum_{w\in g}E_2(w)}{\sum_{w\in g}E_1(w)}
 again an $E_1$-weighted mean, of the window-level $r_{\mathrm{eff}}$ this time. Expected
 counts add, so this is the adjustment the bin actually receives; an unweighted mean of
 $r_{\mathrm{eff}}(w)$ would weight a 3-site window like a 400-site one and answer a
-different question.
+different question. **Case carries the level throughout this notebook:** lowercase
+$r$ is per context or per window, capital $R$ is the bin-level aggregate, a ratio of
+summed expected counts.
 
 **Splitting at CpG.** Let $\mathcal K=\{\mathrm{ACG,CCG,GCG,TCG}\}$ and write
 $E_M^{\mathcal K}=\sum_{t\in\mathcal K}E_M^{t}$, $E_M^{\neg\mathcal K}=E_M-E_M^{\mathcal K}$
@@ -402,9 +404,9 @@ down towards $R_{\mathrm{CpG}}\approx1$ as $\Pi$ grows.
 $R_{\mathrm{eff}}$'s rise the CpG contexts could account for on their own. So switch off
 the *non-CpG* adjustment — set $r_t\equiv1$ for $t\notin\mathcal K$, which sends
 $E_2^{\neg\mathcal K}\!\to\!E_1^{\neg\mathcal K}$ — and change nothing else: the fitted
-$r_{\mathrm{CpG}}$ stays, the weights $\Pi(g)$ stay. The dashed grey curve is
+$r_t$ for $t\in\mathcal K$ stay, the weights $\Pi(g)$ stay. The dashed grey curve is
 
-$$R_{\mathrm{eff}}\big|_{r_{\mathrm{non}}\equiv1}(g)
+$$R_{\mathrm{eff}}\big|_{r_t\equiv1,\;t\notin\mathcal K}(g)
 =\frac{\sum_g E_2^{\mathcal K}+\sum_g E_1^{\neg\mathcal K}}{\sum_g E_1}
 =\Pi(g)\,R_{\mathrm{CpG}}(g)+\big(1-\Pi(g)\big),$$
 
@@ -682,7 +684,7 @@ save(fig, "E")
 """)
 
 md(r"""
-## Supporting figure (**Supporting Figure 7** in the manuscript) — why $r_{\mathrm{CpG}}\approx1$ is correct
+## Supporting figure (**Supporting Figure 7** in the manuscript) — why $R_{\mathrm{CpG}}\approx1$ is correct
 
 Panel B asserts that CpG contexts *should* apply no GC-dependent adjustment, because the
 effect that would need adjusting has already been applied in step 1. That claim rests on

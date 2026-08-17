@@ -17,7 +17,7 @@ coding status, because `coding_prop` comes from the constraint table and a QC-fa
 has no row in it; measured separately, that band is 6.9% coding-overlapping against the
 QC-pass windows' 7.1%.
 
-**Supporting Figure 7** backs panel B's claim that `r_CpG ~ 1` is *correct*: the
+**Supporting Figure 7** backs panel B's claim that `R_CpG ~ 1` is *correct*: the
 methylation effect step 1 absorbs (3.0-4.3x within one trinucleotide, against 9.7-15.2x
 pre-saturation), the CpG-island character of high-GC CpGs (2.5% hypomethylated in the
 GC bulk rising to 90-100% above GC 0.70), and the resulting DNM-rate collapse
@@ -25,7 +25,7 @@ GC bulk rising to 90-100% above GC 0.70), and the resulting DNM-rate collapse
 the top two GC bins hold 356 and 169 sites and they ARE the claim, so they are drawn
 with error bars rather than dropped. **A fourth row** carries `Pi`, the CpG share of a
 bin's step-1 expected counts (0.025 -> 0.426), which is why that claim matters rather
-than merely holds: it is the weight in panel B's identity, so a GC trend in `r_CpG`
+than merely holds: it is the weight in panel B's identity, so a GC trend in `R_CpG`
 would have reached the applied multiplier scaled by up to 0.43 rather than erased. It is
 binned over *windows* (`binned_b`, floor 100 windows) where the rows above are binned
 over *sites*, and it is drawn on this figure's wider 0.2-0.8 axis, so it shows the two
@@ -163,7 +163,7 @@ filter, so neither is advantaged by its own window set.
   different window size). It is ranked within itself and overlaid, never joined on
   `element_id`. Legitimate for a conditional-mean-rank plot — the rank is uniform on
   (0,1) by construction for every curve — but the caption must say so.
-- **Panel B is a decomposition identity, not a fit.** `r_eff = Pi*r_CpG + (1-Pi)*r_non`
+- **Panel B is a decomposition identity, not a fit.** `R_eff = Pi*R_CpG + (1-Pi)*R_non`
   holds bin by bin because each bin aggregates ratios of *summed* expected counts, not
   means of per-window ratios.
 - **Two claims the caption states as numbers are computed in `data.py` and printed by the
