@@ -71,13 +71,14 @@ is what `resave_ai.py` does:
 
 It drives Illustrator over `osascript ... do javascript`, since an .ai stores a path and
 a cached preview per link and neither can be regenerated from outside the app. It finds
-the document among the open ones before opening a copy, relinks only the links whose file
-is newer than the .ai, and closes the document again only if it opened it. macOS asks for
+the document among the open ones before opening a copy, relinks only the links whose
+content differs from what the .ai was saved against, and closes the document again only
+if it opened it. macOS asks for
 Automation permission the first time.
 
 The two kinds of staleness are checked separately, because the second outlives the first:
-a panel newer than the `.ai` needs relinking, an `.ai` newer than the `.png` needs
-exporting. So a save you made by hand in Illustrator still gets its PNG, with nothing to
+a panel whose content the `.ai` does not hold needs relinking, an `.ai` newer than the
+`.png` needs exporting. So a save you made by hand in Illustrator still gets its PNG, with nothing to
 relink. The export is 300 dpi, artboard-clipped, transparent -- hardcoded in the script to
 reproduce the settings the committed PNG was made with, not to redefine them. Illustrator's
 scripted export writes no resolution metadata where its dialog does, so the script stamps
@@ -92,13 +93,22 @@ is dirty in exactly the way one being edited is. `git checkout fig5/fig5.ai fig5
 undoes a save you did not want -- but re-save from Illustrator afterwards, or the open
 document and the file on disk will disagree.
 
-The staleness check is **mtime, not content**, so anything that rewrites a panel PDF makes
-it look stale even when the artwork is unchanged — including `git checkout` of a panel that
-a rebuild changed only in its `/CreationDate` stamp, which is the usual way to keep a commit
-free of no-op binary churn. Restoring one that way *after* a resave leaves it newer than the
-`.ai`, and the next run relinks it to content already there: harmless, but it dirties
-`fig5.ai` again. `touch -r fig5/fig5.ai <restored.pdf>` after the restore avoids the round
-trip.
+The staleness check is **content, not mtime** (since 2026-08-17). `fig5.ai.links.json`,
+tracked beside the `.ai`, records what each panel PDF hashed to when the `.ai` was last
+saved, and `resave_ai` compares against that — so an mtime that moved for reasons
+unrelated to the artwork (`git checkout` of a panel, a stash pop, a rebase) no longer
+sends it relinking, and no longer dirties `fig5.ai` on screen for nothing. Without the
+manifest it falls back to mtime, which is what it did before.
+
+Upstream of that, **panels are only written when their bytes change**. `save()` renders
+to a buffer and compares (`resave_ai.save_panel`), and PDFs are written with
+`CreationDate` suppressed — the one source of run-to-run nondeterminism in matplotlib's
+PDF output, so an unchanged panel now renders to identical bytes. Re-running the notebook
+without changing anything therefore touches no file at all: no `.ai` staleness, no
+`/CreationDate`-only diffs to keep out of a commit, and no `touch -r` dance afterwards.
+
+Between them, an asterisk on `fig5.ai`'s tab in Illustrator now means a panel genuinely
+changed.
 
 A scripted save also rewrites Illustrator's private data more compactly than an
 interactive one: expect the file to roughly halve the first time. Verified lossless --

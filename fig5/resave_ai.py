@@ -25,6 +25,13 @@ preview per link, and regenerating that preview outside the app is not something
 do. So this needs Illustrator installed, and the first run raises a macOS Automation
 permission prompt that has to be approved once.
 
+It is meant to have nothing to do on most runs. Panels are written through save_panel()
+below, which suppresses the PDF /CreationDate (matplotlib's only run-to-run
+nondeterminism) and then writes only when the bytes differ, and staleness is judged
+against fig5.ai.links.json, a record of what each panel hashed to when the .ai was last
+saved. So a rebuild that changes no artwork touches no file and leaves the .ai alone --
+and an asterisk on the .ai's tab in Illustrator means a panel really did change.
+
 THREE THINGS TO KNOW BEFORE TRUSTING IT.
 
   * Relinking preserves each placed item's frame, not the artwork's aspect ratio. The
@@ -42,6 +49,7 @@ THREE THINGS TO KNOW BEFORE TRUSTING IT.
     will quietly put them back.
 """
 import argparse
+import hashlib
 import json
 import os
 import struct
@@ -62,8 +70,14 @@ PNG_DPI = 300
 
 # ExtendScript, run inside Illustrator. It reports back what it did -- see the string it
 # builds at the bottom -- so the Python side prints facts rather than assumptions. The
-# %-slots are the .ai's path (as a JS string literal), its mtime in epoch seconds, the PNG
-# path to export to ("" to skip), and the export scale as a percentage of 72 dpi.
+# %-slots are the .ai's path (as a JS string literal), the semicolon-joined names of the
+# links to relink, the PNG path to export to ("" to skip), and the export scale as a
+# percentage of 72 dpi.
+#
+# WHICH LINKS TO RELINK IS DECIDED ON THE PYTHON SIDE and passed in by name. This used to
+# be a second, independent mtime comparison here, which could disagree with the Python
+# one -- and does, now that Python compares content: a panel restored from git can hold
+# different artwork behind an older mtime, and this side would have skipped it.
 #
 # The document is found among the open ones before falling back to opening it: the usual
 # case is that it is already open on screen, and opening a second copy of an open file is
@@ -71,7 +85,7 @@ PNG_DPI = 300
 # was already open is left exactly as it was, minus the save.
 JSX = r"""
 var target = %s;
-var stale_after = %f;
+var stale_names = ";" + %s + ";";
 var png_target = %s;
 var png_scale = %f;
 var result = {opened: false, relinked: [], skipped: [], links: [], saved: false,
@@ -93,9 +107,7 @@ for (var j = 0; j < doc.placedItems.length; j++) {
     var f = item.file;
     if (f == null || !f.exists) { result.skipped.push("missing link"); continue; }
     result.links.push(f.name);
-    // File.modified is a Date; compare against the .ai's own mtime, passed in as epoch
-    // seconds. A link older than the document cannot be the reason it is stale.
-    if (f.modified.getTime() / 1000.0 <= stale_after) { result.skipped.push(f.name); continue; }
+    if (stale_names.indexOf(";" + f.name + ";") < 0) { result.skipped.push(f.name); continue; }
     item.relink(f);
     result.relinked.push(f.name);
 }
@@ -203,11 +215,108 @@ def stamp_png_dpi(path: str, dpi: int = PNG_DPI) -> bool:
     return True
 
 
-def stale_links(ai_mtime: float) -> list[str]:
-    """Panel PDFs newer than the .ai -- what the relink is for, computed without the app."""
-    pdfs = [os.path.join(OUTPUT_DIR, f) for f in sorted(os.listdir(OUTPUT_DIR))
+# ---------------------------------------------------------- writing panels
+#
+# TWO RULES KEEP fig5.ai FROM GOING STALE FOR NO REASON, which is what this pair of
+# functions is for. Before them, every rebuild rewrote every panel PDF with a fresh
+# /CreationDate, so the .ai looked stale even when no artwork had changed -- and an .ai
+# open in Illustrator would auto-relink and go dirty (the `*` in its tab) on a rebuild
+# that changed nothing.
+#
+#   1. Suppress /CreationDate. It is the ONLY nondeterminism in matplotlib's PDF output
+#      (measured: identical figures hash identically with it gone, and PNG output was
+#      already deterministic), so two runs of an unchanged panel now produce identical
+#      bytes.
+#   2. Having made that true, write only when the bytes differ. An unchanged panel keeps
+#      its old mtime, so nothing downstream -- the .ai, git -- sees a change that is not
+#      one.
+#
+# The pair also removes the /CreationDate-only diffs that used to have to be checked out
+# of a commit by hand, and with them the mtime pitfall that followed from doing so.
+
+PDF_METADATA = {"CreationDate": None}
+
+
+def write_if_changed(path: str, data: bytes) -> bool:
+    """Write `data` to `path` only if it differs from what is there. True if written."""
+    if os.path.exists(path):
+        with open(path, "rb") as fh:
+            if fh.read() == data:
+                return False
+    with open(path, "wb") as fh:
+        fh.write(data)
+    return True
+
+
+def save_panel(fig, stem: str, dpi: int = 200) -> list[str]:
+    """
+    Write `{stem}.pdf` (vector, for the Illustrator assembly) and `{stem}.png` (for
+    reading), skipping either whose bytes are unchanged. Returns the paths written, which
+    is what the notebook prints -- an empty list means the panel is already current, and
+    is the normal result of re-running the notebook without changing anything.
+    """
+    import io
+
+    written = []
+    for ext, kw in ((".pdf", {"metadata": PDF_METADATA}), (".png", {"dpi": dpi})):
+        buf = io.BytesIO()
+        fig.savefig(buf, format=ext[1:], bbox_inches="tight", **kw)
+        if write_if_changed(f"{stem}{ext}", buf.getvalue()):
+            written.append(f"{stem}{ext}")
+    return written
+
+
+# --------------------------------------------------------- staleness checks
+
+# What each panel PDF hashed to when fig5.ai was last saved by this script. Tracked
+# beside the .ai, because it describes the .ai: with it, "is the assembly current?" is
+# answerable from content, by anyone, without opening Illustrator.
+#
+# Content and not mtime, because mtimes move for reasons that have nothing to do with the
+# artwork -- `git checkout` of a panel, a stash pop, a rebase -- and each of those used to
+# send the next run relinking a panel to content already in the document, dirtying the .ai
+# again. Falls back to mtime when the manifest is missing (before the first save through
+# this script) so the check still works, just less exactly.
+LINKS_MANIFEST = os.path.join(HERE, "fig5.ai.links.json")
+
+
+def panel_pdfs() -> list[str]:
+    return [os.path.join(OUTPUT_DIR, f) for f in sorted(os.listdir(OUTPUT_DIR))
             if f.endswith(".pdf")]
-    return [os.path.basename(p) for p in pdfs if os.path.getmtime(p) > ai_mtime]
+
+
+def _sha(path: str) -> str:
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def read_links_manifest() -> dict:
+    if not os.path.exists(LINKS_MANIFEST):
+        return {}
+    with open(LINKS_MANIFEST) as fh:
+        return json.load(fh)
+
+
+def write_links_manifest() -> None:
+    """Record what the panels hash to now. Called after a successful save."""
+    manifest = {os.path.basename(p): _sha(p) for p in panel_pdfs()}
+    with open(LINKS_MANIFEST, "w") as fh:
+        json.dump(manifest, fh, indent=1, sort_keys=True)
+        fh.write("\n")
+
+
+def stale_links(ai_mtime: float) -> list[str]:
+    """
+    Panel PDFs whose content is not what fig5.ai was last saved against -- what the
+    relink is for, computed without the app. Falls back to "newer than the .ai" when no
+    manifest has been written yet.
+    """
+    manifest = read_links_manifest()
+    if not manifest:
+        return [os.path.basename(p) for p in panel_pdfs()
+                if os.path.getmtime(p) > ai_mtime]
+    return [os.path.basename(p) for p in panel_pdfs()
+            if manifest.get(os.path.basename(p)) != _sha(p)]
 
 
 def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
@@ -218,7 +327,8 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
     directly.
 
     Two independent staleness questions, because the second outlives the first: a panel
-    newer than the .ai needs relinking, and a .ai newer than the PNG needs exporting.
+    whose content the .ai does not hold needs relinking, and a .ai newer than the PNG
+    needs exporting.
     Relinking implies the second (the save moves the .ai's mtime), but not the reverse --
     a save made by hand in Illustrator leaves the PNG behind with nothing to relink.
 
@@ -239,11 +349,13 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
     png_stale = png and (not os.path.exists(PNG_PATH)
                          or os.path.getmtime(PNG_PATH) < ai_mtime)
     if stale:
-        print(f"{len(stale)} panel PDF(s) newer than fig5.ai: {', '.join(stale)}")
+        how = "content differs from" if read_links_manifest() else "newer than"
+        print(f"{len(stale)} panel PDF(s) {how} what fig5.ai was saved against: "
+              f"{', '.join(stale)}")
     if png_stale and not stale:
         print("fig5.ai is newer than fig5.png -- re-exporting")
     if not stale and not png_stale:
-        print(f"fig5.ai is newer than every panel PDF in {os.path.relpath(OUTPUT_DIR)}/, "
+        print(f"every panel PDF in {os.path.relpath(OUTPUT_DIR)}/ matches fig5.ai, "
               "and fig5.png is newer than fig5.ai -- nothing to do")
         return 0
     if dry_run:
@@ -253,7 +365,8 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
     # Exported whenever the run does anything at all: a relink is always followed by a
     # save, which by itself leaves the PNG stale.
     try:
-        result = run_jsx(JSX % (applescript_json(AI_PATH), ai_mtime,
+        result = run_jsx(JSX % (applescript_json(AI_PATH),
+                               applescript_json(";".join(stale)),
                                applescript_json(PNG_PATH) if png else '""',
                                100.0 * PNG_DPI / 72.0))
     except RuntimeError as e:
@@ -269,7 +382,14 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
     absent = [f for f in stale if f not in result["links"]]
     if absent:
         print(f"not linked in fig5.ai, so left alone: {', '.join(absent)}")
-    print("saved fig5.ai" if result["saved"] else "nothing to save")
+    if result["saved"]:
+        # The manifest describes the saved document, so it is written only after a save
+        # that succeeded -- and for every panel, not just the relinked ones, since the
+        # unchanged ones' hashes are what let the next run leave them alone.
+        write_links_manifest()
+        print(f"saved fig5.ai, and recorded {os.path.basename(LINKS_MANIFEST)}")
+    else:
+        print("nothing to save")
     if result["exported"]:
         stamped = stamp_png_dpi(PNG_PATH)
         print("exported fig5.png" + (f" at {PNG_DPI} dpi" if stamped

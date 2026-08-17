@@ -64,6 +64,7 @@ import config
 import data as D
 import depletion_rank as DR
 import panels
+import resave_ai          # save() below writes panels through it; the last cell resaves
 
 print("repo root:", _REPO_ROOT)
 """)
@@ -151,10 +152,13 @@ FIGSIZE = (7.0, 4.6)
 
 
 def save(fig, letter):
-    "One vector PDF per panel, for assembly in Illustrator. PNG alongside for review."
-    for ext, kw in ((".pdf", {}), (".png", {"dpi": 200})):
-        fig.savefig(os.path.join(OUTPUT_DIR, f"fig5{letter}{ext}"), bbox_inches="tight", **kw)
-    print("wrote", os.path.join(OUTPUT_DIR, f"fig5{letter}.pdf"))
+    # One vector PDF per panel for the Illustrator assembly, a PNG alongside to read --
+    # via resave_ai.save_panel, which writes a file ONLY if its bytes changed. So
+    # re-running this notebook without changing a panel touches nothing, and fig5.ai does
+    # not go stale (or dirty on screen) over a rebuild that changed no artwork.
+    written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, f"fig5{letter}"))
+    print(f"wrote {', '.join(os.path.basename(p) for p in written)}" if written
+          else f"fig5{letter}: unchanged, left alone")
 """)
 
 md(r"""
@@ -782,9 +786,9 @@ panels.panel_cpg_dnm_rate(axes[2], cpg, min_n=MIN_N_CPG, show_xlabel=False)
 panels.panel_cpg_expected_share(axes[3], binned_b, min_n=MIN_N_WINDOWS)
 panels.label_panels(axes, ("A", "B", "C", "D"))
 
-for ext, kw in ((".pdf", {}), (".png", {"dpi": 200})):
-    fig.savefig(os.path.join(OUTPUT_DIR, f"supp_fig7{ext}"), bbox_inches="tight", **kw)
-print("wrote", os.path.join(OUTPUT_DIR, "supp_fig7.pdf"))
+written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, "supp_fig7"))
+print(f"wrote {', '.join(os.path.basename(p) for p in written)}" if written
+      else "supp_fig7: unchanged, left alone")
 """)
 
 code(r"""
@@ -904,15 +908,15 @@ disagrees with its own panels until Illustrator reloads the links, the document 
 and the PNG is exported again.
 
 The cell below does all three, so a notebook run ends with everything in step. It relinks
-only the panels newer than the .ai, and prints each one: relinking preserves a placed
+only the panels whose content the .ai does not already hold — judged by hash against
+`fig5.ai.links.json`, not by mtime — and prints each one: relinking preserves a placed
 item's frame rather than its aspect ratio, so a panel whose bounding box moved is worth a
-look. Nothing here is required to build the figure -- without Illustrator, or without the
+look. A run that changed no artwork has nothing to relink, because `save()` above left
+those files untouched. Nothing here is required to build the figure -- without Illustrator, or without the
 .ai, it prints a notice and moves on. `fig5/resave_ai.py` is the same code as a command.
 """)
 
 code(r"""
-import resave_ai
-
 _ = resave_ai.refresh(quiet_if_absent=True)   # the return code is for the shell, not here
 """)
 
