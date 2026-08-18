@@ -505,17 +505,50 @@ md(r"""
 ## Panel C — the training set is not the scored population
 
 $r$ is fit on de novo mutations and matched background sites drawn from the **whole
-genome**, but applied to — and Gnocchi scored on — noncoding, `pass_qc`, autosome/PAR
-windows. Panel C measures how far apart those two populations drift with GC.
+genome**, but applied to — and, in this figure, evaluated on — McHale et al.'s 693,270
+putatively neutral windows, taken from their own file rather than rebuilt here: this
+notebook applies no noncoding, QC or autosome/PAR filter of its own on top of it
+(`windows.build_window_table`), so the analyzed population is theirs as they define it.
+Panel C measures how far apart those two populations drift with GC.
 
 Map each non-CpG training site — **both classes, DNMs and background sites alike** — to
-its containing 1 kb tile and partition the sites of GC bin $g$ three ways:
+its containing 1 kb tile and partition the sites of GC bin $g$ four ways:
 
-$$N(g)=N_{\mathrm{noncoding}}(g)+N_{\mathrm{coding}}(g)+N_{\mathrm{QC}}(g),$$
+$$N(g)=N_{\mathrm{scored}}(g)+N_{\mathrm{other}}(g)
+        +N_{\mathrm{coding}}(g)+N_{\mathrm{QC}}(g),$$
 
-where *noncoding* means the tile is in the scored population, *coding* that it is in the
-constraint table but coding, and *QC* that it is not in that table at all. The stack
-plots the three fractions, which sum to 1 by construction.
+where *scored* means the tile is one of those 693,270, *other noncoding* that it is
+QC-pass and noncoding but outside them, *coding* that it is in the constraint table but
+coding, and *QC* that it is not in that table at all. The stack plots the four fractions, which sum
+to 1 by construction.
+
+Three of those are the genome's own split — **QC-pass coding, QC-pass noncoding,
+QC-fail** — and the fourth exists only because the scored population is narrower than
+QC-pass noncoding, cutting that category into their set and the rest of it. With
+`NEUTRAL_WINDOWS_BED` unset the scored population *is* QC-pass noncoding, the stack is
+the three-way split, and the *other noncoding* band is empty and undrawn. Which stack is drawn follows
+the scored population automatically, because the bottom band is membership in the
+analyzed window table rather than a filter restated here.
+
+**What the narrowing to their windows does and does not move.** Mostly it only splits.
+The QC-fail band is exactly invariant: it is the windows with no row in Chen et al.'s
+table, which for that reason cannot be in the analyzed table under any window definition.
+What the narrowing does is divide the QC-pass noncoding territory between *scored* and
+*other noncoding*. So the numbers quoted below for QC-fail are ones this choice cannot
+change; the ones that used to describe the scored band are quoted here for **the two
+together**, which is the whole QC-pass noncoding category either way, with this run's own
+split in the table printed under the code cell.
+
+The coding band is *nearly* invariant, and the exception is worth naming because it is a
+place where the two papers' definitions can disagree. Since their file now enters whole,
+a window they call neutral is labelled `scored` even if its `coding_prop` is above zero —
+the `scored` arm of `data._stratum_expr` is tested before the `coding` arm. Their
+noncoding rule is that a window does not *significantly* overlap merged exons, with the
+threshold never numerically defined; this repo's own rule, used when their file is absent,
+is the strict `coding_prop <= 0.0`. Any window between the two moves out of the coding
+band and into the scored one. How many there are is a property of their file, not of
+anything measured here — it is the count of analyzed windows with `coding_prop > 0`, zero
+under the full-window-set run by construction.
 
 **Why both classes.** In a case-control design it is the controls that carry the
 covariate distribution, which is the argument for stacking the background class alone —
@@ -544,21 +577,24 @@ that puts a GC slope into $r$.
 **How a site is assigned.** The bottom band is not a filter re-derived here: a site is
 *in the scored population* exactly when its 1 kb window is a row of the analyzed window
 table, the same table `refit.py` restricts the training set with and the same one panels
-A, B and E are evaluated on. So this row measures the population those panels actually
-use, whatever defines it — and when `NEUTRAL_WINDOWS_BED` is supplied, the narrowing to
-McHale et al.'s 693,270 windows comes along automatically rather than having to be
-remembered here.
+A, B and E are evaluated on. With `NEUTRAL_WINDOWS_BED` set, that table is the join to
+McHale et al.'s own file, so their window definition — enhancer overlap, assembly gaps,
+ENCODE exclude regions, low-coverage regions and all — reaches this row automatically
+rather than having to be restated here, and the population fit on, scored on and stacked
+here cannot come apart.
 
 **What the bands above it are, precisely** — the labels matter here, because the
 mechanism differs. A coding window *has* a published Gnocchi score; it is this analysis
-that sets it aside, following McHale et al.'s noncoding restriction. So does a
-*non-neutral* window: noncoding and QC-pass, but not in McHale et al.'s 693,270 — the
-territory given up in narrowing to their set, whether for overlapping a GeneHancer
-enhancer or for one of their interval exclusions. **That band is the direct answer to
-"do the conclusions survive on their windows?"**: if the territory being given up has the
-scored population's own DNM rate, then restricting to their set costs sample size and
-nothing else. It is empty and undrawn unless `NEUTRAL_WINDOWS_BED` is set. A window in
-the QC-fail stratum has no score at all: Chen et al. dropped it before scoring, keeping
+that sets it aside, following McHale et al.'s noncoding restriction. So does an *other
+noncoding* window: QC-pass and noncoding, but not among their 693,270 — the rest of that
+category, given up in narrowing to their set, whether for overlapping a GeneHancer
+enhancer or for one of their interval exclusions. The band is named for where those
+windows sit and not for what they are: being outside a set someone calls putatively
+neutral is not evidence of selection, and whether they differ from the scored population
+at all is precisely what the lower row measures. **That band is the direct answer to "do
+the conclusions survive on their windows?"**: if the territory being given up has the scored population's
+own DNM rate, then restricting to their set costs sample size and nothing else. A window
+in the QC-fail stratum has no score at all: Chen et al. dropped it before scoring, keeping
 only
 windows with $\ge1{,}000$ possible variants, $\ge80\%$ of observed variants PASS, and
 mean coverage 25–35× (Methods; `run_nc_constraint_gnomad_v31_main.py:296`). The published
@@ -570,13 +606,16 @@ until measured: of the 587,902 absent autosomal windows, all have their QC input
 file, 417,097 fail the PASS rule and only 19,396 fail the coverage band. Weighted by
 background training sites it is starker still — 88% PASS rule, 14% too few possible
 variants, 1% coverage. Those percentages are *within* the QC-fail band, not of the training
-set: 86.6% of non-CpG background sites are in QC-pass windows (80.5% in the scored
-population, 6.1% coding) and 13.3% in QC-fail ones. `preconditions/verify_qc_filter.py` records both, and confirms the
+set: 86.6% of non-CpG background sites are in QC-pass windows (80.5% QC-pass noncoding,
+i.e. the scored and other-noncoding bands together, and 6.1% coding) and 13.3% in QC-fail
+ones. `preconditions/verify_qc_filter.py` records both, and confirms the
 filter forwards too: all 1,984,900 scored windows satisfy all three conditions. Over both
-training classes — the stack's own genome-wide average — it is 79.9% / 6.1% / 14.0%.
+training classes — the stack's own genome-wide average — it is 79.9% QC-pass noncoding /
+6.1% coding / 14.0% QC-fail.
 
-The bands are therefore *the scored population*, *QC-pass coding*, *QC-pass non-neutral*
-(empty here) and *QC-fail* — and only the QC-pass ones are split by coding status.
+The bands are therefore *the scored population*, *the other QC-pass noncoding windows*,
+*QC-pass coding* and *QC-fail* — and only the QC-pass ones are split by coding status and
+by membership in their set.
 **QC-fail is a mixture**, deliberately: `coding_prop` lives in the constraint table and
 these windows have no row in it. Read from
 Chen et al.'s own upstream input (`misc/genome_1kb_coding_exons.txt`), 6.9% of the QC-fail
@@ -584,27 +623,43 @@ windows overlap coding exons, against 7.1% of the QC-pass ones — so QC failure
 independent of coding status, and that band is not a coding band in disguise. Site-
 weighted, 5.8% of its sites are in coding-overlapping windows.
 
-The fraction inside the scored population falls from ~0.82 in the GC bulk to under 0.28
-by GC 0.68. So the model is fit on one population and applied to another, and the two
-come apart exactly where panel A's bias is largest.
+The QC-pass noncoding share of the training set — the scored and other-noncoding bands
+together — falls from ~0.82 in the GC bulk to under 0.28 by GC 0.68, and the scored band
+alone is that curve minus the other-noncoding one. So the model is fit on one population and
+applied to another, and the two come apart exactly where panel A's bias is largest.
 
 **The lower row shows that the excluded territory is not just absent but different**, and
 that the difference is not mainly the coding part. Writing $\bar y_s(g)$ for the
 empirical non-CpG DNM rate in stratum $s$ and bin $g$, it plots
 
-$$\frac{\bar y_{\mathrm{coding}}(g)}{\bar y_{\mathrm{scored}}(g)}
+$$\frac{\bar y_{\mathrm{other}}(g)}{\bar y_{\mathrm{scored}}(g)},
+\qquad
+\frac{\bar y_{\mathrm{coding}}(g)}{\bar y_{\mathrm{scored}}(g)}
 \qquad\text{and}\qquad
 \frac{\bar y_{\mathrm{QC}}(g)}{\bar y_{\mathrm{scored}}(g)},$$
 
 with delta-method binomial error bars on the log ratio. A ratio of 1 would mean the
-excluded sites are exchangeable with the scored ones as far as mutation rate goes. The
-coding stratum sits there — within ~10%, flat across the whole range — while the
-QC-failing stratum runs 1.55× in the GC bulk and **4.06× by GC 0.61**.
+excluded sites are exchangeable with the scored ones as far as mutation rate goes.
+
+**Read the other-noncoding curve first**, because the other two are read against it.
+Near 1 across the range, the narrowing costs sample size and nothing else, and the rest of
+this figure carries over from the full window set unchanged. Climbing with GC, the
+narrowing is itself a third population change and belongs in the caption beside the other
+two.
+
+Measured with the whole QC-pass noncoding territory as the denominator — the full
+1,843,559-window run, where the scored band *was* that territory — the coding stratum sits
+at a ratio of 1 within ~10%, flat across the whole range, while the QC-failing stratum runs
+1.55× in the GC bulk and **4.06× by GC 0.61**. Here the denominator is the neutral subset
+alone, so those two numbers are the shape to expect rather than the values drawn: take the
+drawn ones from the table below, which moves with whatever the other-noncoding curve
+shows.
 
 Both rows come from one table of per-stratum counts; this row divides the DNM count by
 the site count, the row above takes the site count as a share of its bin. 72,801 of the
 non-CpG autosomal DNMs fall in the QC-failing stratum, against 17,545 coding and 241,479
-in the scored population.
+in QC-pass noncoding windows, which this run splits between the scored and
+other-noncoding bands.
 
 So the steep GC dependence the model learns comes from sequence gnomAD could not call
 reliably, which is also where trio DNM calling is least reliable: part of that excess is

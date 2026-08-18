@@ -312,37 +312,50 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 #
 # THE FIRST ONE IS DEFINED BY MEMBERSHIP, not by re-deriving the window filters here.
 # `scored` means the site's 1 kb window is a row of the analyzed window table --
-# windows.build_window_table, which carries the coding restriction, the QC filter, the
-# autosome/PAR restriction and, once config.NEUTRAL_WINDOWS_BED is set, the join down to
-# McHale et al.'s 693,270 neutral windows. That table is also what
-# dnm_model.restrict_to_analyzed_windows filters the training set with, so `scored` here
-# is exactly "survives the panel D/E intervention".
+# windows.build_window_table, which is EITHER the coding restriction + QC filter +
+# autosome/PAR restriction (config.NEUTRAL_WINDOWS_BED unset) OR McHale et al.'s own
+# 693,270-window file with none of those applied on top of it (set). That table is also
+# what dnm_model.restrict_to_analyzed_windows filters the training set with, so `scored`
+# here is exactly "survives the panel D/E intervention", under whichever definition is
+# in force.
 # Re-deriving those filters in SQL is how this panel silently stops describing the
 # population the retrained model is fit and scored on: until 2026-08-17 the first stratum
 # tested `an.coding_prop <= 0.0` and so would have counted windows outside the neutral
 # set as inside the scored population the moment that file was supplied.
 #
 # The other three name the REASON a site is outside it, in stacking order:
-#   coding      scored by Chen et al., but the window overlaps coding exons
-#   non_neutral noncoding, QC-pass, and in the constraint table, but NOT in McHale et
-#               al.'s neutral set -- the territory dropped in going from 1,843,559
-#               windows to their 693,270 (enhancer-overlapping windows, plus their
-#               assembly-gap / ENCODE-exclude / low-coverage exclusions; the file does
-#               not say which, and this band does not need to). Necessarily empty while
-#               config.NEUTRAL_WINDOWS_BED is None, and an empty stratum draws no band
-#               and no legend entry (panels.py). It is the band to read when asking
-#               whether the figure's conclusions survive on their window set: if the
-#               removed territory has the scored population's own DNM rate, restricting
-#               to it costs sample size and nothing else.
-#   failed_qc   no row in the constraint table at all, so it has no coding_prop to test.
-#               `failed_qc` and not `no_coverage`: every absent window has its QC inputs
-#               on file and fails one of the paper's three conditions (>= 80% of observed
-#               variants PASS, mean coverage 25-35x, >= 1000 possible variants), the
-#               first dominating. preconditions/verify_qc_filter.py measures the split.
+#   coding          scored by Chen et al., but the window overlaps coding exons -- and,
+#                   once NEUTRAL_WINDOWS_BED is set, is outside their set too, since a
+#                   coding window their file lists is tested by the `scored` arm first
+#                   and kept.
+#   other_noncoding QC-pass and noncoding and in the constraint table, but NOT in McHale
+#                   et al.'s window set -- the rest of the QC-pass noncoding territory,
+#                   the part given up in going from 1,843,559 windows to their 693,270
+#                   (enhancer-overlapping windows, plus their assembly-gap /
+#                   ENCODE-exclude / low-coverage exclusions; the file does not say
+#                   which, and this band does not need to).
+#                   NAMED FOR WHERE IT SITS, NOT FOR WHAT IT IS. It was `non_neutral`
+#                   until 2026-08-18, which asserted more than the data does: these
+#                   windows are outside a set McHale et al. call putatively neutral,
+#                   which is not evidence that they are under selection. Whether they
+#                   differ from the scored population at all is the open question this
+#                   band exists to answer -- if the given-up territory has the scored
+#                   population's own DNM rate, restricting to their set costs sample
+#                   size and nothing else -- so the name must not presume the answer.
+#                   Necessarily empty while config.NEUTRAL_WINDOWS_BED is None, and an
+#                   empty stratum draws no band and no legend entry (panels.py). Note
+#                   the asymmetry with `coding` above: this arm is reached only by
+#                   windows their file does not list at all.
+#   failed_qc       no row in the constraint table at all, so no coding_prop to test.
+#                   `failed_qc` and not `no_coverage`: every absent window has its QC
+#                   inputs on file and fails one of the paper's three conditions (>= 80%
+#                   of observed variants PASS, mean coverage 25-35x, >= 1000 possible
+#                   variants), the first dominating. preconditions/verify_qc_filter.py
+#                   measures the split.
 #
 # The order of the CASE arms is load-bearing: membership is tested first, so a window in
 # the analyzed table can never be relabelled by one of the reason arms below it.
-_STRATA = ("scored", "coding", "non_neutral", "failed_qc")
+_STRATA = ("scored", "coding", "other_noncoding", "failed_qc")
 
 
 def _stratum_expr() -> str:
@@ -357,7 +370,7 @@ def _stratum_expr() -> str:
     return f"""CASE WHEN sw.element_id IS NOT NULL THEN 'scored'
                     WHEN an.element_id IS NULL THEN 'failed_qc'
                     WHEN an.coding_prop > {W.NONCODING_MAX_CODING_PROP!r} THEN 'coding'
-                    ELSE 'non_neutral' END"""
+                    ELSE 'other_noncoding' END"""
 
 # chrX/chrY dropped from BOTH classes. The published fitting code drops chrX from the
 # background class only, which inflates the apparent rate there; an empirical reference
@@ -496,7 +509,7 @@ def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
     so a site lands in exactly one -- which is why nothing is asserted here.
 
     Columns: gc_bin, gc_mid, n_total, n_{stratum}, frac_{stratum}, for every stratum in
-    _STRATA including any that is empty genome-wide (`non_neutral`, while
+    _STRATA including any that is empty genome-wide (`other_noncoding`, while
     NEUTRAL_WINDOWS_BED is None) -- the shape does not depend on the configuration, and panels.py drops a band
     that is zero everywhere rather than drawing an invisible one with a legend entry.
     """
@@ -537,7 +550,7 @@ def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl
     stratum holds fewer than that many sites.
 
     Columns: gc_bin, gc_mid, and {stratum}_{ratio,se_log} for each excluded stratum that
-    has any bin left after min_n -- so an empty `non_neutral` stratum contributes no
+    has any bin left after min_n -- so an empty `other_noncoding` stratum contributes no
     columns rather than a column of nulls, and panels.py plots whichever it finds.
     """
     keep = st.filter(pl.col("n") >= min_n)

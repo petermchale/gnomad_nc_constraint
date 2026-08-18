@@ -229,7 +229,6 @@ def load_mchale_neutral_element_ids(neutral_windows_bed: str) -> pl.Series:
 def restrict_to_mchale_neutral_windows(
     df: pl.DataFrame,
     neutral_windows_bed: str | None,
-    df_prefilter: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """
     Restrict the window table to McHale et al.'s putatively neutral set, by an inner join
@@ -243,11 +242,12 @@ def restrict_to_mchale_neutral_windows(
     never implemented, which is why 1,843,559 was 2.66x their 693,270 rather than merely
     enhancer-inflated.
 
-    `df_prefilter`, if given, is the window table BEFORE the noncoding/sex-chromosome
-    filters. It is used only to explain a shortfall: any neutral window that fails to
-    join is looked up there, so the message can say whether it is missing because this
-    repo filtered it out or because it is absent from Chen et al.'s constraint table
-    entirely. Diagnosis only -- it never changes what is returned.
+    `df` REACHES HERE UNFILTERED (build_window_table skips its own noncoding/QC/sex
+    filters whenever this file is supplied), so this join subtracts nothing of its own
+    and the returned set is their set. The one thing that can still be missing is a row
+    in the underlying join -- Chen et al.'s constraint table, the step-1 expected table,
+    the features table -- and the shortfall message below counts exactly that, since
+    there is no longer any other way for one of their windows to fall out here.
 
     LOUD ON FAILURE, because the failure mode is silent. A chr-prefix or coordinate-
     convention mismatch produces an empty or near-empty join, which otherwise just looks
@@ -273,14 +273,24 @@ def restrict_to_mchale_neutral_windows(
             f"windows look like {df['element_id'][0]!r}, the file's like "
             f"{neutral_ids[0]!r}.")
 
-    missing = neutral_ids.filter(~neutral_ids.is_in(out["element_id"]))
-    if missing.len() and df_prefilter is not None:
-        known = df_prefilter.filter(pl.col("element_id").is_in(missing))
-        n_coding = int(known.filter(pl.col("coding_prop") > NONCODING_MAX_CODING_PROP).height)
-        print(f"  of the {missing.len():,} unmatched: {known.height:,} are in Chen et "
-              f"al.'s constraint table ({n_coding:,} of those dropped here as coding, "
-              f"{known.height - n_coding:,} for another filter), "
-              f"{missing.len() - known.height:,} are absent from it altogether")
+    # DOES THEIR SET NEST INSIDE QC-PASS NONCODING? Panel C's four strata are a
+    # subdivision of the three the genome splits into -- QC-pass coding, QC-pass
+    # noncoding, QC-fail -- with QC-pass noncoding cut into their set and the rest. That
+    # is only a subdivision if their set holds no coding window. It is not enforced here
+    # (build_window_table skips its own noncoding filter so their set enters whole), so
+    # report it: 0 means the nesting holds and `coding` is exactly QC-pass coding;
+    # anything else means those windows are labelled `scored`, not `coding`, and the
+    # band is "QC-pass coding outside their set".
+    n_coding = int(out.filter(pl.col("coding_prop") > NONCODING_MAX_CODING_PROP).height)
+    print(f"  {n_coding:,} of the {out.height:,} kept have coding_prop > "
+          f"{NONCODING_MAX_CODING_PROP} (0 = their set nests inside QC-pass noncoding)")
+
+    n_missing = n_neutral - out.height
+    if n_missing:
+        print(f"  unmatched: {n_missing:,} with no row in the joined window table "
+              "(Chen et al.'s constraint table, the step-1 expected table, the features "
+              "table) -- almost all of them windows that failed Chen et al.'s window QC "
+              "and so were never scored. Nothing here filtered them.")
     return out
 
 
@@ -510,25 +520,44 @@ def build_window_table(cache_dir: str, exclude_sex: bool = True,
     inline in compute_gc_bias_step1_vs_step2.py's main() (since deleted); extracting it is
     what makes the analysis usable from a notebook.
 
-    TWO WINDOW SETS, ONE ARGUMENT. Without `neutral_windows_bed` this returns the
-    1,843,559 windows that are noncoding + pass_qc + autosome/PAR -- McHale et al.'s
-    definition as far as the public bucket reproduces it. With it, the same table is
-    joined down to their own 693,270 putatively neutral windows. Both are legitimate
-    analysis populations and the figure is meant to be run on each; see
-    restrict_to_mchale_neutral_windows for what the file is and what the join buys.
+    TWO WINDOW SETS, ONE ARGUMENT -- and each defines itself. Without
+    `neutral_windows_bed` the three filters below ARE the window definition: the
+    1,843,559 windows that are noncoding + pass_qc + autosome/PAR, this repo's
+    reproduction of McHale et al.'s set from the public bucket. With the file, THEIR
+    FILE IS THE DEFINITION and those three are skipped (`exclude_sex`, `noncoding` and
+    `apply_qc` are ignored), leaving their 693,270 putatively neutral windows.
+
+    WHY SKIP THEM RATHER THAN APPLY BOTH. Filtering first and joining second returns the
+    INTERSECTION of two definitions that need not agree, and silently: `noncoding` here
+    is `coding_prop <= 0.0`, a strict zero, while theirs is windows that "don't
+    significantly overlap merged exons" with the threshold never numerically defined --
+    so any window in the gap is in their neutral set and would be dropped here as
+    coding, shrinking the population below the one their paper reports without saying
+    so. The same applies to the sex-chromosome and QC rules, which their exclusions
+    (assembly gaps, ENCODE exclude regions, low coverage) already cover in their own
+    terms. Their set is the thing being defended, so it enters whole.
+
+    One requirement survives either way, because it is not a filter but the join in
+    load_joined_table: a window needs a row in Chen et al.'s constraint table, the
+    step-1 expected table and the features table, or there is no `expected`, `observed`
+    or GC content to score it with. restrict_to_mchale_neutral_windows reports how many
+    of their windows fall out that way.
+
+    Both are legitimate analysis populations and the figure is meant to be run on each;
+    see restrict_to_mchale_neutral_windows for what the file is and what the join buys.
     """
     os.makedirs(cache_dir, exist_ok=True)
     local_paths = {k: download(v, cache_dir) for k, v in REMOTE_FILES.items()}
 
     df = load_joined_table(local_paths)
-    prefilter = df
-    if exclude_sex:
-        df = exclude_sex_chromosomes(df)
-    if noncoding:
-        df = restrict_to_noncoding(df)
-    if apply_qc:
-        df = df.filter(pl.col("pass_qc"))
-    df = restrict_to_mchale_neutral_windows(df, neutral_windows_bed, prefilter)
+    if neutral_windows_bed is None:
+        if exclude_sex:
+            df = exclude_sex_chromosomes(df)
+        if noncoding:
+            df = restrict_to_noncoding(df)
+        if apply_qc:
+            df = df.filter(pl.col("pass_qc"))
+    df = restrict_to_mchale_neutral_windows(df, neutral_windows_bed)
     df = maybe_downsample(df, downsample_frac, downsample_n, random_seed)
     df = add_gc_content_fraction(df)
     return df

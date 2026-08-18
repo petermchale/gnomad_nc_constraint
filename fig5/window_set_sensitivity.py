@@ -50,7 +50,7 @@ The real check is the file.
 STILL OPEN, and this is the honest gap: none of these arms can reproduce removing windows
 because they are CONSTRAINED. Enhancer windows are both GC-rich and depleted of variation,
 so the real narrowing deletes high-z windows preferentially at high GC -- partially,
-within GC bins, not by truncation. Panel C's `non_neutral` band measures the empirical
+within GC bins, not by truncation. Panel C's `other_noncoding` band measures the empirical
 version of this once the file is supplied: if the removed territory carries the scored
 population's own DNM rate, the narrowing costs sample size and nothing else.
 

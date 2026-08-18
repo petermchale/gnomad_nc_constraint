@@ -144,7 +144,7 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # scored-population intervention through panels B, D and E, and a fourth meaning would
 # undo that thread. Aqua is the slot the bottom band vacated, so it collides only with
 # panel A's depletion-rank curve -- a different panel with its own legend, and not part
-# of a thread that runs across several. `non_neutral` takes the palette's blue on the
+# of a thread that runs across several. `other_noncoding` takes the palette's blue on the
 # same reasoning: blue means the context-only model in panels A and E, but nothing in
 # panel C does, and blue is the last categorical slot that is not load-bearing across
 # panels.
@@ -178,20 +178,20 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # quietly wrong. The bands above
 # it keep naming their filter, since each one IS a reason for exclusion.
 STRATUM_COLORS = {"scored": "0.78", "coding": "#eb6834",
-                  "non_neutral": "#2a78d6", "failed_qc": "#1baf7a"}
+                  "other_noncoding": "#2a78d6", "failed_qc": "#1baf7a"}
 STRATUM_LABELS = {
     "scored": "In the scored population",
     "coding": "In QC-pass coding windows",
-    "non_neutral": "In QC-pass non-neutral windows",
+    "other_noncoding": "In other QC-pass noncoding windows",
     "failed_qc": "In QC-fail windows",
 }
 # Bottom to top, matching data._STRATA: the scored population, then each kind of territory
-# outside it. `non_neutral` is empty unless config.NEUTRAL_WINDOWS_BED is set, and an
+# outside it. `other_noncoding` is empty unless config.NEUTRAL_WINDOWS_BED is set, and an
 # empty stratum is dropped at draw time rather than conditioned on here -- the panel
 # functions take a table, not a configuration.
 COMPOSITION_STYLE = [
     (f"frac_{key}", STRATUM_COLORS[key], STRATUM_LABELS[key])
-    for key in ("scored", "coding", "non_neutral", "failed_qc")
+    for key in ("scored", "coding", "other_noncoding", "failed_qc")
 ]
 
 
@@ -219,7 +219,7 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     df = df[(df["gc_mid"] >= xrange[0]) & (df["gc_mid"] <= xrange[1])].sort_values("gc_mid")
 
     # A stratum with no sites in any plotted bin gets no band and no legend entry --
-    # `non_neutral` whenever config.NEUTRAL_WINDOWS_BED is unset. Drawn, it would be an invisible
+    # `other_noncoding` whenever config.NEUTRAL_WINDOWS_BED is unset. Drawn, it would be an invisible
     # zero-height band with a legend swatch promising territory that does not exist.
     style = [(c, col, lab) for c, col, lab in COMPOSITION_STYLE
              if c in df.columns and float(df[c].max()) > 0]
@@ -238,7 +238,7 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
 # dicts rather than repeated, so the band and the line for a stratum always match.
 STRATUM_STYLE = {
     key: {"color": STRATUM_COLORS[key], "marker": marker, "label": STRATUM_LABELS[key]}
-    for key, marker in (("coding", "s"), ("non_neutral", "o"), ("failed_qc", "v"))
+    for key, marker in (("coding", "s"), ("other_noncoding", "o"), ("failed_qc", "v"))
 }
 
 
