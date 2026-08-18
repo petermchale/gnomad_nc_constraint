@@ -7,19 +7,22 @@ cited there as 7A-7D. Run it top to bottom.
 
 **Panel C is two rows** sharing a GC axis and built from one table: the composition of
 the training sites (how much of the training set is outside the scored population --
-*covariate shift*), and each other stratum's DNM rate relative to the scored
-population's (whether the territory outside is also *different* -- *concept shift*). The upper row
-alone shows only an absence. Both rows count **both training classes**, DNMs and
+*covariate shift*), and each other stratum's DNM rate relative to the scored population's
+(whether the part of the training set lying outside it has a *different DNM rate* --
+*concept shift*). The upper row alone shows only an absence. Both rows count **both training classes**, DNMs and
 background sites: the fit minimizes its loss over the mixture, so the mixture is the
 training distribution being compared against the scored one. Its bottom band is the
 scored population itself, defined by MEMBERSHIP in the analyzed window table (`data.py`,
 `_STRATA`) rather than by re-deriving that table's filters -- so it follows
 `NEUTRAL_WINDOWS_BED` automatically, which a re-derivation did not. The bands above it
-name the reason a site is outside: *QC-pass coding*, *QC-pass non-neutral* (empty and
-undrawn unless `NEUTRAL_WINDOWS_BED` is set) and *QC-fail*. The non-neutral band is the
-one to read when asking whether the figure survives on McHale et al.'s window set: it is
-the territory given up in narrowing 1,843,559 windows to their 693,270, and if its DNM
-rate matches the scored population's, that narrowing costs sample size and nothing else.
+name the reason a site is outside: *QC-pass coding*, *other QC-pass noncoding* (the
+`other_noncoding` stratum -- empty and undrawn unless `NEUTRAL_WINDOWS_BED` is set) and
+*QC-fail*. That middle band is the one to read when asking whether the figure survives on
+McHale et al.'s window set: it is the territory given up in narrowing 1,843,559 windows
+to their 693,270, and if its DNM rate matches the scored population's, that narrowing
+costs sample size and nothing else. It is named for where those windows sit, not for what
+they are -- being outside a set someone calls putatively neutral is not evidence of
+selection, and whether they differ at all is what the lower row measures.
 Only the QC-pass ones are split by coding
 status, because `coding_prop` comes from the constraint table and a QC-fail window has no
 row in it; measured separately, that band is 6.9% coding-overlapping against the QC-pass

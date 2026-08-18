@@ -284,9 +284,10 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
 
     THE CLAIM, and why the two rows belong together. The row above shows that the
     training set leaves the scored population at high GC; on its own that is only an
-    absence. This row shows the excluded territory is also DIFFERENT: the QC-pass coding
-    stratum tracks the scored population within ~10% and flat across the whole GC
-    range, while the QC-fail stratum runs 1.55x in the GC bulk and 4.06x by GC 0.61.
+    absence. This row shows that the part of the training set lying outside the scored
+    population has a DIFFERENT DNM RATE: the QC-pass coding stratum tracks the scored
+    population within ~10% and flat across the whole GC range, while the QC-fail stratum
+    runs 1.55x in the GC bulk and 4.06x by GC 0.61.
 
     The QC-fail stratum mixes coding and noncoding windows (6.9% of it overlaps coding
     exons, against 7.1% of the QC-pass windows), so its excess is not the coding effect

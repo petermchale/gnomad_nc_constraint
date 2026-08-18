@@ -585,8 +585,9 @@ The QC-pass noncoding share of the training set falls from ~0.82 in the GC bulk 
 0.28 by GC 0.68. So the model is fit on one population and applied to another, and the
 two come apart exactly where panel A's bias is largest.
 
-**The lower row shows that the excluded territory is not just absent but different**, and
-that the difference is not mainly the coding part. Writing $\bar y_s(g)$ for the empirical
+**The part of the DNM training set that lies outside the scored population has a
+different DNM rate** — that is what the lower row measures, and the difference is not
+mainly the coding part. Writing $\bar y_s(g)$ for the empirical
 non-CpG DNM rate in stratum $s$ and bin $g$, it plots $\bar y_s(g)/\bar
 y_{\mathrm{scored}}(g)$ for each excluded stratum, with delta-method binomial error bars
 on the log ratio. A ratio of 1 would mean those sites are exchangeable with the scored
