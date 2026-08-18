@@ -25,14 +25,27 @@ SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "D", "control
 
 GRID_KW = {"color": "0.85", "linewidth": 0.6}
 REF_LINE_KW = {"color": "0.45", "linewidth": 0.8, "linestyle": "--"}
-AXIS_LABEL_FONTSIZE = 12
-TICK_LABEL_FONTSIZE = 11
-LEGEND_FONTSIZE = 10
+# Sized for the figure as it appears in the manuscript, where each panel PDF is placed
+# at roughly half a page width -- at the previous 12/11/10 the tick labels were the first
+# thing to become unreadable there. Every panel reads these three, so the figure cannot
+# drift into mixed type sizes; a panel that needs a smaller legend takes it relative
+# (LEGEND_FONTSIZE - 1), never as its own literal.
+AXIS_LABEL_FONTSIZE = 15
+TICK_LABEL_FONTSIZE = 13
+LEGEND_FONTSIZE = 12
 
 
 def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
-            legend_fontsize=LEGEND_FONTSIZE, grid_axis="both") -> None:
-    """The frame every panel shares: range, labels, grid, despined box, legend."""
+            legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None) -> None:
+    """
+    The frame every panel shares: range, labels, grid, despined box, legend.
+
+    `handles` overrides the legend's order, which otherwise follows the order things were
+    drawn in. Draw order is not free -- a stack has to be drawn bottom-up, and a curve
+    drawn later sits on top -- so a panel whose legend should read in the order the
+    reader sees things on the page passes its handles here instead of reordering its
+    drawing.
+    """
     ax.set_xlim(xrange)
     ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_FONTSIZE)
     if show_xlabel:
@@ -42,7 +55,11 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     ax.set_axisbelow(True)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
-    ax.legend(fontsize=legend_fontsize, frameon=False, loc=legend_loc)
+    if handles is not None:
+        ax.legend(handles, [h.get_label() for h in handles],
+                  fontsize=legend_fontsize, frameon=False, loc=legend_loc)
+    else:
+        ax.legend(fontsize=legend_fontsize, frameon=False, loc=legend_loc)
 
 
 def _log_ratio_axis(ax, values, ticks=(0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5),
@@ -69,7 +86,7 @@ def curve_from_binned(binned, label: str, key: str, display: str) -> dict:
 
 def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
                     xrange=(0.2, 0.73), yrange=(0.0, 1.0), min_n: int = 100,
-                    show_xlabel: bool = True) -> None:
+                    show_xlabel: bool = True, legend_loc: str = "upper left") -> None:
     """
     Panels A and E. Mean standardized rank of each constraint metric per GC bin.
 
@@ -90,7 +107,13 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
     if gc_mean is not None:
         ax.axvline(gc_mean, color="0.45", linewidth=0.8)
     ax.set_ylim(*yrange)
-    _finish(ax, "Mean standardized rank\nof constraint metric", xrange, show_xlabel)
+    # legend_loc is a parameter because A and E carry different numbers of curves in the
+    # same frame: A's two fit above the rising published curve, E's three do not -- its
+    # third label wraps to a second line that runs straight through that curve. The rank
+    # axis is fixed to (0,1) while no curve goes below ~0.27, so the bottom of the panel
+    # is empty by construction and is where a legend goes when the top is full.
+    _finish(ax, "Mean standardized rank\nof constraint metric", xrange, show_xlabel,
+            legend_loc=legend_loc)
 
 
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
@@ -127,9 +150,7 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 
     ax.axhline(1.0, **REF_LINE_KW)
     _log_ratio_axis(ax, df[["r_non", "r_eff", "r_cpg"]].to_numpy())
-    _finish(ax, r"Adjustment applied per GC bin," "\n"
-                r"$R(g)=\sum E_2 \,/ \sum E_1$ over its windows",
-            xrange, show_xlabel)
+    _finish(ax, "Regional adjustment", xrange, show_xlabel)
 
 
 # Panel C's two rows share one colour per stratum, defined once here so the band in the
@@ -196,11 +217,19 @@ COMPOSITION_STYLE = [
 
 
 def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
-                               show_xlabel: bool = True) -> None:
+                               show_xlabel: bool = True,
+                               scored_note: str | None = None) -> None:
     """
     Panel C, upper row. Where the non-CpG training sites actually sit, as a stacked
     composition per GC bin. `comp` is data.training_composition() output; the fractions
     partition each bin by construction, so the stack fills to 1.
+
+    `scored_note` names, parenthetically in the legend, WHICH population the bottom band
+    is -- "QC-pass noncoding" or "McHale et al.'s neutral set". The band is defined by
+    membership in the analyzed window table, so its meaning changes with
+    config.NEUTRAL_WINDOWS_BED while its label would not; a reader of the panel alone
+    cannot tell the two apart, and the composition means something different in each. The
+    caller supplies it because this module takes a table, never a configuration.
 
     Both training classes are counted, DNMs and background sites alike: the fit minimizes
     its loss over the mixture, so the mixture is the training distribution this row is
@@ -223,15 +252,21 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     # zero-height band with a legend swatch promising territory that does not exist.
     style = [(c, col, lab) for c, col, lab in COMPOSITION_STYLE
              if c in df.columns and float(df[c].max()) > 0]
+    if scored_note:
+        style = [(c, col, f"{lab} ({scored_note})" if c == "frac_scored" else lab)
+                 for c, col, lab in style]
 
     # alpha=1: the lower row draws these same colours as solid lines, and any
     # transparency here would make the band read as a slightly different hue.
-    ax.stackplot(df["gc_mid"], *[df[c] for c, _, _ in style],
-                 colors=[c for _, c, _ in style],
-                 labels=[lab for _, _, lab in style], alpha=1.0)
+    bands = ax.stackplot(df["gc_mid"], *[df[c] for c, _, _ in style],
+                         colors=[c for _, c, _ in style],
+                         labels=[lab for _, _, lab in style], alpha=1.0)
     ax.set_ylim(0, 1)
+    # A stack is drawn bottom-up, so the legend reads bottom-up unless reversed -- and a
+    # reader matching swatch to band scans the plot top-down. Reversed, the two orders
+    # agree and the legend can be read straight down the stack.
     _finish(ax, "Fraction of non-CpG\ntraining sites", xrange, show_xlabel,
-            legend_loc="lower left", grid_axis="y")
+            legend_loc="lower left", grid_axis="y", handles=bands[::-1])
 
 
 # Exactly the colours and labels of the composition stack above, taken from the same
@@ -269,17 +304,25 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     # Whichever strata the table carries: data.stratum_ratios omits one with no bins
     # left, so an unsupplied neutral-window file costs a curve rather than a KeyError.
     drawn = [s for s in STRATUM_STYLE if f"{s}_ratio" in df.columns]
+    handles = {}
     for stratum in drawn:
         style = STRATUM_STYLE[stratum]
         r, se = df[f"{stratum}_ratio"], df[f"{stratum}_se_log"]
         # Symmetric in log space -> asymmetric in linear space, correct for a ratio.
-        ax.errorbar(df["gc_mid"], r, yerr=[r - r * np.exp(-se), r * np.exp(se) - r],
-                    marker=style["marker"], color=style["color"], markersize=5,
-                    linewidth=2, capsize=3, elinewidth=1, label=style["label"])
+        handles[stratum] = ax.errorbar(
+            df["gc_mid"], r, yerr=[r - r * np.exp(-se), r * np.exp(se) - r],
+            marker=style["marker"], color=style["color"], markersize=5,
+            linewidth=2, capsize=3, elinewidth=1, label=style["label"])
     ax.axhline(1.0, **REF_LINE_KW)
     _log_ratio_axis(ax, df[[f"{s}_ratio" for s in drawn]].to_numpy(),
                     ticks=(0.8, 0.9, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0))
-    _finish(ax, "P(DNM) relative to the\nscored population (non-CpG)", xrange, show_xlabel)
+    # Highest curve first, matching the row above, where the legend reads top-down. Which
+    # stratum is highest is a result here rather than a layout fact, so it is read off the
+    # data instead of hardcoded -- an other-noncoding curve near 1 would land between the
+    # QC-fail and coding ones, and the legend follows it there.
+    order = sorted(drawn, key=lambda s: float(df[f"{s}_ratio"].mean()), reverse=True)
+    _finish(ax, "P(DNM) relative to the\nscored population\n(non-CpG)", xrange,
+            show_xlabel, handles=[handles[s] for s in order])
 
 
 PAIR_STYLE = {
@@ -445,7 +488,7 @@ def panel_cpg_expected_share(ax, binned, min_n: int = 100, xrange=(0.2, 0.8),
 def label_panels(axes, labels=("A", "B", "C"), x: float = -0.1, y: float = 1.02) -> None:
     """Bold panel letters in axes coordinates, for figures saved as a single file."""
     for ax, letter in zip(axes, labels, strict=True):
-        ax.text(x, y, letter, transform=ax.transAxes, fontsize=14,
+        ax.text(x, y, letter, transform=ax.transAxes, fontsize=17,
                 fontweight="bold", va="bottom", ha="right")
 
 
@@ -488,6 +531,6 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
 
     if normalize:
         ax.axhline(1.0, **REF_LINE_KW)
-    _finish(ax, "P(DNM) relative to its own mean\n(non-CpG contexts)" if normalize
-            else "P(DNM) in the training set\n(non-CpG contexts)",
+    _finish(ax, "P(DNM) relative to\nits own mean\n(non-CpG contexts)" if normalize
+            else "P(DNM) in the\ntraining set\n(non-CpG contexts)",
             xrange, show_xlabel, legend_fontsize=LEGEND_FONTSIZE - 1)

@@ -348,6 +348,10 @@ curves_a = [
 if binned_dr is not None:
     curves_a.append(panels.curve_from_binned(binned_dr, "dr", "dr",
                                              "Depletion rank (Halldorsson windows)"))
+# Legend order is draw order, so reverse the list rather than the legend handles: the
+# published score is the panel's subject and reads first, the model it is built on top of
+# second. Reversing here also puts the subject on top where the curves cross.
+curves_a = curves_a[::-1]
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
 panels.panel_rank_bias(ax, curves_a, gc_mean=gc_mean, xrange=XRANGE, min_n=MIN_N_WINDOWS)
@@ -612,8 +616,12 @@ ratios = D.stratum_ratios(st, edges)
 
 fig, (axC1, axC2) = plt.subplots(2, 1, figsize=(FIGSIZE[0], 7.6), sharex=True,
                                  gridspec_kw={"height_ratios": [1, 1], "hspace": 0.12})
-panels.panel_training_composition(axC1, comp, min_n=MIN_N_SITES, xrange=XRANGE,
-                                  show_xlabel=False)
+# The bottom band's meaning follows NEUTRAL_WINDOWS_BED, but its label would not, so
+# name the population in the legend rather than leaving the panel ambiguous on its own.
+panels.panel_training_composition(
+    axC1, comp, min_n=MIN_N_SITES, xrange=XRANGE, show_xlabel=False,
+    scored_note=("QC-pass noncoding" if NEUTRAL_WINDOWS_BED is None
+                 else "McHale et al.'s neutral set"))
 panels.panel_stratum_ratios(axC2, ratios, xrange=XRANGE)
 save(fig, "C")
 
@@ -709,17 +717,21 @@ for label, pop in CONTROLS:
 
 df_e, binned_e = D.rank_curves(df_win, extra=extra, min_n=MIN_N_WINDOWS)
 
+# Published Gnocchi first, then the context-only model it is built on, then the retrained
+# score -- the order the argument is made in, and the same first-two order as panel A.
 curves_e = [
-    panels.curve_from_binned(binned_e, "step1", "step1", r"Context-only model ($r \equiv 1$)"),
     panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi as published"),
+    panels.curve_from_binned(binned_e, "step1", "step1", r"Context-only model ($r \equiv 1$)"),
     panels.curve_from_binned(binned_e, "scored", "scored",
                              "Gnocchi, $r$ retrained on the\n"
                              "scored-population-filtered training set"),
 ]
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
+# Lower left: E's third label wraps to two lines, and at the panel's type size that
+# second line runs through the published curve if the legend stays top-left as in A.
 panels.panel_rank_bias(ax, curves_e, gc_mean=float(df_e["GC_content"].mean()),
-                       xrange=XRANGE, min_n=MIN_N_WINDOWS)
+                       xrange=XRANGE, min_n=MIN_N_WINDOWS, legend_loc="lower left")
 save(fig, "E")
 """)
 
