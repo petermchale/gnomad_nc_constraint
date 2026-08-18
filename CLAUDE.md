@@ -80,10 +80,17 @@ figure.
    of coding and noncoding** windows (6.9% coding-overlapping, against 7.1% among the
    QC-pass ones, so QC failure is near-independent of coding status); panel C therefore
    draws the scored population as its bottom band and names the territory outside it
-   *QC-pass coding*, *QC-pass enhancer* and *QC-fail*, splitting only the QC-pass ones by
-   coding status. The bottom band is defined by MEMBERSHIP in the analyzed window table,
+   *QC-pass coding*, *other QC-pass noncoding* and *QC-fail*, splitting only the QC-pass
+   ones by coding status. The genome splits three ways -- QC-pass noncoding, QC-pass
+   coding, QC-fail -- and the fourth band exists only when the scored population is
+   narrower than QC-pass noncoding, cutting that category into McHale et al.'s set and
+   the rest. The bottom band is defined by MEMBERSHIP in the analyzed window table,
    not by re-deriving its filters in SQL, so it follows `NEUTRAL_WINDOWS_BED` the moment
-   that file is supplied; the `non_neutral` band is empty and undrawn until then.
+   that file is supplied; the `other_noncoding` band is empty and undrawn until then.
+   That band was called `non_neutral` until 2026-08-18: the name asserted more than the
+   data does, since being outside a set McHale et al. call putatively neutral is not
+   evidence of selection, and whether those windows differ at all is the open question
+   the band exists to answer.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
    smooth 1.57x, and the logistic regression can then track it instead of missing by 26%
@@ -369,7 +376,18 @@ UCSC", and UCSC does not serve the file), and their *other* interval exclusions 
 assembly gaps, ENCODE exclude regions, low-coverage regions) are not in the public bucket
 either.
 
-So the file is the definition. `gnocchi_bias/windows.py`'s
+So the file is the definition -- and as of 2026-08-18 it is the WHOLE definition:
+`build_window_table` applies its own noncoding / `pass_qc` / autosome-PAR filters only
+when `NEUTRAL_WINDOWS_BED` is None, and skips them when the file is supplied. Filtering
+first and joining second returned the intersection of two definitions that need not
+agree -- `coding_prop <= 0.0` here, a strict zero, against their "doesn't significantly
+overlap merged exons" with the threshold never numerically defined -- so any window in
+the gap was in their set and was silently dropped here as coding. What can still remove
+one of their windows is not a filter but `load_joined_table`'s three-way inner join: a
+window with no row in the constraint table, the step-1 expected table or the features
+table has no `expected`/`observed`/GC to be scored with.
+
+`gnocchi_bias/windows.py`'s
 `load_mchale_neutral_element_ids()` / `restrict_to_mchale_neutral_windows()` read
 
 ```
@@ -391,8 +409,12 @@ result holding on only one is a result about the window definition. Operational 
 switching: the `scored` and `sizematched` refits must be rerun (~6 min each) and are keyed
 by population alone, so one set's refits overwrite the other's; the panel-C and CpG caches
 in `fig5/output/` carry a fingerprint of the GC edges and the window set, so those coexist.
-Panel C gains a fourth band, `non_neutral`, counting exactly the territory given up in the
-narrowing — the band to read when asking whether the figure's conclusions survive it.
+Panel C gains a fourth band, `other_noncoding`, counting exactly the territory given up
+in the narrowing — the band to read when asking whether the figure's conclusions survive
+it. Its four strata are a subdivision of the genome's three only if their set holds no
+coding window; that is not enforced, so the join prints how many kept windows have
+`coding_prop > 0` (0 means the nesting holds and the `coding` band is exactly QC-pass
+coding; anything else means those windows are labelled `scored`, not `coding`).
 
 **Will the narrowing change the answer? Probably not, but it is not yet settled.**
 `fig5/window_set_sensitivity.py` reruns panel A's statistic on same-sized stand-in
@@ -412,10 +434,13 @@ quantity being ranked, distorting all three curves together — a bound, not an 
 
 Untested against the real file (it is not available in this environment): verified instead
 against a synthetic stand-in with the same column names and coordinate convention — the
-join, the shortfall diagnostic that says whether an unmatched window was filtered here or
-is absent from Chen et al.'s table, and the guard that raises when fewer than half the
-file's windows match (the signature of a `chr1`-vs-`1` mismatch, which would otherwise
-look like a very strict filter). **Deleted with this change**: the `bedtools coverage`
+join, its two diagnostics, and the guard that raises when fewer than half the file's
+windows match (the signature of a `chr1`-vs-`1` mismatch, which would otherwise look like
+a very strict filter). The diagnostics are the `coding_prop > 0` nesting count above and
+a shortfall line; since nothing here filters any more, that line reports one thing only —
+windows with no row in the joined table, almost all of them QC failures. (It used to
+distinguish "filtered here" from "absent from Chen et al.'s table", via a `df_prefilter`
+argument that no longer exists.) **Deleted with this change**: the `bedtools coverage`
 GeneHancer exclusion (`restrict_to_neutral_genehancer`, its `min_frac_covered` cumulative-
 coverage semantics, and the chromosome-naming check), recoverable at `fe51e63`. It never
 ran against real GeneHancer data, and a join on their file answers the same question
@@ -437,7 +462,7 @@ than piling them at the boundary, so the fringe is real data, not a plotting art
 Likely, only partially confirmed causes of the 2.66x gap:
 1. Enhancer-overlapping windows, which their file excludes and this repo cannot identify
    without it (effect size on the count not separately measured; supplying
-   `NEUTRAL_WINDOWS_BED` now measures it directly, as the `non_neutral` stratum).
+   `NEUTRAL_WINDOWS_BED` now measures it directly, as the `other_noncoding` stratum).
 2. McHale et al.'s Methods ("Construction of the window sets...", p.14) additionally
    exclude windows overlapping "gaps in the hg38 genome assembly, Encode 'exclude
    regions' (Amemiya et al. 2019), and regions with insufficient read coverage in Gnomad
