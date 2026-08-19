@@ -310,20 +310,22 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 
 # The strata a training site can fall into, relative to the scored population.
 #
-# THE FIRST ONE IS DEFINED BY MEMBERSHIP, not by re-deriving the window filters here.
-# `scored` means the site's 1 kb window is a row of the analyzed window table --
-# windows.build_window_table, which is EITHER the coding restriction + QC filter +
-# autosome/PAR restriction (config.NEUTRAL_WINDOWS_BED unset) OR McHale et al.'s own
-# 693,270-window file with none of those applied on top of it (set). That table is also
-# what dnm_model.restrict_to_analyzed_windows filters the training set with, so `scored`
-# here is exactly "survives the panel D/E intervention", under whichever definition is
-# in force.
-# Re-deriving those filters in SQL is how this panel silently stops describing the
-# population the retrained model is fit and scored on: until 2026-08-17 the first stratum
-# tested `an.coding_prop <= 0.0` and so would have counted windows outside the neutral
-# set as inside the scored population the moment that file was supplied.
+# THE FIRST STRATUM IS ASSIGNED BY A LOOKUP, NOT BY A TEST. A site is `scored` iff its
+# 1 kb window has a row in the analyzed window table -- the CASE arm below is a join on
+# element_id (`sw.element_id IS NOT NULL`), and nothing in this file re-states the
+# conditions that put the window in that table.
 #
-# The other three name the REASON a site is outside it, in stacking order:
+# Those conditions live in one place, windows.build_window_table, and they are not fixed:
+# with config.NEUTRAL_WINDOWS_BED unset the table is the coding restriction + QC filter +
+# autosome/PAR restriction; with it set the table is McHale et al.'s own 693,270-window
+# file, with none of those applied on top. The same table is what
+# dnm_model.restrict_to_analyzed_windows filters the training set with, so joining
+# against it makes `scored` here mean exactly "survives the panel D/E intervention" under
+# whichever of the two definitions is in force -- automatically, with no second copy of
+# the definition to keep in step.
+#
+# The remaining three strata are for sites OUTSIDE the scored population, and each
+# names the reason it is outside. In stacking order, bottom to top:
 #   coding          scored by Chen et al., but the window overlaps coding exons -- and,
 #                   once NEUTRAL_WINDOWS_BED is set, is outside their set too, since a
 #                   coding window their file lists is tested by the `scored` arm first
@@ -353,8 +355,9 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 #                   variants), the first dominating. preconditions/verify_qc_filter.py
 #                   measures the split.
 #
-# The order of the CASE arms is load-bearing: membership is tested first, so a window in
-# the analyzed table can never be relabelled by one of the reason arms below it.
+# This tuple's order is the DRAWING order -- bottom to top in panel C's stacked bars,
+# matching panels.COMPOSITION_STYLE. It is not the order the CASE arms are tested in;
+# see _stratum_expr for that.
 _STRATA = ("scored", "coding", "other_noncoding", "failed_qc")
 
 
@@ -366,6 +369,36 @@ def _stratum_expr() -> str:
     The coding arm reads its threshold from windows.NONCODING_MAX_CODING_PROP -- the same
     constant restrict_to_noncoding filters on -- rather than repeating a literal, so
     "overlaps coding exons" means one thing in this figure.
+
+    The genome's 1 kb windows partition three ways (top row). `sw` is drawn over that
+    partition twice, once per setting of config.NEUTRAL_WINDOWS_BED, with the stratum
+    each region gets underneath it:
+
+    |<------------------ QC-pass: a row in `an` ------------------->||<- QC-fail ->|
+    +-----------------------------------------+---------------------+--------------+
+    |                noncoding                |        coding       |no row in `an`|
+    +-----------------------------------------+---------------------+--------------+
+
+    |<------------ sw, BED unset ------------>|
+    |            scored (1,843,559)           |        coding       |  failed_qc   |
+
+    |<--- sw, BED set ---->|                  |<- * ->|
+    |   scored (693,270)   | other_noncoding  | scored|    coding   |  failed_qc   |
+
+    Unset, `sw` IS the noncoding cell -- build_window_table produces it by filtering on
+    coding_prop and QC, so the two coincide and every arm below `scored` is reached only
+    by windows outside it. Set, `sw` is McHale et al.'s file taken whole, and it respects
+    neither internal boundary: it covers part of the noncoding cell (the rest becomes
+    `other_noncoding`, empty and undrawn in the unset case) and MAY reach into the coding
+    cell (*), since nothing filters their file on coding_prop.
+
+    THAT OVERLAP IS WHY THE `scored` ARM MUST COME FIRST. A window in (*) satisfies both
+    `sw.element_id IS NOT NULL` and `an.coding_prop > threshold`; panels D/E fit and score
+    on it, so `scored` is its true label, and testing membership before coding is what
+    makes this CASE agree with them. windows.restrict_to_mchale_neutral_windows prints
+    how many such windows there are -- 0 means (*) is empty and the two drawings differ
+    only inside the noncoding cell. (693,270 is their file's own row count, before the
+    three-way join drops windows with no constraint/expected/features row.)
     """
     return f"""CASE WHEN sw.element_id IS NOT NULL THEN 'scored'
                     WHEN an.element_id IS NULL THEN 'failed_qc'
@@ -394,22 +427,23 @@ def _training_sql(cache_dir: str) -> str:
 
 
 def _binned_training_query(cache_dir: str, edges: np.ndarray, where: str,
-                           dims: list[tuple[str, str]] = (), aggs: str = "",
+                           extra_group_by: list[tuple[str, str]] = (), aggs: str = "",
                            extra_joins: str = "") -> str:
     """
     Training sites joined to their 1 kb tile's GC and constraint annotation, aggregated
-    per GC bin (plus any extra grouping `dims`, each an (expression, alias) pair).
-    `aggs` adds further aggregate select items. `extra_joins` appends further join
-    clauses, for a relation the caller registered on its own connection -- panel C
-    joins the analyzed window table that way, rather than re-deriving it from `an`.
-
-    GROUP BY repeats the expressions rather than using positional indices: the two
-    callers have different select-list shapes, and positional GROUP BY silently grouped
-    by the wrong column when this was first written.
+    per GC bin. `extra_group_by` adds further grouping keys alongside the GC bin, each an
+    (expression, alias) pair that goes into BOTH the select list and the GROUP BY -- panel
+    C passes one, the stratum CASE expression. `aggs` adds further aggregate select items.
+    `extra_joins` appends further join clauses, for a relation the caller registered on
+    its own connection -- panel C joins the analyzed window table that way, rather than
+    re-deriving it from `an`.
     """
     gc_bin = sql_bin_expr("ft.GC_content_1k / 100.0", edges)
-    dim_select = "".join(f"{expr} AS {alias}, " for expr, alias in dims)
-    group_by = ", ".join([expr for expr, _ in dims] + [gc_bin])
+    key_select = "".join(f"{expr} AS {alias}, " for expr, alias in extra_group_by)
+    # GROUP BY names the select aliases -- duckdb resolves them -- so each grouping
+    # expression is written once. Safe only while no alias collides with a column of
+    # `s`, `ft`, `an` or a registered relation: a collision binds to the column instead.
+    group_by = ", ".join([alias for _, alias in extra_group_by] + ["gc_bin"])
     return f"""
         WITH an AS (SELECT element_id, pass_qc, coding_prop
                     FROM read_csv_auto('{W.download(W.REMOTE_FILES["annot"], cache_dir)}',
@@ -418,7 +452,7 @@ def _binned_training_query(cache_dir: str, edges: np.ndarray, where: str,
                FROM read_csv_auto('{W.download(W.REMOTE_FILES["features"], cache_dir)}',
                                   delim='\t', header=True)),
         s AS ({_training_sql(cache_dir)})
-        SELECT {dim_select}{gc_bin} AS gc_bin,
+        SELECT {key_select}{gc_bin} AS gc_bin,
                CAST(SUM(s.label) AS BIGINT) AS k, COUNT(*) AS n,
                AVG(ft.GC_content_1k) AS gc_pct{"," if aggs else ""} {aggs}
         FROM s JOIN ft ON s.element_id = ft.element_id
@@ -483,7 +517,7 @@ def dnm_rate_by_stratum(edges: np.ndarray, df_win: pl.DataFrame,
         # the analyzed window set enters the query as itself, not as a re-derivation.
         con.register("scored_windows", df_win.select("element_id"))
         q = _binned_training_query(
-            cache_dir, edges, dims=[(_stratum_expr(), "stratum")],
+            cache_dir, edges, extra_group_by=[(_stratum_expr(), "stratum")],
             extra_joins="LEFT JOIN scored_windows sw ON s.element_id = sw.element_id",
             where=f"s.context NOT IN ({', '.join(repr(c) for c in M.CPG_CONTEXTS)})")
         return con.execute(q).pl()
