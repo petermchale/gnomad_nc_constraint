@@ -579,9 +579,12 @@ def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl
     territory DIFFERENT from the territory Gnocchi is scored on -- and because the
     scored population's own rate drifts mildly with GC, which a ratio divides out.
 
-    Error bars are the delta-method SE of log(ratio), SE = sqrt((1-p_a)/k_a +
-    (1-p_b)/k_b), i.e. binomial noise in both strata. min_n drops bins where either
-    stratum holds fewer than that many sites.
+    `{stratum}_se_log` is the delta-method SE of log(ratio), SE = sqrt((1-p_a)/k_a +
+    (1-p_b)/k_b), i.e. binomial noise in both strata (Var(log p_hat) = Var(p_hat)/p^2 =
+    (1-p)/(n p) = (1-p)/k, with k the DNM count). It is the SE of the LOG ratio and of
+    nothing else, which is why panel C plots log(ratio) on a linear axis and draws the
+    bars as a plain +/- se there. min_n drops bins where either stratum holds fewer than
+    that many sites.
 
     Columns: gc_bin, gc_mid, and {stratum}_{ratio,se_log} for each excluded stratum that
     has any bin left after min_n -- so an empty `other_noncoding` stratum contributes no

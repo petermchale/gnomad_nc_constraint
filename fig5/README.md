@@ -7,9 +7,10 @@ cited there as 7A-7D. Run it top to bottom.
 
 **Panel C is two rows** sharing a GC axis and built from one table: the composition of
 the training sites (how much of the training set is outside the scored population --
-*covariate shift*), and each other stratum's DNM rate relative to the scored population's
-(whether the part of the training set lying outside it has a *different DNM rate* --
-*concept shift*). The upper row alone shows only an absence. Both rows count **both training classes**, DNMs and
+*covariate shift*), and the LOG of each other stratum's DNM rate relative to the scored
+population's (whether the part of the training set lying outside it has a *different DNM
+rate* -- *concept shift*; the log because `se_log` is by construction the SE of that
+quantity, so the bars drawn are a plain +/- se on a linear axis). The upper row alone shows only an absence. Both rows count **both training classes**, DNMs and
 background sites: the fit minimizes its loss over the mixture, so the mixture is the
 training distribution being compared against the scored one. Its bottom band is the
 scored population itself, defined by MEMBERSHIP in the analyzed window table (`data.py`,

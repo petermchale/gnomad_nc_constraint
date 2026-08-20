@@ -588,13 +588,22 @@ two come apart exactly where panel A's bias is largest.
 **The part of the DNM training set that lies outside the scored population has a
 different DNM rate** — that is what the lower row measures, and the difference is not
 mainly the coding part. Writing $\bar y_s(g)$ for the empirical
-non-CpG DNM rate in stratum $s$ and bin $g$, it plots $\bar y_s(g)/\bar
-y_{\mathrm{scored}}(g)$ for each excluded stratum, with delta-method binomial error bars
-on the log ratio. A ratio of 1 would mean those sites are exchangeable with the scored
-ones as far as mutation rate goes. The coding stratum sits there — within ~10%, flat
-across the whole range — while the QC-failing stratum runs 1.55× in the GC bulk and
-**4.06× by GC 0.61**. Under the narrowed population, read the other-noncoding curve
-first: near 1 across the range, the narrowing costs sample size and nothing else and the
+non-CpG DNM rate in stratum $s$ and bin $g$, it plots
+$\log\!\big[\bar y_s(g)/\bar y_{\mathrm{scored}}(g)\big]$ for each excluded stratum,
+against a linear axis, with error bars $\pm\,\mathrm{SE}$ where
+
+$$\mathrm{SE}\Big(\log\frac{\bar y_s}{\bar y_{\mathrm{scored}}}\Big)
+=\sqrt{\frac{1-\bar y_s}{k_s}+\frac{1-\bar y_{\mathrm{scored}}}{k_{\mathrm{scored}}}},$$
+
+the delta-method binomial SE with $k$ the DNM count. That SE is symmetric in the log
+ratio and in nothing else, so the log is the scale on which the bar drawn is the
+interval the data support; it also puts a $2\times$ excess and a $2\times$ deficit
+equally far from the reference line. Zero would mean those sites are exchangeable with
+the scored ones as far as mutation rate goes. The coding stratum sits there — within
+~10%, i.e. $|\log|\lesssim0.1$, flat across the whole range — while the QC-failing
+stratum runs 1.55× ($\log = 0.44$) in the GC bulk and **4.06× ($\log = 1.40$) by
+GC 0.61**. Under the narrowed population, read the other-noncoding curve
+first: flat at 0 across the range, the narrowing costs sample size and nothing else and the
 rest of this figure carries over; climbing with GC, it is a third population change and
 belongs in the caption beside the other two.
 

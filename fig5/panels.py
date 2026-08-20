@@ -297,8 +297,16 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     which is also where trio DNM calling is least reliable, making part of that excess
     plausibly false-positive calls rather than real mutation.
 
-    A ratio of 1 is the reference: the excluded sites would then be exchangeable with
+    A log ratio of 0 is the reference: the excluded sites would then be exchangeable with
     the scored ones as far as mutation rate is concerned.
+
+    WHY THE LOG, ON A LINEAR AXIS. `se_log` is by construction the standard error of
+    log(ratio) -- the delta-method binomial SE, symmetric in that quantity and in no
+    other -- so plotting log(ratio) against a linear axis is the one form in which the
+    error bar drawn is the interval the data support, `estimate +/- se`, with no
+    transformation between the two. It also puts a 2x excess and a 2x deficit at equal
+    distances from the reference line, which a linear ratio axis would not. Natural log,
+    matching se_log: 0.44 is the 1.55x of the GC bulk, 1.40 the 4.06x at GC 0.61.
     """
     df = ratios.to_pandas() if hasattr(ratios, "to_pandas") else ratios
     df = df.sort_values("gc_mid")
@@ -308,21 +316,24 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     handles = {}
     for stratum in drawn:
         style = STRATUM_STYLE[stratum]
-        r, se = df[f"{stratum}_ratio"], df[f"{stratum}_se_log"]
-        # Symmetric in log space -> asymmetric in linear space, correct for a ratio.
+        log_r, se = np.log(df[f"{stratum}_ratio"]), df[f"{stratum}_se_log"]
         handles[stratum] = ax.errorbar(
-            df["gc_mid"], r, yerr=[r - r * np.exp(-se), r * np.exp(se) - r],
+            df["gc_mid"], log_r, yerr=se,
             marker=style["marker"], color=style["color"], markersize=5,
             linewidth=2, capsize=3, elinewidth=1, label=style["label"])
-    ax.axhline(1.0, **REF_LINE_KW)
-    _log_ratio_axis(ax, df[[f"{s}_ratio" for s in drawn]].to_numpy(),
-                    ticks=(0.8, 0.9, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0))
+    ax.axhline(0.0, **REF_LINE_KW)
     # Highest curve first, matching the row above, where the legend reads top-down. Which
     # stratum is highest is a result here rather than a layout fact, so it is read off the
-    # data instead of hardcoded -- an other-noncoding curve near 1 would land between the
+    # data instead of hardcoded -- an other-noncoding curve near 0 would land between the
     # QC-fail and coding ones, and the legend follows it there.
-    order = sorted(drawn, key=lambda s: float(df[f"{s}_ratio"].mean()), reverse=True)
-    _finish(ax, "P(DNM) relative to the\nscored population\n(non-CpG)", xrange,
+    order = sorted(drawn, key=lambda s: float(np.log(df[f"{s}_ratio"]).mean()),
+                   reverse=True)
+    # The ratio written out inside the log, rather than "log P(DNM) relative to ...":
+    # what is logged has to be unambiguous, since the reader is being asked to read 0.44
+    # as 1.55x. Plain text at the panel's own type size, not a mathtext \\dfrac, which
+    # renders smaller and in a different font from every other label in the figure.
+    _finish(ax, "log[ P(DNM) in the stratum /\nP(DNM) in the scored population ]"
+                "\n(non-CpG sites)", xrange,
             show_xlabel, handles=[handles[s] for s in order])
 
 
