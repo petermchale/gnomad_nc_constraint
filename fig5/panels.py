@@ -112,8 +112,9 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
     # third label wraps to a second line that runs straight through that curve. The rank
     # axis is fixed to (0,1) while no curve goes below ~0.27, so the bottom of the panel
     # is empty by construction and is where a legend goes when the top is full.
-    _finish(ax, "Mean standardized rank\nof constraint metric", xrange, show_xlabel,
-            legend_loc=legend_loc)
+    # Panels A and E share this label, as they share the statistic and the axes -- two
+    # names for one quantity across two panels of one figure would read as two quantities.
+    _finish(ax, "Constraint metric (rank)", xrange, show_xlabel, legend_loc=legend_loc)
 
 
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
@@ -328,11 +329,11 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     # QC-fail and coding ones, and the legend follows it there.
     order = sorted(drawn, key=lambda s: float(np.log(df[f"{s}_ratio"]).mean()),
                    reverse=True)
-    # The ratio written out inside the log, rather than "log P(DNM) relative to ...":
-    # what is logged has to be unambiguous, since the reader is being asked to read 0.44
-    # as 1.55x. Plain text at the panel's own type size, not a mathtext \\dfrac, which
-    # renders smaller and in a different font from every other label in the figure.
-    _finish(ax, "log[ P(DNM) in the stratum /\nP(DNM) in the scored population ]"
+    # "log fold change", not "log P(DNM) relative to ...": the reader is being asked to
+    # read 0.44 as 1.55x, so the label has to say that what is logged is the ratio and
+    # not the rate. Plain text at the panel's own type size, not a mathtext \\dfrac,
+    # which renders smaller and in a different font from every other label here.
+    _finish(ax, "log fold change of DNM rate\nrelative to scored population"
                 "\n(non-CpG sites)", xrange,
             show_xlabel, handles=[handles[s] for s in order])
 
