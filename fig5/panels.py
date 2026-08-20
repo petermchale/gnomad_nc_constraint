@@ -36,7 +36,8 @@ LEGEND_FONTSIZE = 12
 
 
 def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
-            legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None) -> None:
+            legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None,
+            legend_frame: bool = False) -> None:
     """
     The frame every panel shares: range, labels, grid, despined box, legend.
 
@@ -55,11 +56,18 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     ax.set_axisbelow(True)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
+    # frameon=False everywhere except where the legend sits ON the artwork rather than on
+    # white: panel C's stack is a solid field of colour, and a swatch the same colour as
+    # the band under it is invisible. An opaque white box is what makes the grey scored-
+    # population swatch readable, and the box costs nothing there because the legend
+    # covers a uniform region of that band, not a boundary.
+    frame_kw = ({"frameon": True, "facecolor": "white", "edgecolor": "0.7",
+                 "framealpha": 1.0} if legend_frame else {"frameon": False})
     if handles is not None:
         ax.legend(handles, [h.get_label() for h in handles],
-                  fontsize=legend_fontsize, frameon=False, loc=legend_loc)
+                  fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
     else:
-        ax.legend(fontsize=legend_fontsize, frameon=False, loc=legend_loc)
+        ax.legend(fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
 
 
 def _log_ratio_axis(ax, values, ticks=(0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5),
@@ -267,7 +275,8 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     # reader matching swatch to band scans the plot top-down. Reversed, the two orders
     # agree and the legend can be read straight down the stack.
     _finish(ax, "Fraction of non-CpG\ntraining sites", xrange, show_xlabel,
-            legend_loc="lower left", grid_axis="y", handles=bands[::-1])
+            legend_loc="lower left", grid_axis="y", handles=bands[::-1],
+            legend_frame=True)
 
 
 # Exactly the colours and labels of the composition stack above, taken from the same
@@ -333,7 +342,7 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     # read 0.44 as 1.55x, so the label has to say that what is logged is the ratio and
     # not the rate. Plain text at the panel's own type size, not a mathtext \\dfrac,
     # which renders smaller and in a different font from every other label here.
-    _finish(ax, "log fold change of DNM rate\nrelative to scored population"
+    _finish(ax, "Log fold change of DNM rate\nrelative to scored population"
                 "\n(non-CpG sites)", xrange,
             show_xlabel, handles=[handles[s] for s in order])
 
@@ -544,6 +553,8 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
 
     if normalize:
         ax.axhline(1.0, **REF_LINE_KW)
-    _finish(ax, "P(DNM) relative to\nits own mean\n(non-CpG contexts)" if normalize
-            else "P(DNM) in the\ntraining set\n(non-CpG contexts)",
+    # "GC-averaged value", not "its own mean": the divisor is that curve's mean ACROSS
+    # GC bins, site-weighted, so the label has to say which average was taken out.
+    _finish(ax, "P(DNM) relative to its\nGC-averaged value\n(non-CpG sites)" if normalize
+            else "P(DNM) in the\ntraining set\n(non-CpG sites)",
             xrange, show_xlabel, legend_fontsize=LEGEND_FONTSIZE - 1)
