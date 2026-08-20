@@ -340,7 +340,7 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
 
 PAIR_STYLE = {
     "full": {"key": "step2", "label": "original training set"},
-    "scored": {"key": "scored", "label": "scored-population-filtered training set"},
+    "scored": {"key": "scored", "label": "training set restricted to scored population"},
     # Same NUMBER of sites as `scored`, drawn from the same population as `full`. It
     # should track `full`, and that it does is what rules out sample size.
     "sizematched": {"key": "control", "label": "size-matched random control"},

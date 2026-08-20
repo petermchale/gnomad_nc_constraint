@@ -734,7 +734,7 @@ curves_e = [
     panels.curve_from_binned(binned_e, "step1", "step1", r"Context-only model ($r \equiv 1$)"),
     panels.curve_from_binned(binned_e, "scored", "scored",
                              "Gnocchi, $r$ retrained on the\n"
-                             "scored-population-filtered training set"),
+                             "training set restricted to scored population"),
 ]
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
