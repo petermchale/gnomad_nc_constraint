@@ -646,20 +646,46 @@ print(ratios.select([c for c in ratios.columns if c != "gc_bin"]))
 md(r"""
 ## Panel D — restricting the training set flattens the DNM rate, and the fit can then track it
 
-For each training population and each GC bin $g$, over non-CpG sites only:
+**What the two curves of a pair are estimating — one number, by two routes.** Fix a
+training population and work over its non-CpG sites only. Write $S_g$ for the sites whose
+GC content falls in bin $g$, $y_i\in\{0,1\}$ for site $i$'s DNM label, and $x_i$ for its
+feature vector. The quantity the panel is about is the probability that a training site
+in that bin carries a DNM,
 
-$$\widehat p(g)=\frac{1}{|S_g|}\sum_{i\in S_g}\hat\pi_i \quad\text{(fitted)},
+$$P_g \;\equiv\; \Pr\!\big(y=1 \,\big|\, \mathrm{GC}\in g\big)
+\;=\; \mathbb{E}\Big[\,\Pr\!\big(y=1 \mid x\big)\,\Big|\,\mathrm{GC}\in g\Big],$$
+
+the second form by the tower property — and its inner conditional is exactly what each
+trinucleotide context's logistic model estimates. The panel plots one estimate of $P_g$
+from each form, both plug-in averages over the sites the bin actually holds:
+
+$$\bar y(g)=\frac{1}{|S_g|}\sum_{i\in S_g} y_i \;\approx\; P_g \quad\text{(empirical)},
 \qquad
-\bar y(g)=\frac{1}{|S_g|}\sum_{i\in S_g} y_i \quad\text{(empirical)},$$
+\widehat p(g)=\frac{1}{|S_g|}\sum_{i\in S_g}\hat\pi_i \;\approx\; P_g \quad\text{(fitted)},$$
 
-with $y_i\in\{0,1\}$ the DNM label and $\hat\pi_i$ the site's own fitted probability from
-its own context's model, evaluated at the **site's** feature vector. Each pair is a
-reliability diagram on its own population, so *fitted vs empirical within a pair* is the
+where $\hat\pi_i=\widehat{\Pr}(y=1\mid x_i)$ is the site's own fitted probability from its
+own context's model, evaluated at the **site's** feature vector rather than at the
+window-aggregated values the genome-wide apply uses.
+
+The left one is the binomial MLE of $P_g$: unbiased, with standard error
+$\sqrt{\bar y(1-\bar y)/|S_g|}$, which is what the error bars carry. The right one is a
+Monte-Carlo average of the fitted conditional over the same sites, so it estimates the
+same $P_g$ **provided the model is calibrated on that bin's covariate distribution** —
+and departs from it when the model is not, which is the whole point of the panel. So
+$\widehat p(g)-\bar y(g)$ is a calibration gap conditioned on GC, and each pair is a
+reliability diagram on its own population: *fitted vs empirical within a pair* is the
 comparison that means something.
 
-Levels are not comparable **across** populations: the case-control ratio differs (12.2
-vs 13.5 background sites per DNM), which shifts $P(\mathrm{DNM})$ for reasons unrelated
-to GC. Each curve is therefore divided by its own site-weighted mean, leaving shape only.
+Two cautions on what $P_g$ is *not*. It is a probability under the **training**
+distribution, not the genome's: every DNM is kept while background sites are sampled at
+some rate $s$, which multiplies the odds by $1/s$ and so shifts $\operatorname{logit}P_g$
+by $-\log s$ — a constant in $x$, and in particular in GC. Levels are therefore not
+comparable **across** populations, whose case-control ratios differ (12.2 vs 13.5
+background sites per DNM), while shapes in $g$ are; each curve is divided by its own
+site-weighted mean, leaving shape only. And $g$ enters only as a conditioning event: GC
+is one of the 13 candidate regional features, but $\widehat p(g)$ averages whatever the
+fit selected for that context, so a pair can come apart in a bin even where GC itself was
+never selected.
 
 Three populations:
 
