@@ -869,34 +869,57 @@ methylation level) — one row of the mutation-rate table — is **polymorphic**
 probability, capped at 1, and the operative output of step 1:
 `expected = possible × fitted_po`.
 
-**Dashed, `mu`** — an independent mutation **rate** for the same table row, built from a
-separately downsampled **1,000-genome** subset, where saturation is far weaker. It is
-indexed by the same $c$ as $p_c$ — the class $(t,\mathrm{ref},\mathrm{alt},m)$ of the
-Notation section, one row of the mutation-rate table, 156 in all — and per row it is a
-proportion carrying a borrowed scale
+**Dashed, `mu`** — **not a measured mutation rate**, despite its name and its units. It is
+the same observable as the solid curve, read in a far smaller cohort: the proportion of
+class-$c$ sites carrying a variant in a **1,000-genome** ($n=2{,}000$ chromosome)
+*downsample of the same call set*, i.e. $P_{2000}(c)$, multiplied by one global constant
+that puts it in rate units. It is indexed by the same $c$ as $p_c$ — the class
+$(t,\mathrm{ref},\mathrm{alt},m)$ of the Notation section, one row of the mutation-rate
+table, 156 in all — and per row it is that proportion carrying a borrowed scale
 (`run_nc_constraint_gnomad_v31_main.py:60-67`):
 
-$$\mu_c \;=\; \kappa\,\frac{\mathrm{observed}_{1\mathrm{kg},c}}{\mathrm{possible}_c},
+$$\mu_c \;=\; \kappa\,\frac{\mathrm{observed}^{1\mathrm{kg}}_{c}}{\mathrm{possible}^{1\mathrm{kg}}_{c}},
 \qquad
-\kappa \;=\; \frac{\mu_{\mathrm{tot}}}{\sum_c \mathrm{observed}_{1\mathrm{kg},c}\,\big/\,N_{\mathrm{bases}}},
+\kappa \;=\; \frac{\mu_{\mathrm{tot}}}{\sum_c \mathrm{observed}^{1\mathrm{kg}}_{c}\,\big/\,N_{\mathrm{bases}}},
 \qquad
-N_{\mathrm{bases}}=\tfrac13\textstyle\sum_c \mathrm{possible}_c,$$
+N_{\mathrm{bases}}=\tfrac13\textstyle\sum_c \mathrm{possible}^{1\mathrm{kg}}_{c},$$
 
 with $\mu_{\mathrm{tot}}=1.2\times10^{-8}$ — the canonical human de novo point-mutation
 rate per base per generation — and the $\tfrac13$ converting possible SNVs to bases, three
 alt alleles each. So $\kappa$ is **one global constant**, $8.849\times10^{-7}$ on the
-published file, chosen so that $\sum_c \mu_c\,\mathrm{possible}_c/N_{\mathrm{bases}}$ comes out at
-exactly $1.2000\times10^{-8}$. Being one constant, it fixes the **level** and cannot touch
+published file, chosen so that
+$\sum_c \mu_c\,\mathrm{possible}^{1\mathrm{kg}}_{c}/N_{\mathrm{bases}}$ comes out at exactly
+$1.2000\times10^{-8}$ ($N_{\mathrm{bases}}=2.62\times10^{9}$). The superscript matters: these
+are the *downsampled* table's counts throughout, not the 76k table's `possible`. Being one constant, it fixes the **level** and cannot touch
 any **ratio**: all the shape in the dashed curve comes from the 1,000-genome proportions,
 while its level is a convention imported from the literature rather than measured here.
 Hence normalizing both curves to methylation level 0 — only ratios mean anything.
 
-*Pre-saturation is relative, not absolute.* At 1,000 genomes the median row is 0.75%
-polymorphic, but the largest — ACG C>T at methylation 15, which is the top of the dashed
-curve — is **27.6%**. Read as a Poisson rate, $-\log(1-p)$, that context's span against
-level 0 is 13.2× rather than the 11.4× the proportion gives. The dashed curve therefore
-understates the true rate spread a little as well, which makes the solid curve's
-compression below a **lower bound**.
+*So `mu` is $\kappa P_{2000}$, where the model says the rate is
+$\mu_c=-\log(1-P_{2000})/L_{2000}$.* The pipeline never inverts; it uses the linear
+approximation $-\log(1-x)\approx x$. That is excellent where the cohort is far from
+saturation — at 1,000 genomes the median row is 0.75% polymorphic, and the shortcut costs
+0.4% there — but the largest row, ACG C>T at methylation 15 and the top of the dashed
+curve, is **27.6%**, where it costs **17%**. Read properly, that context's span against
+level 0 is 13.2× rather than the 11.4× the raw proportion gives. So the dashed curve
+understates the true rate spread as well, which makes the solid curve's compression below
+a **lower bound**.
+
+*Two further things `mu` is not.* It is not **independent** of the solid curve: the 1,000
+genomes are a downsample of the same call set (`observed_1kg` $\leq$ `observed` on all 156
+rows, as nesting requires), so the calibration below regresses a statistic on a subsample
+of itself, and its $R^2$ measures smoothness rather than agreement between two
+measurements. And the two are not even normalized on the same denominator — `possible` on
+the 76,156-genome side is coverage-30–32× and black-region filtered (6.08e9 sites) against
+7.86e9 in the downsampled table, and only the 76k numerator applies the AF $\leq$ 0.001 +
+PASS filter.
+
+*What the model does buy is a test, and it passes.* If $\log(1-P_n)=-\mu_c L_n$ then
+$\log(1-P_N)/\log(1-P_{2000})=L_N/L_{2000}$ — **one constant for all 156 rows**, with
+$\mu_c$ cancelling out. Measured on the two published tables: $16.08\pm1.11$ unweighted,
+**16.67** weighted by `possible` (IQR 15.4–17.0), i.e. constant to ~7% across a 76-fold
+change in cohort size. That is the sharpest available check that the saturating form is
+right rather than merely convenient.
 
 The two are tied together by one weighted least-squares fit over the mutation-rate
 table's 156 rows, of $\log(1-\text{proportion observed})$ on $\mu$
@@ -917,6 +940,13 @@ real check on the functional form — a nonzero intercept would mean sites are p
 for reasons unrelated to $\mu$. Read out, the constant says the 76,156-genome cohort gives
 each site **$1.885\times10^{7}$ generations of branch length**: that many chances to
 mutate, against one for a single transmission.
+
+$A$ equals $-L_n$ only to the extent that `mu` equals $\mu$, since the regression is run
+against $\kappa P_{2000}$ rather than the inverted rate — so the fitted slope absorbs that
+linearization along with everything else. Converting it back through the rescaling,
+$|A|\kappa = 16.681$, against the $16.67$ measured directly from the log ratio above: the
+two routes agree to **0.07%**. Chen et al.'s calibration *is* the branch-length ratio
+$L_N/L_{2000}$; it just reaches it through the linearization instead of the log inversion.
 
 *Is that number sane?* Under a constant-size coalescent $L_n=4N_e a_n$ with
 $a_n=H_{n-1}=12.51$ at $n=152{,}312$ chromosomes, which inverts to $N_e=3.8\times10^{5}$ —
