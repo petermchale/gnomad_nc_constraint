@@ -815,6 +815,76 @@ floor is centred at GC 0.75 against 0.78 for B and C. Note also that D is drawn 
 figure's wider 0.2–0.8 axis, so it shows the two bins (0.71 and 0.75, where $\Pi$ reaches
 0.38 and 0.43) that panel B's own 0.2–0.73 range cuts off — the bins where the weight is
 largest are exactly the ones the main panel cannot show.
+
+### Panel A's two curves: a probability against a rate
+
+**Solid, $p_c$ = `fitted_po`** — the probability that a site of a given (context, ref, alt,
+methylation level) — one row of the mutation-rate table — is **polymorphic** in the
+76,156-genome call set. An event probability,
+capped at 1, and the operative output of step 1: `expected = possible × fitted_po`.
+
+**Dashed, `mu`** — an independent mutation **rate** for the same table row, estimated on a
+separately downsampled 1,000-genome subset and rescaled so the genome-wide total equals a
+fixed constant. At 1,000 genomes almost nothing is polymorphic, so that estimate is still
+linear in the rate: *pre-saturation*. Its absolute level is arbitrary because of that
+rescaling, which is why both curves are normalized to methylation level 0 — only ratios
+mean anything here.
+
+The two are tied together by one weighted least-squares fit over the mutation-rate
+table's 156 rows, of $\log(1-\text{proportion observed})$ on $\mu$
+(`run_nc_constraint_gnomad_v31_main.py:139-141`):
+
+$$p_c \;=\; 1-e^{B}e^{A\mu},
+\qquad A=-1.885\times10^{7},\quad B=-7.32\times10^{-5},$$
+
+which are the script's own printed values (weighted $R^2=0.9987$), and reproduce every
+`fitted_po` in the published table to $2\times10^{-16}$. Since $e^{B}=0.99993$, to the
+precision it is used at this is
+
+$$p_c \;=\; 1-e^{-\lambda}, \qquad \lambda = 1.885\times10^{7}\,\mu,$$
+
+exactly *"at least one variant among the genomes sampled"* at Poisson rate $\lambda$ —
+concave in $\mu$, and saturating at 1 by construction. What that does to the methylation
+effect, for ACG C>T:
+
+| methylation level | `mu` | $\lambda$ | `fitted_po` |
+|---|---|---|---|
+| 0 | $2.15\times10^{-8}$ | 0.41 | 0.333 |
+| 15 | $2.44\times10^{-7}$ | 4.61 | 0.990 |
+
+The rate rises 11.4×; the probability rises 2.98×, because at level 15 essentially every
+such site is already polymorphic and the probability has nowhere left to go. Over the four
+CpG contexts that is 3.0–4.3× against 9.7–15.2× — the two spans in the panel's title.
+
+**Why the regression is necessary**, rather than using `proportion_observed` directly as
+the per-site probability (it is, after all, already an estimate of exactly that):
+
+1. **It carries rate information into the regime where the observable has stopped
+   responding.** At $p_c\approx0.99$ the polymorphism probability is nearly flat in $\mu$,
+   so the high-methylation rows are precisely where the raw proportions have lost the
+   ability to distinguish rates. $\mu$ is measured where saturation is negligible, so the
+   fit is what lets a *saturated* observable be ordered and spaced by an *unsaturated*
+   measurement.
+2. **It borrows strength across rows, and restores monotonicity.** The raw proportion is
+   a binomial estimate per row, and the rows thin out badly at high methylation — the
+   sparsest holds 5,695 possible sites against 5.4 million at level 6. Raw
+   `proportion_observed` for ACG C>T actually *falls* from level 14 to 15 (0.98874 →
+   0.98859), which cannot be real; the fitted values are monotone in $\mu$ by construction
+   and read 0.98894 → 0.98998. Exactly one of the 96 (context, ref, alt) series is
+   non-monotone in the raw proportion, and it is that one.
+3. **The form is a physical link, not an arbitrary smoother.** $1-e^{-\lambda}$ is the
+   map from rate to *seen at least once*, so a single global $A$ is expected to serve all
+   156 rows — an assumption that is checkable rather than assumed, and the weighted
+   $R^2=0.9987$ is the check.
+
+**What the gap does and does not imply.** Saturation is not an error in Chen et al.'s
+model. The expected counts built from $p_c$ are compared against observed *polymorphism*
+counts, which saturate identically, so it cancels — this is the same cancellation that
+makes a level error invisible in $r$. It stops cancelling the moment the comparison is
+against **DNMs**, which are per-generation mutations and do not saturate at all. A naive
+DNMs-over-$E_1$ ratio therefore understates the CpG rate exactly where methylation is
+highest, and that is the artifact behind the apparent residual CpG decline; corrected for
+it, the true $r_{\mathrm{CpG}}$ is flat within $\pm11\%$ with no trend.
 """)
 
 code(r"""
