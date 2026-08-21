@@ -824,20 +824,22 @@ methylation level) — one row of the mutation-rate table — is **polymorphic**
 capped at 1, and the operative output of step 1: `expected = possible × fitted_po`.
 
 **Dashed, `mu`** — an independent mutation **rate** for the same table row, built from a
-separately downsampled **1,000-genome** subset, where saturation is far weaker. Per row it
-is a proportion carrying a borrowed scale
+separately downsampled **1,000-genome** subset, where saturation is far weaker. It is
+indexed by the same $c$ as $p_c$ — the class $(t,\mathrm{ref},\mathrm{alt},m)$ of the
+Notation section, one row of the mutation-rate table, 156 in all — and per row it is a
+proportion carrying a borrowed scale
 (`run_nc_constraint_gnomad_v31_main.py:60-67`):
 
-$$\mu_i \;=\; c\,\frac{\mathrm{observed}_{1\mathrm{kg},i}}{\mathrm{possible}_i},
+$$\mu_c \;=\; \kappa\,\frac{\mathrm{observed}_{1\mathrm{kg},c}}{\mathrm{possible}_c},
 \qquad
-c \;=\; \frac{\mu_{\mathrm{tot}}}{\sum_i \mathrm{observed}_{1\mathrm{kg},i}\,\big/\,N_{\mathrm{bases}}},
+\kappa \;=\; \frac{\mu_{\mathrm{tot}}}{\sum_c \mathrm{observed}_{1\mathrm{kg},c}\,\big/\,N_{\mathrm{bases}}},
 \qquad
-N_{\mathrm{bases}}=\tfrac13\textstyle\sum_i \mathrm{possible}_i,$$
+N_{\mathrm{bases}}=\tfrac13\textstyle\sum_c \mathrm{possible}_c,$$
 
 with $\mu_{\mathrm{tot}}=1.2\times10^{-8}$ — the canonical human de novo point-mutation
 rate per base per generation — and the $\tfrac13$ converting possible SNVs to bases, three
-alt alleles each. So $c$ is **one global constant**, $8.849\times10^{-7}$ on the published
-file, chosen so that $\sum_i \mu_i\,\mathrm{possible}_i/N_{\mathrm{bases}}$ comes out at
+alt alleles each. So $\kappa$ is **one global constant**, $8.849\times10^{-7}$ on the
+published file, chosen so that $\sum_c \mu_c\,\mathrm{possible}_c/N_{\mathrm{bases}}$ comes out at
 exactly $1.2000\times10^{-8}$. Being one constant, it fixes the **level** and cannot touch
 any **ratio**: all the shape in the dashed curve comes from the 1,000-genome proportions,
 while its level is a convention imported from the literature rather than measured here.
