@@ -145,7 +145,11 @@ That is verbatim what `get_unconstrained_noncoding_chen_windows()` does in their
 `papers/neutral_models_are_biased/9.regression/experiment.1.ipynb`, so the join reproduces
 their Fig. 1 window set exactly rather than approximating it. Tab-separated with a header;
 `chrom, start, end` are 0-based half-open, the same convention as `element_id`; the file
-also carries `window overlaps merged_exon`, `B`, `GC_content_1000bp` and more.
+also carries `window overlaps merged_exon`, `B`, `GC_content_1000bp`, and
+`depletion_rank_constraint_score_complement` -- depletion rank on these windows, already
+oriented so high means constrained. Panel A does not use that column: it ranks depletion
+rank within Halldorsson's own windows, as McHale et al.'s notebook does. See
+`fig5/depletion_rank.py`.
 
 Set it in `fig5/config.py` as `NEUTRAL_WINDOWS_BED` (path only; `None` skips the
 restriction). **Both window sets are meant to be run** — 1,843,559 and 693,270 — since a

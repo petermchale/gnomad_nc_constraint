@@ -113,7 +113,18 @@ def check_neutral(path: str) -> None:
         fail(f"chrom values look like {chroms[:4]} -- Chen et al.'s element_ids are "
              "'chr1-10000-11000', so this join would return near-nothing")
 
-    # 6. what the figure will actually key on
+    # 6. the depletion-rank column this file also carries. Not an error -- it is simply
+    #    not the source panel A uses -- but worth naming, because wiring it into
+    #    depletion_rank.py would double-complement it.
+    dr_cols = [c for c in df.columns if "depletion_rank" in c.lower()]
+    if dr_cols:
+        note(f"this file also carries {dr_cols} -- depletion rank on Chen et al.'s "
+             "windows, already complemented. Panel A does NOT use it: it reads "
+             "DEPLETION_RANK_BED and ranks within Halldorsson's own windows. Do not "
+             "point depletion_rank.py at this column (it would flip the curve; the "
+             "loader raises if you try).")
+
+    # 7. what the figure will actually key on
     ids = (df.filter(~flag).select(
         (pl.col("chrom").cast(pl.String) + "-"
          + pl.col("start").cast(pl.Int64).cast(pl.String) + "-"
@@ -129,6 +140,17 @@ def check_depletion_rank(path: str) -> None:
     print(f"\nDEPLETION_RANK_BED = {path}")
     if not os.path.exists(path):
         return fail("file does not exist")
+
+    # This file needs the enhancer flag too: McHale et al. filter BOTH files to
+    # `window overlaps enhancer == False`, and the loader now refuses to skip it.
+    head = (pl.read_csv(path, separator="\t", n_rows=1)
+              .rename(lambda c: c.strip().replace(" ", "_")))
+    if W.MCHALE_ENHANCER_COLUMN in head.columns:
+        ok(f"column {W.MCHALE_ENHANCER_COLUMN!r} present (both files get filtered on it)")
+    else:
+        fail(f"no {W.MCHALE_ENHANCER_COLUMN!r} column, so the enhancer-overlapping "
+             "windows cannot be excluded here as they are from the Gnocchi window set; "
+             f"columns are {head.columns[:8]}")
 
     # The loader resolves both columns by name, so run IT rather than a copy of it: what
     # this script must not do is pass a check the real loader would fail.
@@ -151,11 +173,12 @@ def check_depletion_rank(path: str) -> None:
     # RANK: any monotone transform of the score gives the identical curve, so units and
     # range are irrelevant and only the DIRECTION matters. Print what the loader did and
     # make the reader confirm it.
-    note("orientation is NOT checkable here: the panel ranks within this set, so scale "
-         "is irrelevant and only direction matters. depletion_rank.py takes 1 - DR, "
-         "i.e. it assumes LOW depletion rank == MORE constrained. Confirm against the "
-         "file's own documentation; if panel A's DR curve comes out mirrored about "
-         "y = 0.5, this is why.")
+    note("orientation is not checkable from the data: the panel ranks within this set, "
+         "so scale is irrelevant and only direction matters. depletion_rank.py takes "
+         "1 - depletion_rank, which is McHale et al.'s own "
+         "depletion_rank_constraint_score_complement -- so this matches their notebook "
+         "as long as the resolved column above is the RAW rank. A column already named "
+         "'...complement' is refused by the loader for exactly this reason.")
     q = df["constraint"].quantile
     ok(f"constraint (higher == more constrained after complement): "
        f"min {df['constraint'].min():.3g}, median {q(0.5):.3g}, max {df['constraint'].max():.3g}")

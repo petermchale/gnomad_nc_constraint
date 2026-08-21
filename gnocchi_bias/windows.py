@@ -180,10 +180,13 @@ def load_mchale_neutral_element_ids(neutral_windows_bed: str) -> pl.Series:
     WHAT THE FILE IS. `Supplementary_Data_2.features.constraint_scores.bed` under
     `{CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/41586_2023_6045_MOESM4_ESM/`
     -- Chen et al.'s published Supplementary Data 2 (the noncoding 1 kb windows with
-    their Gnocchi scores), re-annotated by constraint-tools with regional features and
-    two booleans, `window overlaps enhancer` and `window overlaps merged_exon`. It is
-    tab-separated with a header; coordinates are `chrom, start, end`, 0-based half-open,
-    the same convention as Chen et al.'s `element_id`.
+    their Gnocchi scores), re-annotated by constraint-tools with regional features, two
+    booleans -- `window overlaps enhancer` and `window overlaps merged_exon` -- and
+    `depletion_rank_constraint_score_complement`, depletion rank carried onto these
+    windows and already oriented so high means constrained. Only the enhancer flag is
+    read here; see fig5/depletion_rank.py for why that last column is not panel A's
+    source. Tab-separated with a header; coordinates are `chrom, start, end`, 0-based
+    half-open, the same convention as Chen et al.'s `element_id`.
 
     THE NEUTRAL SET IS THAT FILE FILTERED TO `window overlaps enhancer == False`, which
     is 693,270 windows. That is the definition, verbatim, from

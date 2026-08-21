@@ -194,8 +194,28 @@ the panel ranks within that set, so any monotone transform gives the same curve 
 the direction matters — `depletion_rank.py` assumes low DR means more constrained and
 takes `1 - DR`. A mirrored curve about y = 0.5 is that assumption failing.
 
+**The neutral-windows file also carries a depletion-rank column**
+(`depletion_rank_constraint_score_complement`) -- depletion rank on Chen et al.'s 1 kb
+windows, already complemented. Panel A does not use it: it reads `DEPLETION_RANK_BED` and
+ranks within Halldorsson's own windows, matching how McHale et al.'s notebook keeps the
+two files apart, and the caption says so. Reading that column through `depletion_rank.py`
+would complement it twice and mirror the curve about y = 0.5, so the loader raises on any
+column whose name says `complement` unless `complement=False` is passed explicitly. Using
+it properly would mean joining it onto the window table so all three curves share one
+population and one set of GC bins -- a real option, not taken.
+
+**Both files get the enhancer filter.** McHale et al.'s
+`9.regression/experiment.1.ipynb` filters `window overlaps enhancer == False` on the
+depletion-rank file as well as on the window file, then plots `1 - depletion_rank` (their
+`depletion_rank_constraint_score_complement`). `load_depletion_rank_windows` does both,
+and **raises** if the enhancer column is absent rather than quietly ranking over every
+window -- which would put a population difference into the curve while the Gnocchi curves
+are ranked over enhancer-excluded windows. `exclude_enhancer_windows=False` is the
+deliberate opt-out.
+
 `depletion_rank.py` has been exercised against synthetic input (column resolution, GC
-unit detection, the `1 - DR` complement, error paths) but **never against the real
+unit detection, the `1 - DR` complement, the enhancer filter and its absence, error
+paths) but **never against the real
 file**. Check its printed summary the first time it runs.
 
 ## How panel A's `r = 1` curve is validated
