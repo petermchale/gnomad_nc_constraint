@@ -863,6 +863,23 @@ $P_2\approx4N_e\mu_c$ is heterozygosity: $4\cdot2\times10^{4}\cdot1.2\times10^{-
 9.6\times10^{-4}$, the textbook human per-base value. Panel A's two curves are the same
 quantity read at two ends of this scale.
 
+**Two cohorts, one parameter** (Peter McHale's reduction, and the cleanest way in). Read
+the formula at the two cohort sizes the panel uses. In the 1,000-genome downsample
+saturation is weak, so the exponential linearizes:
+
+$$P_{2000}(c) \;\approx\; \mu_c L_{2000}.$$
+
+Substitute $\mu_c = P_{2000}(c)/L_{2000}$ into $P_n(c)=1-e^{-\mu_c L_n}$ and the rate drops
+out entirely:
+
+$$\boxed{\;P_n(c) \;\approx\; 1-e^{-k\,P_{2000}(c)},\qquad k=\frac{L_n}{L_{2000}}\;}$$
+
+One parameter, and it is not a mutation rate: it is the **ratio of the two cohorts'
+genealogies**. Everything class-specific — context, methylation, the whole point of the
+table — has cancelled. This is worth holding onto, because it is what the pipeline
+actually fits, and because it says the calibration needs no notion of an absolute rate at
+all.
+
 **Solid, $p_c$ = `fitted_po`** — the probability that a site of a given (context, ref, alt,
 methylation level) — one row of the mutation-rate table — is **polymorphic** in the
 76,156-genome call set, i.e. $P_n(c)$ above at $n=152{,}312$ chromosomes. An event
@@ -896,34 +913,6 @@ dashed curve comes from the 1,000-genome proportions, while its level is a conve
 imported from the literature rather than measured here.
 Hence normalizing both curves to methylation level 0 — only ratios mean anything.
 
-*Why that constant is the right thing to multiply by.* $\kappa$ arrives as a units fix, but
-the model says what the conversion from a proportion to a rate has to be: in the linear
-regime $P_{2000}\approx\mu_c L_{2000}$, so recovering $\mu_c$ means **dividing by
-$L_{2000}$**. And that is what $\kappa$ turns out to be — $1/\kappa = 1{,}130{,}033$
-generations, against $L_N/R = 1.885\times10^{7}/16.67 = 1{,}130{,}774$ from the fitted
-slope and the measured ratio below, agreeing to 0.07%.
-
-The logic runs the other way from how it looks, though. $\kappa=\mu_{\mathrm{tot}}/
-\overline{P_{2000}}$, and under the model $\overline{P_{2000}}=\bar\mu L_{2000}$, so
-$\kappa = \mu_{\mathrm{tot}}/(\bar\mu L_{2000})$, which is $1/L_{2000}$ **if and only if**
-$\bar\mu=\mu_{\mathrm{tot}}$. So "$\kappa$ is $1/L_{2000}$" is the assumption that the
-literature de novo rate is the truth, restated — not circular, but not free. What the data
-fix without any anchor is the *ratio* $R=L_N/L_{2000}$; the anchor is what splits it into
-two absolute branch lengths. Swap $1.2\times10^{-8}$ for $1.5\times10^{-8}$ and both $L$'s
-shrink by 1.25× while $R$ does not move.
-
-The two then cohere under growth rather than being two unrelated fudge factors. Against a
-constant-size coalescent at $N_e=2\times10^{4}$:
-
-| cohort | measured $L$ | $4N_e a_n$ | excess |
-|---|---|---|---|
-| 2,000 chromosomes | $1.13\times10^{6}$ | $6.54\times10^{5}$ | 1.7× |
-| 152,312 chromosomes | $1.885\times10^{7}$ | $1.00\times10^{6}$ | 18.8× |
-
-Growth distortion rises with cohort size, exactly as explosive recent expansion predicts:
-a small cohort coalesces in the deep, roughly constant-size past, while a large one picks
-up enormous recent tip branch length.
-
 *So `mu` is $\kappa P_{2000}$, where the model says the rate is
 $\mu_c=-\log(1-P_{2000})/L_{2000}$.* The pipeline never inverts; it uses the linear
 approximation $-\log(1-x)\approx x$. That is excellent where the cohort is far from
@@ -943,39 +932,52 @@ the 76,156-genome side is coverage-30–32× and black-region filtered (6.08e9 s
 7.86e9 in the downsampled table, and only the 76k numerator applies the AF $\leq$ 0.001 +
 PASS filter.
 
-*What the model does buy is a test, and it passes.* If $\log(1-P_n)=-\mu_c L_n$ then
-$\log(1-P_N)/\log(1-P_{2000})=L_N/L_{2000}$ — **one constant for all 156 rows**, with
+*$k$ can be measured directly, without the fit — and the model says it must come out the same for every row.* If $\log(1-P_n)=-\mu_c L_n$ then
+$\log(1-P_N)/\log(1-P_{2000})=k$ — **one constant for all 156 rows**, with
 $\mu_c$ cancelling out. Measured on the two published tables: $16.08\pm1.11$ unweighted,
 **16.67** weighted by `possible` (IQR 15.4–17.0), i.e. constant to ~7% across a 76-fold
 change in cohort size. That is the sharpest available check that the saturating form is
 right rather than merely convenient.
 
-The two are tied together by one weighted least-squares fit over the mutation-rate
-table's 156 rows, of $\log(1-\text{proportion observed})$ on $\mu$
+**The calibration is that boxed relation, and it is Chen et al.'s own Extended Data
+Fig. 1a.** Their panel plots the proportion observed in 76,156 genomes against `mu`,
+describes the two as "exponentially correlated" in the caption, and prints the fit on the
+figure: $y=1-\exp(-1.88\times10^{7}x-7.32\times10^{-5})$, $R^2=0.999$. The pipeline
+produces it by one weighted least-squares fit over the mutation-rate table's 156 rows, of
+$\log(1-\text{proportion observed})$ on $\mu$
 (`run_nc_constraint_gnomad_v31_main.py:139-141`):
 
 $$p_c \;=\; 1-e^{B}e^{A\mu},
 \qquad A=-1.885\times10^{7},\quad B=-7.32\times10^{-5},$$
 
-which are the script's own printed values (weighted $R^2=0.9987$), and reproduce every
-`fitted_po` in the published table to $2\times10^{-16}$. Since $e^{B}=0.99993$, to the
-precision it is used at this is
+the script's own printed values (weighted $R^2=0.9987$), which reproduce every `fitted_po`
+in the published table to $2\times10^{-16}$. Since $\mu=\kappa P_{2000}$ and
+$e^{B}=0.99993$, this is the boxed relation with
 
-$$p_c \;=\; 1-e^{-\lambda}, \qquad \lambda = 1.885\times10^{7}\,\mu,$$
+$$k \;=\; |A|\,\kappa \;=\; 16.681,$$
 
-which is the model above with $L_n=1.885\times10^{7}$: the fit is not a generic curve but
-$\log(1-P_n)=-L_n\mu$ with $L_n$ as its single free parameter, and $e^{B}=0.99993$ is a
-real check on the functional form — a nonzero intercept would mean sites are polymorphic
-for reasons unrelated to $\mu$. Read out, the constant says the 76,156-genome cohort gives
-each site **$1.885\times10^{7}$ generations of branch length**: that many chances to
-mutate, against one for a single transmission.
+against the $16.67$ measured directly just above — **0.07% apart**.
+So $A$ and $\kappa$ are one parameter wearing two hats: the data fix their product $k$ and
+nothing else, and splitting $k$ into two absolute branch lengths — equivalently, calling
+`mu` a rate at all — is done entirely by the external $1.2\times10^{-8}$ anchor.
 
-$A$ equals $-L_n$ only to the extent that `mu` equals $\mu$, since the regression is run
-against $\kappa P_{2000}$ rather than the inverted rate — so the fitted slope absorbs that
-linearization along with everything else. Converting it back through the rescaling,
-$|A|\kappa = 16.681$, against the $16.67$ measured directly from the log ratio above: the
-two routes agree to **0.07%**. Chen et al.'s calibration *is* the branch-length ratio
-$L_N/L_{2000}$; it just reaches it through the linearization instead of the log inversion.
+*Their own figure corroborates that $k$ is a genealogy and not a nuisance constant.* Panel
+**b** refits on chromosome X and gets $|A|=1.28\times10^{7}$ against the autosomes'
+$1.885\times10^{7}$. A branch length has to shrink on X — three quarters as many
+chromosomes are sampled, and $N_e$ is three quarters as large — and a constant-size
+coalescent predicts $L_A/L_X\approx1.37$ against the $1.47$ observed. A normalization
+constant would have no reason to move at all, let alone in that direction. (Not a clean
+test: male mutation bias differs on X, and whether the X fit carries its own anchoring is
+not visible in the published code.)
+
+Written per row and dropping $e^B$, the solid curve is therefore
+
+$$p_c \;=\; 1-e^{-\lambda}, \qquad \lambda = 1.885\times10^{7}\,\mu \;=\; k\,P_{2000}(c),$$
+
+which reads the branch length straight off the fit: the 76,156-genome cohort gives each
+site **$1.885\times10^{7}$ generations of branch length**, that many chances to mutate
+against one for a single transmission — subject to $\kappa$'s anchor, which is what turns
+the identified $k$ into two separate $L$'s.
 
 *Is that number sane?* Under a constant-size coalescent $L_n=4N_e a_n$ with
 $a_n=H_{n-1}=12.51$ at $n=152{,}312$ chromosomes, which inverts to $N_e=3.8\times10^{5}$ —
@@ -992,6 +994,34 @@ $\mu L_n=4.6$ at the top of the CpG range is not small. And one global $L_n$ ass
 same genealogy everywhere — which is precisely the null Gnocchi tests: selection shortens
 the realized branch length, so a window with fewer observed variants than $E_1$ predicts is
 a window whose effective $L$ is below the genome-wide value, and $z$ is that departure.
+
+*Why $\kappa$ is the right constant to multiply by.* It arrives as a units fix, but
+the model says what the conversion from a proportion to a rate has to be: in the linear
+regime $P_{2000}\approx\mu_c L_{2000}$, so recovering $\mu_c$ means **dividing by
+$L_{2000}$**. And that is what $\kappa$ turns out to be — $1/\kappa = 1{,}130{,}033$
+generations, against $L_N/k = 1.885\times10^{7}/16.67 = 1{,}130{,}774$ from the fitted
+slope and the ratio measured above, agreeing to 0.07%.
+
+The logic runs the other way from how it looks, though. $\kappa=\mu_{\mathrm{tot}}/
+\overline{P_{2000}}$, and under the model $\overline{P_{2000}}=\bar\mu L_{2000}$, so
+$\kappa = \mu_{\mathrm{tot}}/(\bar\mu L_{2000})$, which is $1/L_{2000}$ **if and only if**
+$\bar\mu=\mu_{\mathrm{tot}}$. So "$\kappa$ is $1/L_{2000}$" is the assumption that the
+literature de novo rate is the truth, restated — not circular, but not free. What the data
+fix without any anchor is the *ratio* $k=L_N/L_{2000}$; the anchor is what splits it into
+two absolute branch lengths. Swap $1.2\times10^{-8}$ for $1.5\times10^{-8}$ and both $L$'s
+shrink by 1.25× while $k$ does not move.
+
+The two then cohere under growth rather than being two unrelated fudge factors. Against a
+constant-size coalescent at $N_e=2\times10^{4}$:
+
+| cohort | measured $L$ | $4N_e a_n$ | excess |
+|---|---|---|---|
+| 2,000 chromosomes | $1.13\times10^{6}$ | $6.54\times10^{5}$ | 1.7× |
+| 152,312 chromosomes | $1.885\times10^{7}$ | $1.00\times10^{6}$ | 18.8× |
+
+Growth distortion rises with cohort size, exactly as explosive recent expansion predicts:
+a small cohort coalesces in the deep, roughly constant-size past, while a large one picks
+up enormous recent tip branch length.
 
 What the saturation does to the methylation effect, for ACG C>T:
 
