@@ -55,6 +55,11 @@ def main() -> None:
 
     os.makedirs(args.output_dir, exist_ok=True)
     t_start = time.time()
+    # Carries config.WINDOW_SET_SUFFIX, so a refit under one window set never overwrites
+    # the other's -- both sets' tables sit in refits/ at once.
+    tag = config.tagged(args.population)
+    print(f"writing tables tagged {tag!r} "
+          f"(NEUTRAL_WINDOWS_BED={config.NEUTRAL_WINDOWS_BED!r})")
 
     contexts = M.load_contexts(args.cache_dir)
     df_dnm1, df_dnm0 = M.load_training_data(args.cache_dir)
@@ -89,11 +94,11 @@ def main() -> None:
     for name in ("coef_univariate", "selected", "rr_by_context"):
         src = os.path.join(args.output_dir, f"{name}.dnm_refit_{args.population}.txt")
         if os.path.exists(src):
-            os.replace(src, os.path.join(args.output_dir, f"{name}.{args.population}.txt"))
+            os.replace(src, os.path.join(args.output_dir, f"{name}.{tag}.txt"))
 
     out = os.path.join(
         args.output_dir,
-        f"expected_counts_by_context_methyl_genome_1kb.{args.population}.txt")
+        f"expected_counts_by_context_methyl_genome_1kb.{tag}.txt")
     df_out.to_csv(out, sep="\t", index=False)
     print(f"wrote {out}  ({len(df_out):,} windows)")
 
@@ -105,7 +110,7 @@ def main() -> None:
         os.path.join(args.output_dir, f"selected.{args.population}.txt"), sep="\t")
     df_pred = M.predict_training_set(df_dnm1, df_dnm0, contexts, df_sel)
     pred_out = os.path.join(
-        args.output_dir, f"training_reliability_predictions.{args.population}.txt")
+        args.output_dir, f"training_reliability_predictions.{tag}.txt")
     df_pred.to_csv(pred_out, sep="\t", index=False)
     print(f"wrote {pred_out}  ({len(df_pred):,} sites)")
 

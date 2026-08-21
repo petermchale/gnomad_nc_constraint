@@ -231,12 +231,15 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    detail; `fig5/fig5.ipynb` carries the derivation of every plotted quantity.
 2. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E
    already is, on gnomAD counts the DNM model never sees).
-3. **Still unavailable**: `DEPLETION_RANK_BED` (panel A's third curve) and
+3. **Still unavailable here**: `DEPLETION_RANK_BED` (panel A's third curve) and
    `NEUTRAL_WINDOWS_BED` (McHale et al.'s 693,270-window file). Both live on the
    constraint-tools HPC path and are `None` in `fig5/config.py`; the figure builds
    without them. Neither `depletion_rank.py` nor the neutral-set join has been run
-   against its real file. Running the figure on BOTH window sets is the open item --
-   see "The neutral window set" above.
+   against its real file, so **run `fig5/preflight.py` first** -- it checks both files'
+   schemas in seconds and fails loudly on the quiet errors (chromosome naming, 1-based
+   coordinates, a constant enhancer flag). Running the figure on BOTH window sets is the
+   open item; their outputs no longer collide, since refits, provenance entries and panel
+   PDFs all carry `config.WINDOW_SET_SUFFIX` (`.neutral`).
 4. **Before quoting anything in the rebuttal**, re-read the callability caveat above:
    it brackets the over-adjustment across 1.22-1.44, so the figure must not be
    captioned with 1.22 as though it were tight.

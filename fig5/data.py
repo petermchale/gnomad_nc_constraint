@@ -44,7 +44,8 @@ N_BINS = 20
 XRANGE = (0.2, 0.73)   # read off McHale et al. Fig. 2A by eye, at 300 DPI; approximate,
                        # not a value their text states -- METHODS.md, "Axis ranges"
 
-# Written by fig5/refit.py into REFITS_DIR; `pop` is full / scored / sizematched.
+# Written by fig5/refit.py into REFITS_DIR; `pop` is full / scored / sizematched, carrying
+# config.WINDOW_SET_SUFFIX so both window sets' refits coexist (config.tagged()).
 REFIT_FILES = {
     "expected": "expected_counts_by_context_methyl_genome_1kb.{pop}.txt",
     "rr": "rr_by_context.{pop}.txt",
@@ -67,7 +68,7 @@ def refit_path(kind: str, pop: str, refits_dir: str = REFITS_DIR) -> str:
     analyzed window set, so a refit built under a different setting than the panels are
     evaluated under is trained on one population and scored on another.
     """
-    path = os.path.join(refits_dir, REFIT_FILES[kind].format(pop=pop))
+    path = os.path.join(refits_dir, REFIT_FILES[kind].format(pop=config.tagged(pop)))
     if not os.path.exists(path):
         raise FileNotFoundError(
             f"{path}\nRun:  .venv/bin/python fig5/refit.py -population {pop}")

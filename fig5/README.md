@@ -51,6 +51,7 @@ panels.py           the five panels as ax-accepting functions (no figure, no fil
 resave_ai.py        relink fig5.ai's panel PDFs, save it, re-export fig5.png -- via Illustrator
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)
+preflight.py        checks the two hand-supplied files' schemas before the expensive run
 window_set_sensitivity.py  does the answer change on 693,270 windows? stand-in subsets
 output/             panel PDFs, the supporting figure, and this figure's own caches
 ../refits/          the refit tables, shared with dnm_training_size/
@@ -151,11 +152,17 @@ file is read, filtered to `window overlaps enhancer == False`, and inner-joined 
 `element_id`, which is how the enhancer exclusion (GeneHancer is licensed) and their
 interval exclusions (assembly gaps, ENCODE exclude regions, low coverage) arrive without
 being re-derived. Run it both ways: the two sets differ 2.66x, and a conclusion that
-holds on only one of them is a conclusion about the window definition. Costs of
-switching: the `scored` and `sizematched` refits must be rerun (~6 min each) and are
-keyed by population alone, so one window set's refits overwrite the other's; the panel-C
-and CpG caches in `output/` carry a fingerprint of the edges and window set, so those
-coexist.
+holds on only one of them is a conclusion about the window definition.
+
+**The two sets' outputs land beside each other, not on top.** `config.WINDOW_SET_SUFFIX`
+is `""` for the default set and `.neutral` when `NEUTRAL_WINDOWS_BED` is set, and it is
+carried by everything whose *content* depends on the window set: the refit tables
+(`…scored.neutral.txt`), their `provenance.json` entries, and the panel PDFs
+(`fig5A.neutral.pdf`, `supp_fig7.neutral.pdf`). The default set's names are unchanged, so
+nothing on disk is renamed and `fig5.ai`'s links keep resolving. The parquet caches in
+`output/` need no suffix — they already carry a fingerprint of the GC edges and the window
+set. What still costs time is the refits: `scored` and `sizematched` must be rerun for the
+second set, ~6 min each, and `full` need not be (it never builds the window table).
 
 **`window_set_sensitivity.py` asks in advance whether the narrowing will change the
 answer**, by rerunning panel A's statistic on same-sized stand-in subsets (random, and
@@ -170,6 +177,22 @@ uses to decide what the panels are **evaluated** on. Disagreement would train on
 population and score on another, the defect this figure is about. `config.py`'s docstring
 has the full argument, including how `refits/provenance.json` turns a post-refit edit into
 a loud error rather than a silent mismatch.
+
+**Run `preflight.py` before either of them is used in anger:**
+
+```
+.venv/bin/python fig5/preflight.py
+```
+
+It reads both files and checks what the loaders assume — the columns they index by name,
+that the enhancer flag is Boolean and not constant, the 1 kb grid and 0-based half-open
+coordinates that make `chrom-start-end` an `element_id`, the `chr` prefix, uniqueness, the
+693,270 count, and for the depletion-rank file that it loads at all and that GC came out a
+0-1 fraction. Seconds, no `published/` needed, non-zero exit on anything that would yield a
+wrong figure rather than an error. It cannot check the depletion rank's **orientation**:
+the panel ranks within that set, so any monotone transform gives the same curve and only
+the direction matters — `depletion_rank.py` assumes low DR means more constrained and
+takes `1 - DR`. A mirrored curve about y = 0.5 is that assumption failing.
 
 `depletion_rank.py` has been exercised against synthetic input (column resolution, GC
 unit detection, the `1 - DR` complement, error paths) but **never against the real

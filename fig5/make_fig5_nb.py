@@ -156,9 +156,13 @@ def save(fig, letter):
     # via resave_ai.save_panel, which writes a file ONLY if its bytes changed. So
     # re-running this notebook without changing a panel touches nothing, and fig5.ai does
     # not go stale (or dirty on screen) over a rebuild that changed no artwork.
-    written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, f"fig5{letter}"))
+    # config.WINDOW_SET_SUFFIX, so the narrowed set's panels land BESIDE the default
+    # set's rather than overwriting them -- and fig5.ai, which links the unsuffixed
+    # names, keeps resolving.
+    name = f"fig5{letter}{config.WINDOW_SET_SUFFIX}"
+    written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, name))
     print(f"wrote {', '.join(os.path.basename(p) for p in written)}" if written
-          else f"fig5{letter}: unchanged, left alone")
+          else f"{name}: unchanged, left alone")
 """)
 
 md(r"""
@@ -918,9 +922,10 @@ panels.panel_cpg_dnm_rate(axes[2], cpg, min_n=MIN_N_CPG, show_xlabel=False)
 panels.panel_cpg_expected_share(axes[3], binned_b, min_n=MIN_N_WINDOWS)
 panels.label_panels(axes, ("A", "B", "C", "D"))
 
-written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, "supp_fig7"))
+supp_name = f"supp_fig7{config.WINDOW_SET_SUFFIX}"
+written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, supp_name))
 print(f"wrote {', '.join(os.path.basename(p) for p in written)}" if written
-      else "supp_fig7: unchanged, left alone")
+      else f"{supp_name}: unchanged, left alone")
 """)
 
 code(r"""

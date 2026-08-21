@@ -53,6 +53,27 @@ NEUTRAL_WINDOWS_BED = None
 # so a change to NEUTRAL_WINDOWS_BED does not invalidate it.
 WINDOW_DEPENDENT = ("scored", "sizematched")
 
+# Every artefact whose CONTENT depends on the window set carries this, so the two sets'
+# outputs land BESIDE each other instead of overwriting: the refit tables, their
+# provenance entries, and the panel PDFs. Empty for the default set, so nothing that
+# exists today is renamed and fig5.ai's links keep resolving; the narrowed set's files
+# gain `.neutral`. The parquet caches in fig5/output/ do not need it -- they already
+# carry a fingerprint of the GC edges and the window set itself.
+WINDOW_SET_SUFFIX = "" if NEUTRAL_WINDOWS_BED is None else ".neutral"
+
+
+def tagged(population: str) -> str:
+    """
+    `population` as it appears in refit filenames and provenance keys.
+
+    ONLY WINDOW_DEPENDENT populations are tagged. `full` never builds the window table,
+    so its tables are identical under either setting and one copy serves both -- tagging
+    it would send every reader looking for a file no run ever writes, since `full` is
+    also the one population a window-set switch does NOT require rerunning.
+    """
+    return f"{population}{WINDOW_SET_SUFFIX}" if population in WINDOW_DEPENDENT else population
+
+
 _PROVENANCE = "provenance.json"
 
 
@@ -67,7 +88,7 @@ def _read(refits_dir: str) -> dict:
 def record(refits_dir: str, population: str, neutral_windows_bed: str | None) -> None:
     """Stamp the setting a refit was built under. Called by refit.py after it writes."""
     prov = _read(refits_dir)
-    prov[population] = {"neutral_windows_bed": neutral_windows_bed}
+    prov[tagged(population)] = {"neutral_windows_bed": neutral_windows_bed}
     with open(os.path.join(refits_dir, _PROVENANCE), "w") as fh:
         json.dump(prov, fh, indent=1, sort_keys=True)
 
@@ -84,12 +105,12 @@ def check(refits_dir: str, population: str) -> None:
     """
     if population not in WINDOW_DEPENDENT:
         return
-    stamped = _read(refits_dir).get(population)
+    stamped = _read(refits_dir).get(tagged(population))
     if stamped is None:
         raise RuntimeError(
-            f"{os.path.join(refits_dir, _PROVENANCE)} has no entry for {population!r}, "
-            f"so the training population it was built on is unknown.\n"
-            f"Rerun:  .venv/bin/python fig5/refit.py -population {population}")
+            f"{os.path.join(refits_dir, _PROVENANCE)} has no entry for "
+            f"{tagged(population)!r}, so the training population it was built on is "
+            f"unknown.\nRerun:  .venv/bin/python fig5/refit.py -population {population}")
     if stamped.get("neutral_windows_bed") != NEUTRAL_WINDOWS_BED:
         raise RuntimeError(
             f"the {population!r} refit was built with NEUTRAL_WINDOWS_BED="
