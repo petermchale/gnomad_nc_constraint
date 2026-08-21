@@ -897,12 +897,8 @@ the solid curve's compression is a lower bound.
 
 **What the gap does and does not imply.** Saturation is not an error in Chen et al.'s
 model. The expected counts built from $p_c$ are compared against observed *polymorphism*
-counts, which saturate identically, so it cancels — this is the same cancellation that
-makes a level error invisible in $r$. It stops cancelling the moment the comparison is
-against **DNMs**, which are per-generation mutations and do not saturate at all. A naive
-DNMs-over-$E_1$ ratio therefore understates the CpG rate exactly where methylation is
-highest, and that is the artifact behind the apparent residual CpG decline; corrected for
-it, the true $r_{\mathrm{CpG}}$ is flat within $\pm11\%$ with no trend.
+counts, which saturate identically, so it cancels — the same cancellation that makes a
+level error invisible in $r$.
 """)
 
 code(r"""
