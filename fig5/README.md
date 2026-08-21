@@ -52,6 +52,7 @@ resave_ai.py        relink fig5.ai's panel PDFs, save it, re-export fig5.png -- 
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)
 preflight.py        checks the two hand-supplied files' schemas before the expensive run
+RUNBOOK.md          the ordered procedure for rebuilding with both files set (HPC)
 window_set_sensitivity.py  does the answer change on 693,270 windows? stand-in subsets
 output/             panel PDFs, the supporting figure, and this figure's own caches
 ../refits/          the refit tables, shared with dnm_training_size/
