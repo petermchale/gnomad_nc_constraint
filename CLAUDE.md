@@ -193,14 +193,14 @@ selection is per-trinucleotide-context.
 | `misc/genomic_features13_genome_1kb.txt` | 1.44 GB | Raw x(w): 13 features × 4 window scales (1k/10k/100k/1M) = 52 columns, one row per 1kb `element_id` genome-wide. Includes `GC_content_1k`, `GC_content_10k`, etc. |
 | `misc/genomic_features13_sel.txt` | 19 KB | One row per `(context, feature, window)` triple that survived Bonferroni selection for that trinucleotide context's L1-logit model (line ~209ff of `run_nc_constraint_gnomad_v31_main.py`) — i.e. the regional features actually used to compute `x(w)`/`x̄` and thus `r(w)` for that context. Columns: `context, feature, window, coef, se, pval` (`coef`/`se`/`pval` are the fitted logistic-regression coefficient, its standard error, and p-value). A context can have multiple rows (e.g. `AAA` has 3: `cDNM_maternal_05M`@1k, `dist2telo`@1k, `recomb_male`@1k; `AAT` has 6, spanning windows from 1k to 1M). |
 | `fig_tables/genomic_features13_sel.annot.txt` | small | The full univariate table underlying the row above, not a strict superset of it: all 13 features × 4 window scales (52 rows) for every one of the 32 contexts (1664 rows + header), columns `context, feature, window, coef, ft_sel, label` (drops `se`/`pval`, adds `ft_sel`/`label`). `ft_sel` (bool) / `label` (`"x"` or empty) flag exactly the rows that survived Bonferroni selection — that subset is what `misc/genomic_features13_sel.txt` contains. E.g. context `AAT` has 52 rows here (13 features × {1k,10k,100k,1M}), of which 6 have `ft_sel=True` — matching the 6 `AAT` rows in the selected-only file. |
-| `fig_tables/mutation_rate_by_context_methyl.txt` | 12.5 KB | Per-`(context, ref, alt, methylation_level)` fitted mutation rate — **156 rows**, counted directly, not 96: there are 96 `(context, ref, alt)` triples (32 trinucleotide contexts × 3 alt alleles), but methylation level varies only for the **C>T** substitution in the four CpG contexts (ACG/CCG/GCG/TCG), which carry 16 levels each — so 92 single-level rows + 4 × 16 = 156 (`run_nc_constraint_gnomad_v31_main.py` lines 86–148). Columns: `possible` = genome-wide count of sites with this context/ref/alt/methylation, after coverage (mean depth 30–32×) and black-region filtering (line 111, `possible_counts_by_context_methyl.txt`). `observed` = count of those sites with a rare (AF ≤ 0.001), PASS-filter variant in the full 76,156-genome callset (lines 100–107, `observed_counts_by_context_methyl.txt`). `proportion_observed` = `observed / possible` (line 132) — the raw empirical mutation rate proxy; it saturates below 1 because recurrent/back mutation and finite sample size mean not every possible site shows a variant even at this sample size. `mu` = an independent, pre-saturation mutation-rate estimate for the same context/ref/alt/methylation, computed from a separately downsampled (1000-genome) subset and rescaled so the genome-wide total equals a fixed constant `total_mu = 1.2e-08` (lines 43–83, `mu_by_context_methyl_downsampled_1000.txt`) — concretely `mu = s · P_2000` where `P_2000 = observed_1kg / possible` is the polymorphism proportion in the 1000-genome downsample and `s = 8.849e-7` (measured) is ONE global constant chosen so `sum(mu · possible) / (sum(possible)/3) = 1.2000e-08` per base per generation, so the rescaling sets the LEVEL and leaves every ratio between rows untouched; note `mu` is itself mildly saturated at the top (median row 0.75% polymorphic at 1000 genomes, but ACG C>T at methylation 15 is 27.6%, whose Poisson-corrected span is 13.2x against the 11.4x the proportion gives) — used only as the x-axis of the calibration fit below, not as the final rate. `fitted_po` = the calibrated/smoothed version of `proportion_observed`, obtained by regressing `log(1 − proportion_observed)` on `mu` (weighted least squares, weights `1/sem` of the binomial proportion) and back-transforming: `fitted_po = 1 − exp(B)·exp(A·mu)` (lines 137–141). The script's own committed values are `A = -1.885e7, B = -7.32e-5` (weighted R² = 0.9987), and they reproduce every `fitted_po` in the published file to 2e-16. Since `exp(B) = 0.99993`, the fit is in practice `fitted_po = 1 - exp(-1.885e7 · mu)` — the Poisson "seen at least once" map, which is why the probability compresses the methylation effect to 3.0-4.3x where `mu` spans 9.7-15.2x. Derived in `fig5/fig5.ipynb`, Supporting Figure 7's section. **`fitted_po` is what the pipeline actually uses as the per-site step-1 mutation probability** — `expected = possible × fitted_po` at line 188 — so it, not `mu` or raw `proportion_observed`, is the step-1 (context-only) mutation-rate table's operative output. |
+| `fig_tables/mutation_rate_by_context_methyl.txt` | 12.5 KB | Per-`(context, ref, alt, methylation_level)` mutation-rate table, **156 rows** — 96 `(context, ref, alt)` triples, of which only the four CpG contexts' C>T carry the 16 methylation levels (`run_nc_constraint_gnomad_v31_main.py` lines 86–148). `possible` = genome-wide count of such sites after coverage (30–32×) and black-region filtering; `observed` = those carrying a rare (AF ≤ 0.001) PASS variant in the 76,156-genome callset; `proportion_observed` = the ratio, which saturates below 1; `mu` = **not a measured rate** but the polymorphism proportion in a 1,000-genome downsample times one global constant (`s = 8.849e-7`, set so the per-base genome-wide mean is `total_mu = 1.2e-08`); `fitted_po` = `1 − exp(B)·exp(A·mu)` from regressing `log(1 − proportion_observed)` on `mu` (lines 137–141; `A = -1.885e7, B = -7.32e-5`, weighted R² = 0.9987). **`fitted_po` is the per-site step-1 probability the pipeline actually uses** — `expected = possible × fitted_po` at line 188. Its coalescent reading (`fitted_po = 1 − exp(−u·L_n)`, so the fit is a branch-length ratio) is derived in `fig5/fig5.ipynb`, Supporting Figure 7's section. |
 | `fig_tables/constraint_z_genome_1kb.annot.txt` | 325 MB | Real, final (step-2, r-adjusted) genome-wide 1kb table: `element_id, possible, expected, observed, oe, z, pass_qc, coding_prop` + functional annotation columns (ENCODE cCREs, FANTOM enhancers, GWAS Catalog, etc.). `expected` here is **post-r-adjustment**. |
 | `logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.pkl` | ~15–20 MB each | Fitted L1-logit model, one per trinucleotide context (32 contexts). |
 | `logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.pca.pkl` | ~1 KB each | Fitted PCA transform (sklearn `IncrementalPCA`) per context. |
 | `logit_pickles/logit_regularized_dnm01_{context}_pbonf_pca.ft_mean_std.txt` | ~150 B each | Per-context, per-selected-feature mean/std (this mean is x̄) used to standardize features before PCA. |
-| `context_prepared.ht` | ~578 GB just for `rows/parts/` (measured: 38,029 partitions, 8,771,192,175 rows total — see recipe below) | Hail native `Table`, key `(locus, alleles)`. **One row per *possible* SNV, not per polymorphic/observed site** — 3 rows per genomic position (one per alt allele), for every covered reference position genome-wide, regardless of whether gnomAD ever observed a variant there. Evidence: the row schema has no frequency/allele-count field at all (no `freq`/`AC`/`AN`); the *actual* gnomAD call set lives in a separate table, `genome_prepared.ht` (`run_nc_constraint_gnomad_v31_main.py` line 38), which does carry `.freq`/`.pass_filters`; and `context_prepared.ht` (aliased `context_ht`) is literally what gets grouped and counted to produce the `possible` denominator (line 111: `possible_ht = context_ht.group_by(context,ref,alt,methylation_level).aggregate(count())` → `possible_counts_by_context_methyl.txt`). Core columns actually used downstream: `context` (trinucleotide, e.g. `"TAA"`), `ref`, `alt`, `coverage_mean` (Float64, mean sequencing depth at that position), `methyl_level` (Int32, CpG methylation bin), `transition`/`cpg` (Boolean), `variant_type`/`variant_type_model` (String), `was_flipped` (Boolean, strand-flip flag), plus allele-splitting bookkeeping (`idx`, `a_index`, `was_split`, `old_locus`, `old_alleles`). Also carries a large unused `vep` struct (full Ensembl VEP annotation: transcript/regulatory/motif consequences, per-population MAFs, SIFT/PolyPhen, etc.) that `run_nc_constraint_gnomad_v31_main.py` never reads. Sample rows (`chr1:10002`–`10003`, not claimed to be polymorphic — just the first two reference positions): `context=TAA/AAC, ref=A, alt=C/G/T, coverage_mean=4.61/6.38`. Needs Hail to read — see the Hail-on-this-Mac recipe below. Superseded for this analysis by `expected_counts_by_context_methyl_genome_1kb.txt` below — no longer needed. |
+| `context_prepared.ht` | ~578 GB (38,029 partitions, 8,771,192,175 rows) | Hail `Table` keyed `(locus, alleles)`, **one row per *possible* SNV** — 3 per covered reference position genome-wide, polymorphic or not — carrying `context, ref, alt, coverage_mean, methyl_level, cpg` and a large unused `vep` struct. It is what gets grouped to produce the `possible` denominator (line 111). The actual call set is a separate table, `genome_prepared.ht` (line 38). **Superseded here** by `expected_counts_by_context_methyl_genome_1kb.txt` below — no longer needed; the evidence for the one-row-per-possible-SNV reading is in `preconditions/README.md`. |
 | `expected_counts_per_context_methyl_genome_1kb.txt` | 3.3 GB (bucket root) | This *is* the exact `hl.export()` at `run_nc_constraint_gnomad_v31_main.py` lines 191–197: `expected_ht = possible_ht.group_by(key=(element_id, context)).aggregate(possible=sum, expected=sum)`, one row per `(element_id, context)` pair — multiple rows per window, one for each trinucleotide context that occurs in it (e.g. `chr1-10000-11000` has 4: `ACC, CCC, TAA, TAG`). Columns `element_id, context, possible, expected`, both **summed over every `(ref, alt, methylation_level)` combination sharing that context**: `possible` = count of possible SNV sites of this context in the window (after coverage/black-region filtering, lines 159–166); `expected` = `possible × fitted_po` per `(ref,alt,methylation_level)` (line 188, `fitted_po` from `fig_tables/mutation_rate_by_context_methyl.txt`), i.e. genome-wide expected counts from sequence context alone, `r ≡ 1`, computed *before* the regional-feature adjustment in lines 209–249. Sample: `chr1-10000-11000 / ACC → possible=3, expected=0.31501`. |
-| `expected_counts_by_context_methyl_genome_1kb.txt` | 107 MB (bucket root) | **The step-1 (context-only) expected-count table, further summed down to one row per `element_id`: `element_id, possible, expected`.** Same `possible`/`expected` definitions as the row above, just summed again over all 32 contexts (so `possible` here matches the meaning of `possible` in `fig_tables/constraint_z_genome_1kb.annot.txt`, which the later `r`-adjustment never touches). Despite the name, this file is *not* produced anywhere in `run_nc_constraint_gnomad_v31_main.py` — the script only ever writes the per-`(element_id, context)` file above; this further `group_by('element_id')` sum must happen in a downstream/publication step. (Earlier text here said this was "the same situation as the missing `generic.py`/`constraint_basics.py`/`nc_constraint_utils.py`" — that was wrong: those three modules are *not* missing, they're at `misc/generic.py`, `misc/constraint_basics.py`, `misc/nc_constraint_utils.py` in the bucket, and are confirmed to be exactly what `run_nc_constraint_gnomad_v31_main.py:23–25` imports [`from generic import *`, etc.] — this local checkout just never fetched them. Checked directly: none of the three contain a `group_by('element_id')` step matching this file either, so the specific aggregation behind *this* file genuinely still isn't shown anywhere available — just don't extend that gap to the utility modules generally, see the "fitting code" section below.) Verified self-consistent by hand: summing the 4 per-context rows for `chr1-10000-11000` in the file above (`possible` 3+3+1+4=11, `expected` 0.31501+0.26256+0.074125+0.15301=0.804705) exactly matches this file's row (`11`, `0.80470500`). Trustworthy to use directly, just can't point to its exact generating code. Use this directly — no need to reconstruct step-1 from `context_prepared.ht` (Option A) or the reference FASTA (Option B). **A Hail-native counterpart, `expected_counts_by_context_methyl_genome_1kb.ht/`, also exists in the bucket** (fetch its `README.txt` and `metadata.json.gz` directly over HTTPS, same as any other bucket object) — its `table_type` schema (`Table{key:[element_id], row:Struct{element_id:String, possible:Int64, expected:Float64}}`) matches the `.txt` file column-for-column, confirming the same 3-column shape from an independent source. Its `metadata.json.gz` gives an exact row count via `sum(components.partition_counts.counts)`: 2,575,299 rows (38,029 partitions) — more precise than inferring row count from the `.txt` file's size. Written with Hail 0.2.62, created 2022/01/17. It does *not* resolve the generating-code gap above: the metadata is a standard Hail `TableSpec` (schema + partition counts only, no lineage/provenance field), so it confirms this was a real materialized Hail table upstream of the `.txt` export, but not which script produced it. **Genome-wide regeneration (not just the one hand-picked row above) confirms the r≡1 interpretation**: `preconditions/verify_expected_r1.py` downloads `expected_counts_per_context_methyl_genome_1kb.txt` (confirmed provenance, see row above) and `expected_counts_by_context_methyl_genome_1kb.txt`, sums the former over context per `element_id` in duckdb, and diffs against the latter for all 2,575,299 rows. `possible` (a plain count, independent of any model fit) matches exactly on every row. `expected` matches to within 1e-3 relative tolerance (max observed: 4.6e-5) — not bit-identical, but the residual is fully explained by GCS `customTime` metadata (each object's original creation date, preserved through a later 2023-12-15 bucket migration that overwrote every file's `timeCreated`): `mu_by_context_methyl_downsampled_1000.txt` (2022-01-16) feeds directly into `fig_tables/mutation_rate_by_context_methyl.txt` just two code-steps later (lines 134–148), yet the two are **277 days apart** (`mutation_rate_by_context_methyl.txt` is 2022-10-20) — meaning `expected_counts_by_context_methyl_genome_1kb.{txt,ht}` (clustered 2022-01-16/17/18) and `expected_counts_per_context_methyl_genome_1kb.txt` (2022-08-05, clustered with the October `mutation_rate` file) come from two separate pipeline runs, each with its own random-downsample mutation-rate refit (lines 43–83, 134–141) — plausibly explaining the tiny, symmetric-around-zero `expected` differences (mean diff ≈ 9e-6) without implicating the r≡1 assumption itself. Run `python preconditions/verify_expected_r1.py [-dest_dir published]` to reproduce (no Hail needed — both files are plain-text exports; ~8 min dominated by the 3.3 GB per-context file download). The script also saves the regenerated table itself to `{dest_dir}/expected_counts_by_context_methyl_genome_1kb.regenerated.txt` — sorted and `%.8f`-formatted to match the published file's own conventions (lexicographic `element_id` order, 8-decimal `expected`), purely so the two can be diffed/read side by side; the join-based comparison the script prints doesn't depend on this file or on row order. Local only — `published/` isn't tracked by git, so this file isn't committed. |
+| `expected_counts_by_context_methyl_genome_1kb.txt` | 107 MB (bucket root) | **The step-1 (context-only, r ≡ 1) expected-count table**, one row per `element_id`: `element_id, possible, expected` — the row above summed over all 32 contexts, so `possible` matches the meaning it has in `constraint_z_genome_1kb.annot.txt`. No published script produces it (the pipeline only writes the per-context file), but `preconditions/verify_expected_r1.py` regenerates it genome-wide from that file and confirms the r ≡ 1 reading: `possible` exact on all 2,575,299 rows, `expected` to 4.6e-5 relative, with the residual explained by two pipeline runs — see `preconditions/README.md`. A Hail-native counterpart `.ht/` exists with the same 3-column schema. **Use this directly.** |
 | `observed_counts_genome_1kb.txt` | 71 MB (bucket root) | Standalone observed-variant-count table, `element_id, variant_count`. Same numbers as the `observed` column of `fig_tables/constraint_z_genome_1kb.annot.txt` below, but much smaller if `pass_qc`/`coding_prop`/functional annotations aren't needed. |
 
 Bucket contents are listable without `gsutil`/auth via the JSON API, e.g.:
@@ -208,272 +208,17 @@ Bucket contents are listable without `gsutil`/auth via the JSON API, e.g.:
 curl -s "https://storage.googleapis.com/storage/v1/b/gnomad-nc-constraint-v31-paper/o?prefix=logit_pickles/&maxResults=50"
 ```
 
-### Recipe: reading `context_prepared.ht` (or any `.ht`/`.mt`) with Hail on this Mac
+Reading `context_prepared.ht`, or any other `.ht`/`.mt`, needs a specific Hail/Java/backend
+setup: the recipe and its two gotchas are in `preconditions/README.md`. Nothing in the
+current analysis needs it.
 
-`hail==0.2.138` and `pyspark` are already in `requirements.txt`/`.venv`. To actually use
-them:
+## Methods narrative — moved
 
-```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk@11   # NOT the JDK bundled in IGV.app — plain
-                                                  # `brew install openjdk@11`. Hail 0.2.138
-                                                  # warns if run under Java 21 (e.g. IGV's).
-export PATH="$PWD/.venv/bin:$PATH"               # puts find_spark_home.py on PATH; without
-                                                  # this, hl.init(backend='local') fails with
-                                                  # FileNotFoundError: find_spark_home.py
-```
-
-```python
-import hail as hl
-hl.init(backend='local', quiet=True)   # NOT the default 'spark' backend — that one only
-                                        # has HadoopFS, which errors "No FileSystem for
-                                        # scheme gs" (no Hadoop GCS connector jar here).
-                                        # backend='local' uses Hail's own GoogleStorageFS,
-                                        # which can read gs:// paths directly with no
-                                        # gsutil/auth setup, since the bucket is public.
-ht = hl.read_table('gs://gnomad-nc-constraint-v31-paper/context_prepared.ht')
-ht.show(5)
-```
-
-Two gotchas actually hit when doing this (2026-07-20):
-
-1. **`hl.init(backend='local')` itself throws `IOException: Your default credentials were
-   not found`** — even for purely local paths — because Hail's `RouterFS` eagerly builds
-   routes for every cloud filesystem (GCS included) at backend-construction time, which
-   probes for Google Application Default Credentials whether or not you ever touch `gs://`.
-   Fix: point `GOOGLE_APPLICATION_CREDENTIALS` at *any* syntactically-valid throwaway
-   service-account JSON (fake key, fake project, never actually used for a real call —
-   generate one with `openssl genrsa 2048` and hand-build the JSON). This is a Hail/Java
-   quirk, not a real auth requirement — the bucket is public.
-2. **`.show(n)`/`.take(n)` reads partitions in doubling batches (1 → 2 → 4 → 8 → ...),
-   not just enough to satisfy `n` rows** — even though partition 0 alone (201,627 rows)
-   already dwarfs a 5-row request. If you're mirroring a `.ht` locally instead of pointing
-   at `gs://` directly (e.g. to avoid the ~578 GB full download), you need whichever
-   power-of-two of partitions the doubling lands on (4 partitions/~46 MB sufficed for a
-   5-row `.show()` here), not just partition 0. A local mirror needs, per partition `i`:
-   `rows/parts/part-*`, `index/part-*.idx/{index,metadata.json.gz}`; plus the table-level
-   `metadata.json.gz`, `globals/{metadata.json.gz,parts/part-0}`, `rows/metadata.json.gz`,
-   `_SUCCESS`, `README.txt` once. All of these are plain HTTPS-fetchable (no auth) since
-   the bucket is public — see the listing trick above.
-
-## The Figure 2A-style rank statistic — canonical methods narrative
-
-This section is the canonical, extractable methods narrative for the rebuttal/revised
-paper. It was written for `compute_gc_bias_step1_vs_step2.py`, **deleted 2026-08-07**
-(recoverable from git history) once fig5 panel A superseded its headline result on the
-same window set with the same statistic. Every methodological choice recorded below is
-still live: they are implemented in `gnocchi_bias/windows.py`, which was extracted
-verbatim from that script, and fig5 inherits all of them. Read `windows.py` for the code.
-
-TWO CAPABILITIES WENT WITH THE SCRIPT and exist nowhere else, both concerning comparison
-against McHale et al.'s *existing published* figures rather than producing Fig. 5:
-the 2D hexbin density heat map of (GC, rank) that reproduces Fig. 2A's visual form
-(fig5 draws only the conditional-mean line), and `-bias_metric residual`, the
-`expected − observed` metric Supp. Fig. 1 is defined on (fig5 uses the rank statistic
-only). Recover them from git if either is wanted. Every
-methodological choice below that mirrors, deviates from, or could not be replicated from
-McHale, Goldberg & Quinlan 2026 ("The performance of genetic-constraint metrics varies
-significantly across the human noncoding genome", `mchale_et_al_250115.pdf` + supporting
-PDF, this repo) is cited by page/section, with exact quoted text where it matters.
-
-`-bias_metric rank` (default) reproduces the statistic actually plotted in **Figure 2A**
-(page 6 of `mchale_et_al_250115.pdf`; Methods, "Computation of window residuals under the
-Chen model", p.15), generalized to compare step 1 vs step 2 on the same axes (the paper
-only plots one model, the published Gnocchi — this script's whole point is a
-step1-vs-step2 comparison, so the same rank statistic is computed for both):
-1. Compute each window's own z-score from `(expected, observed)`, using the *exact*
-   formula in `run_nc_constraint_gnomad_v31_main.py` lines 278–281: `oe =
-   observed/expected; chisq = (observed-expected)**2/expected; z = -sqrt(chisq) if
-   oe>=1 else sqrt(chisq)`; keep only `z` in `[-10, 10]` and finite (matches the official
-   pipeline's own z clipping). Applied separately to `(expected_step1, observed)` and
-   `(expected_step2, observed)` — step 1 gets its own from-scratch z-score, since the
-   official pipeline never computes one for `r==1`.
-2. Standardize each window's z to a rank in `(0, 1)` via `(rank(z) - 0.5) / n` — exactly
-   the "(standardized) rank of Gnocchi" Figure 2's y-axis and caption describe ("the
-   marginal distribution of Gnocchi ... is uniform with an average value of 0.5";
-   Supporting Figure 1's caption: "Ranks are standardized to lie in the unit interval";
-   main text Table 1's caption: "the target variables (ranks) in the fitting process are
-   uniformly distributed between 0 and 1").
-3. Bin windows by GC content (paper units — see below) and take the mean rank per bin —
-   exactly Figure 2A's dark-grey conditional-mean-rank line, with a horizontal reference
-   line at y=0.5 (not y=0, since this is a rank, not a residual) and a vertical reference
-   line at the mean GC content of the analyzed window set.
-4. A 2D hexbin density heat map of `(GC content, rank)` is drawn behind the line.
-
-`-bias_metric residual` is the original metric this script started with, kept for
-backward compatibility (not part of Figure 2A) — see the script's own docstring for its
-definition; nothing about it was changed by the Figure-2A generalization.
-
-**GC content units** (`-match_paper_gc_units`, on by default): this repo's own
-`GC_content_1k` column (`misc/genomic_features13_genome_1kb.txt`) is a **percentage**,
-0–100 (empirically confirmed: min/max/mean over a 200k-row sample were 0.9/85.2/41.0).
-McHale et al.'s own GC content is a **fraction**, 0–1, computed via `bedtools nuc`
-(confirmed by reading the exact scripts cited in the paper's Methods, "Assignment of
-genomic feature values to genomic windows", p.14:
-`github.com/quinlan-lab/constraint-tools/blob/main/experiments/germline-model/chen-et-al-2022/compute-GC-content-given-window-size-based-on-Chen-windows.sh`,
-which calls `bedtools nuc -fi <genome> -bed <windows> | cut -f1-7,9`): `bedtools nuc`'s
-9th output column is `pct_gc`, always a 0–1 fraction (column 8 is `pct_at`, dropped by
-`cut -f1-7,9`). Figure 2A's x-axis (visually confirmed) spans roughly 0.2–0.73 —
-consistent with a fraction, not 20–73. So `GC_content_1k` is divided by 100 here before
-binning/plotting in rank mode.
-
-**Heat map** (`-plot_heatmap`, on by default): a 2D hexbin density plot of
-`(GC content, rank)`, one panel each for step 1 and step 2, using a log-scaled `inferno`
-colormap (matching the paper's black-purple-orange-yellow palette;
-`matplotlib.colors.LogNorm`, `mincnt=1` so empty cells stay white). The conditional-mean
-line is drawn in light grey (`"0.9"`, close to white) rather than a plain dark grey — the
-paper's "Mean observed Gnocchi" line reads as much lighter than its legend swatch
-suggests once drawn over the heat map's mostly dark-purple/black cells, and a plain dark
-grey line is nearly invisible against the same background. NOT reproduced: the
-light-grey multivariate-linear-regression line (needs BGS/gBGC fit jointly with GC
-content; only GC content is available here) and panels B/C (no BGS/gBGC data joined to
-the genome-wide 1kb window table here) — out of scope per explicit request ("Fig 2A", not
-2A–C).
-
-**Axis ranges** (rank mode): y-range hardcoded to `[0, 1]` (matches Figure 2A's y-axis
-exactly — ticks 0.0 to 1.0, box edges aligned with the first/last tick, no autoscale
-margin; not automatic in matplotlib since the rank statistic's own natural range,
-`(0.5/n, 1-0.5/n)`, is very slightly inside `[0,1]`). x-range defaults to `"0.2,0.73"` —
-**read visually** from the published Figure 2A, not from any numeric value stated in the
-paper's text (the paper reports no exact axis limits). Method: rasterized the PDF page at
-300 DPI (`pdftoppm -png -r 300 -f 6 -l 6`), visually located the tick labels (0.2 through
-0.7) and the plot box's left/right edges relative to them. A pixel-level calibration was
-attempted (the plot box's horizontal extent via the longest continuous dark-pixel run in
-the y=0.5 reference line, which spans the same width as the box: pixel columns ~423–1027
-at 300 DPI) but tick-mark pixel positions couldn't be isolated cleanly from the label
-text underneath them — so `(0.2, 0.73)` is a visual estimate, not pixel-exact or
-text-sourced. Treat as approximate; refine against the actual McHale et al.
-figure-generation code/data if exact bounds are needed for a citation.
-
-**Chromosome filtering** (`-exclude_sex_chromosomes`, on by default): McHale et al.'s
-Methods ("Provenance of constraint scores", p.14) state plainly: "Windows on the X and Y
-chromosomes were omitted." Empirically, the genome-wide 1kb window files used here
-already have chrY fully absent (0 rows) and only 2,497 chrX rows — pseudoautosomal-region
-(PAR) windows, not general chrX: `run_nc_constraint_gnomad_v31_main.py`'s own upstream
-filtering (`filter_to_autosomes_par`, `constraint_basics.py:224–225`,
-`ht.filter(ht.locus.in_autosome_or_par())`) already restricts everything in this repo's
-data to autosomes + PAR before any of these files are produced, so PAR-on-chrX is the
-*only* sex-chromosome remnant possible here — consistent with, not contradicting, McHale
-et al.'s statement.
-
-**Noncoding restriction** (`-restrict_to_noncoding`, on by default — was off before this
-revision): half of McHale et al.'s "neutral" window definition (Methods, "Construction of
-the window sets to assess model bias...", p.14: "Noncoding windows were defined to be
-Chen, Halldorsson and CDTS windows that don't significantly overlap merged exons.").
-Exact threshold still unconfirmed against their Methods — default guess remains
-`coding_prop == 0.0` (fully noncoding windows only); their "don't significantly overlap"
-wording (mirroring the enhancer criterion below) suggests a threshold rather than a
-strict zero, but no numeric value is given in the text.
-
-**The neutral window set** — the other half of "neutral", and as of 2026-08-17 it
-arrives as a **join on McHale et al.'s own window file** rather than as an exclusion
-re-derived here. Their Methods say: "Of the noncoding windows, those that don't
-significantly overlap Genehancer enhancers (Fishilevich et al. 2017) were labeled
-'neutral' ... Noncoding windows that do significantly overlap Genehancer enhancers were
-labeled 'constrained'" ("significantly" is never numerically defined). Two separate
-things make that unreproducible here: GeneHancer is licensed (confirmed 2026-07-21 —
-"GeneHancer data must be obtained from the source database directly ... rather from
-UCSC", and UCSC does not serve the file), and their *other* interval exclusions (hg38
-assembly gaps, ENCODE exclude regions, low-coverage regions) are not in the public bucket
-either.
-
-So the file is the definition -- and as of 2026-08-18 it is the WHOLE definition:
-`build_window_table` applies its own noncoding / `pass_qc` / autosome-PAR filters only
-when `NEUTRAL_WINDOWS_BED` is None, and skips them when the file is supplied. Filtering
-first and joining second returned the intersection of two definitions that need not
-agree -- `coding_prop <= 0.0` here, a strict zero, against their "doesn't significantly
-overlap merged exons" with the threshold never numerically defined -- so any window in
-the gap was in their set and was silently dropped here as coding. What can still remove
-one of their windows is not a filter but `load_joined_table`'s three-way inner join: a
-window with no row in the constraint table, the step-1 expected table or the features
-table has no `expected`/`observed`/GC to be scored with.
-
-`gnocchi_bias/windows.py`'s
-`load_mchale_neutral_element_ids()` / `restrict_to_mchale_neutral_windows()` read
-
-```
-{CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/41586_2023_6045_MOESM4_ESM/Supplementary_Data_2.features.constraint_scores.bed
-```
-
-— Chen et al.'s published Supplementary Data 2 re-annotated by constraint-tools with
-regional features and a boolean `window overlaps enhancer` — filter it to
-`window overlaps enhancer == False` (**693,270 rows**), and inner-join on `element_id`.
-That is verbatim what `get_unconstrained_noncoding_chen_windows()` does in their
-`papers/neutral_models_are_biased/9.regression/experiment.1.ipynb`, so the join reproduces
-their Fig. 1 window set exactly rather than approximating it. Tab-separated with a header;
-`chrom, start, end` are 0-based half-open, the same convention as `element_id`; the file
-also carries `window overlaps merged_exon`, `B`, `GC_content_1000bp` and more.
-
-Set it in `fig5/config.py` as `NEUTRAL_WINDOWS_BED` (path only; `None` skips the
-restriction). **Both window sets are meant to be run** — 1,843,559 and 693,270 — since a
-result holding on only one is a result about the window definition. Operational costs of
-switching: the `scored` and `sizematched` refits must be rerun (~6 min each) and are keyed
-by population alone, so one set's refits overwrite the other's; the panel-C and CpG caches
-in `fig5/output/` carry a fingerprint of the GC edges and the window set, so those coexist.
-Panel C gains a fourth band, `other_noncoding`, counting exactly the territory given up
-in the narrowing — the band to read when asking whether the figure's conclusions survive
-it. Its four strata are a subdivision of the genome's three only if their set holds no
-coding window; that is not enforced, so the join prints how many kept windows have
-`coding_prop > 0` (0 means the nesting holds and the `coding` band is exactly QC-pass
-coding; anything else means those windows are labelled `scored`, not `coding`).
-
-**Will the narrowing change the answer? Probably not, but it is not yet settled.**
-`fig5/window_set_sensitivity.py` reruns panel A's statistic on same-sized stand-in
-subsets. Over the 13 GC bins every arm draws: step1 / step2 / scored = 0.067 / 0.177 /
-0.034 on the full set, 0.066 / 0.177 / 0.033 on a random 693,270, and 0.067 / 0.180 /
-0.033 under a GC-tilted removal that keeps GC > 0.5 windows at 15% against 37% overall.
-step2/step1 holds at 2.64-2.68x in all three, and step 2's per-bin curve is near
-superimposable. What shrinks under each arm's own binning (0.212 -> 0.207 -> 0.182) is
-the 100-window floor dropping high-GC bins, not the bias: step 2's mean rank in the top
-drawn bin stays 0.877 / 0.876 / 0.875 as that bin moves from GC 0.75 to 0.65. **So quote
-the per-bin curve, or say which bins the average covers.** What no stand-in can test is
-removal correlated with *constraint* — enhancer windows are GC-rich AND variation-
-depleted, so the real narrowing deletes high-z windows preferentially at high GC. A hard
-cut doing exactly that does break the result (2.64x -> 0.96x), but it keeps 1.0% of
-GC > 0.5 windows, deletes the (GC > 0.5, z > 2) corner outright, and selects on the
-quantity being ranked, distorting all three curves together — a bound, not an estimate.
-
-Untested against the real file (it is not available in this environment): verified instead
-against a synthetic stand-in with the same column names and coordinate convention — the
-join, its two diagnostics, and the guard that raises when fewer than half the file's
-windows match (the signature of a `chr1`-vs-`1` mismatch, which would otherwise look like
-a very strict filter). The diagnostics are the `coding_prop > 0` nesting count above and
-a shortfall line; since nothing here filters any more, that line reports one thing only —
-windows with no row in the joined table, almost all of them QC failures. (It used to
-distinguish "filtered here" from "absent from Chen et al.'s table", via a `df_prefilter`
-argument that no longer exists.) **Deleted with this change**: the `bedtools coverage`
-GeneHancer exclusion (`restrict_to_neutral_genehancer`, its `min_frac_covered` cumulative-
-coverage semantics, and the chromosome-naming check), recoverable at `fe51e63`. It never
-ran against real GeneHancer data, and a join on their file answers the same question
-without the licensed input.
-
-**Window count vs. the paper** (explains the wider GC-content "fringe" visible in this
-script's heat maps vs. Figure 2A): measured directly (2026-07-21, full non-downsampled
-dataset, default filters — `exclude_sex_chromosomes` + `restrict_to_noncoding` +
-`pass_qc`, no neutral-set join): this script's default window set has **1,843,559**
-windows, vs. the paper's stated **693,270** "putatively neutral" windows (page 5) — 2.66x
-more. GC content (fraction) in our set ranges 0.14–0.837 (mean 0.399) — genuinely wider
-than the ~0.2–0.73 plotted range, though only 414 of 1,843,559 windows (0.02%) fall
-outside `[0.2, 0.73]` — the vast majority of the extra volume is denser sampling of the
-*same* GC range the paper covers, not a wider range per se; with 2.66x more windows, the
-sparse GC tails naturally pick up more points, making the low-count "fringe" hexbin cells
-near the plot edges more populated/visible here than in the paper's smaller set (verified
-separately that matplotlib's `hexbin` `extent` correctly drops out-of-range points rather
-than piling them at the boundary, so the fringe is real data, not a plotting artifact).
-Likely, only partially confirmed causes of the 2.66x gap:
-1. Enhancer-overlapping windows, which their file excludes and this repo cannot identify
-   without it (effect size on the count not separately measured; supplying
-   `NEUTRAL_WINDOWS_BED` now measures it directly, as the `other_noncoding` stratum).
-2. McHale et al.'s Methods ("Construction of the window sets...", p.14) additionally
-   exclude windows overlapping "gaps in the hg38 genome assembly, Encode 'exclude
-   regions' (Amemiya et al. 2019), and regions with insufficient read coverage in Gnomad
-   version 3" as a named, separate filtering step — this script only applies Chen et
-   al.'s own `pass_qc` (a coverage/pass-rate threshold from the annot file), not this
-   additional interval-based exclusion; the two are not necessarily equivalent even
-   though both are coverage-related.
-3. Unconfirmed possibility that the paper's actual window source (their cited
-   Supplementary Data #2 file) is a different vintage/pre-filtered export than the
-   `constraint_z_genome_1kb.annot.txt` table pulled from the bucket here.
-
+`METHODS.md` (repo root) holds the canonical methods text for the Figure-2A rank
+statistic: what the statistic is, the GC units, chromosome/noncoding filters, the neutral
+window set and the join that supplies it, axis ranges, and the window-count gap against
+McHale et al. **Read it before writing any methods or rebuttal prose about the rank
+statistic**, and before changing anything in `gnocchi_bias/windows.py`.
 
 ## Where to pick up
 

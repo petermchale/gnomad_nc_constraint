@@ -15,7 +15,7 @@ place.
    `matplotlib.use("Agg")` inside their own `main()`. This is what lets the notebooks import these
    modules and still render inline — moving those calls to module scope silently breaks both
    notebooks.
-2. **Docstrings here carry the citation trail** into CLAUDE.md, the Chen et al. source line numbers,
+2. **Docstrings here carry the citation trail** into METHODS.md, the Chen et al. source line numbers,
    and McHale et al.'s Methods. They are the provenance for the manuscript. Don't trim them.
 
 ## Provenance of the code itself

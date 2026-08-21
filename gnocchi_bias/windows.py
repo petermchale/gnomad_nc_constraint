@@ -6,7 +6,7 @@ Extracted verbatim (2026-08-04) from the repo-root
 compute_gc_bias_step1_vs_step2.py, which was the command-line entry point until
 it was deleted (2026-08-07, superseded by fig5 panel A; recoverable from git
 history). Every docstring below keeps its original citation trail into
-CLAUDE.md / McHale et al.'s Methods -- those citations are the point of this
+METHODS.md / McHale et al.'s Methods -- those citations are the point of this
 code, so do not trim them.
 
 The only NEW code here is the N-curve generalization of the z/rank computation
@@ -43,7 +43,7 @@ REMOTE_FILES = {
 # Shared by every figure in this repo so the panels read as one system.
 HEATMAP_LINE_COLOR = "0.9"  # light grey/near-white -- closer than plain dark grey to how
                              # the paper's line actually reads over its mostly dark
-                             # hexbin cells; see CLAUDE.md, "Heat map".
+                             # hexbin cells; see METHODS.md, "Heat map".
 
 RANK_YLABEL = "Standardized rank of constraint metric"
 AXIS_LABEL_FONTSIZE = 13
@@ -52,7 +52,7 @@ TITLE_FONTSIZE = 16
 LEGEND_FONTSIZE = 13
 
 # Figure 2A's x-axis range, READ VISUALLY from the published figure -- not a
-# value stated anywhere in the paper's text. See CLAUDE.md, "Axis ranges", for
+# value stated anywhere in the paper's text. See METHODS.md, "Axis ranges", for
 # the method and the caveat.
 PAPER_XRANGE = (0.2, 0.73)
 
@@ -124,7 +124,7 @@ def load_joined_table(local_paths: dict) -> pl.DataFrame:
 def exclude_sex_chromosomes(df: pl.DataFrame) -> pl.DataFrame:
     """
     Drop chrX/chrY windows (in practice, 2,497 chrX pseudoautosomal-region
-    rows; chrY is already absent). See CLAUDE.md, "Chromosome filtering", for
+    rows; chrY is already absent). See METHODS.md, "Chromosome filtering", for
     the Methods citation and why PAR-on-chrX is the only remnant possible.
     """
     chrom = df["element_id"].str.extract(r"^(chr[^-]+)-")
@@ -134,7 +134,7 @@ def exclude_sex_chromosomes(df: pl.DataFrame) -> pl.DataFrame:
 def add_gc_content_fraction(df: pl.DataFrame) -> pl.DataFrame:
     """
     Add GC_content = GC_content_1k / 100 (this repo's 0-100 percentage ->
-    McHale et al.'s 0-1 fraction). See CLAUDE.md, "GC content units", for the
+    McHale et al.'s 0-1 fraction). See METHODS.md, "GC content units", for the
     citation trail (bedtools nuc's pct_gc column).
     """
     return df.with_columns((pl.col("GC_content_1k") / 100.0).alias("GC_content"))
@@ -142,7 +142,7 @@ def add_gc_content_fraction(df: pl.DataFrame) -> pl.DataFrame:
 
 # The "noncoding" half of McHale et al.'s neutral definition, as ONE number: a window is
 # noncoding if at most this fraction of it is coding exon. Their Methods say "don't
-# significantly overlap merged exons" without giving a value (CLAUDE.md, "Noncoding
+# significantly overlap merged exons" without giving a value (METHODS.md, "Noncoding
 # restriction"), so 0.0 -- no coding overlap at all -- is the conservative reading.
 # It lives here rather than as a bare literal at each use because fig5's panel C has to
 # label training sites by the same criterion this filter selects windows by; two spellings
@@ -159,7 +159,7 @@ def restrict_to_noncoding(df: pl.DataFrame,
     McHale et al.'s "neutral" window definition, and the half this repo can
     reproduce from the public bucket. See restrict_to_mchale_neutral_windows()
     for the rest of it, which arrives as a join on their own window file, and
-    CLAUDE.md, "Noncoding restriction", for the Methods citation and the
+    METHODS.md, "Noncoding restriction", for the Methods citation and the
     still-unconfirmed exact threshold.
     """
     return df.filter(pl.col("coding_prop") <= coding_prop_threshold)
@@ -257,7 +257,7 @@ def restrict_to_mchale_neutral_windows(
         print(
             "WARNING: neutral_windows_bed is None -- the analyzed set is noncoding + "
             "pass_qc (+ non-sex-chromosome), NOT restricted to McHale et al.'s 693,270 "
-            "putatively neutral windows. See CLAUDE.md, 'The neutral window set'.")
+            "putatively neutral windows. See METHODS.md, 'The neutral window set'.")
         return df
 
     neutral_ids = load_mchale_neutral_element_ids(neutral_windows_bed)
@@ -381,7 +381,7 @@ def add_rank_columns(df: pl.DataFrame, labels: list[str]) -> pl.DataFrame:
     """
     Standardized rank of each z_{label}, in (0, 1) with mean exactly 0.5:
     rank = (rank(z) - 0.5) / n -- matches Figure 2's y-axis definition (see
-    CLAUDE.md for the exact quoted caption text). Each curve is ranked WITHIN
+    METHODS.md for the exact quoted caption text). Each curve is ranked WITHIN
     ITSELF, so every curve is uniform on (0,1) by construction and the
     comparison between them is purely about how that uniform mass is
     distributed across GC bins.

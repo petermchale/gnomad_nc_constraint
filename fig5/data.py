@@ -41,7 +41,8 @@ CACHE_DIR = os.path.join(REPO_ROOT, "published")    # downloaded bucket files
 REFITS_DIR = os.path.join(REPO_ROOT, "refits")  # the shared refit outputs
 
 N_BINS = 20
-XRANGE = (0.2, 0.73)   # visually matched to McHale et al. Fig. 2A
+XRANGE = (0.2, 0.73)   # read off McHale et al. Fig. 2A by eye, at 300 DPI; approximate,
+                       # not a value their text states -- METHODS.md, "Axis ranges"
 
 # Written by fig5/refit.py into REFITS_DIR; `pop` is full / scored / sizematched.
 REFIT_FILES = {

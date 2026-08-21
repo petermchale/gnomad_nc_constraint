@@ -197,3 +197,71 @@ rather than a precondition — which is exactly why it is not registered in `rep
 `CHECKS`: a row in `output/STATUS.md` would put it among the claims the figure rests on.
 It keeps its own committed transcript instead, `verify_comparisons_tables.log`, written by
 `runlog.py` — the same tee and commit stamp as here, without the claims or the status table.
+
+
+## Recipe: reading `context_prepared.ht` (or any `.ht`/`.mt`) with Hail on this Mac
+
+`hail==0.2.138` and `pyspark` are already in `requirements.txt`/`.venv`. To actually use
+them:
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@11   # NOT the JDK bundled in IGV.app — plain
+                                                  # `brew install openjdk@11`. Hail 0.2.138
+                                                  # warns if run under Java 21 (e.g. IGV's).
+export PATH="$PWD/.venv/bin:$PATH"               # puts find_spark_home.py on PATH; without
+                                                  # this, hl.init(backend='local') fails with
+                                                  # FileNotFoundError: find_spark_home.py
+```
+
+```python
+import hail as hl
+hl.init(backend='local', quiet=True)   # NOT the default 'spark' backend — that one only
+                                        # has HadoopFS, which errors "No FileSystem for
+                                        # scheme gs" (no Hadoop GCS connector jar here).
+                                        # backend='local' uses Hail's own GoogleStorageFS,
+                                        # which can read gs:// paths directly with no
+                                        # gsutil/auth setup, since the bucket is public.
+ht = hl.read_table('gs://gnomad-nc-constraint-v31-paper/context_prepared.ht')
+ht.show(5)
+```
+
+Two gotchas actually hit when doing this (2026-07-20):
+
+1. **`hl.init(backend='local')` itself throws `IOException: Your default credentials were
+   not found`** — even for purely local paths — because Hail's `RouterFS` eagerly builds
+   routes for every cloud filesystem (GCS included) at backend-construction time, which
+   probes for Google Application Default Credentials whether or not you ever touch `gs://`.
+   Fix: point `GOOGLE_APPLICATION_CREDENTIALS` at *any* syntactically-valid throwaway
+   service-account JSON (fake key, fake project, never actually used for a real call —
+   generate one with `openssl genrsa 2048` and hand-build the JSON). This is a Hail/Java
+   quirk, not a real auth requirement — the bucket is public.
+2. **`.show(n)`/`.take(n)` reads partitions in doubling batches (1 → 2 → 4 → 8 → ...),
+   not just enough to satisfy `n` rows** — even though partition 0 alone (201,627 rows)
+   already dwarfs a 5-row request. If you're mirroring a `.ht` locally instead of pointing
+   at `gs://` directly (e.g. to avoid the ~578 GB full download), you need whichever
+   power-of-two of partitions the doubling lands on (4 partitions/~46 MB sufficed for a
+   5-row `.show()` here), not just partition 0. A local mirror needs, per partition `i`:
+   `rows/parts/part-*`, `index/part-*.idx/{index,metadata.json.gz}`; plus the table-level
+   `metadata.json.gz`, `globals/{metadata.json.gz,parts/part-0}`, `rows/metadata.json.gz`,
+   `_SUCCESS`, `README.txt` once. All of these are plain HTTPS-fetchable (no auth) since
+   the bucket is public — list them with the JSON-API `curl` in CLAUDE.md's public data
+   inventory.
+
+
+## Provenance notes on three published tables
+
+Moved out of CLAUDE.md's inventory, which keeps a short row for each. These are the
+long-form findings behind those rows — what was checked, how, and what the residuals
+mean. `verify_expected_r1.py` in this directory is the script for the third.
+
+### `fig_tables/mutation_rate_by_context_methyl.txt`
+
+Per-`(context, ref, alt, methylation_level)` fitted mutation rate — **156 rows**, counted directly, not 96: there are 96 `(context, ref, alt)` triples (32 trinucleotide contexts × 3 alt alleles), but methylation level varies only for the **C>T** substitution in the four CpG contexts (ACG/CCG/GCG/TCG), which carry 16 levels each — so 92 single-level rows + 4 × 16 = 156 (`run_nc_constraint_gnomad_v31_main.py` lines 86–148). Columns: `possible` = genome-wide count of sites with this context/ref/alt/methylation, after coverage (mean depth 30–32×) and black-region filtering (line 111, `possible_counts_by_context_methyl.txt`). `observed` = count of those sites with a rare (AF ≤ 0.001), PASS-filter variant in the full 76,156-genome callset (lines 100–107, `observed_counts_by_context_methyl.txt`). `proportion_observed` = `observed / possible` (line 132) — the raw empirical mutation rate proxy; it saturates below 1 because recurrent/back mutation and finite sample size mean not every possible site shows a variant even at this sample size. `mu` = an independent, pre-saturation mutation-rate estimate for the same context/ref/alt/methylation, computed from a separately downsampled (1000-genome) subset and rescaled so the genome-wide total equals a fixed constant `total_mu = 1.2e-08` (lines 43–83, `mu_by_context_methyl_downsampled_1000.txt`) — concretely `mu = s · P_2000` where `P_2000 = observed_1kg / possible` is the polymorphism proportion in the 1000-genome downsample and `s = 8.849e-7` (measured) is ONE global constant chosen so `sum(mu · possible) / (sum(possible)/3) = 1.2000e-08` per base per generation, so the rescaling sets the LEVEL and leaves every ratio between rows untouched; note `mu` is itself mildly saturated at the top (median row 0.75% polymorphic at 1000 genomes, but ACG C>T at methylation 15 is 27.6%, whose Poisson-corrected span is 13.2x against the 11.4x the proportion gives) — used only as the x-axis of the calibration fit below, not as the final rate. `fitted_po` = the calibrated/smoothed version of `proportion_observed`, obtained by regressing `log(1 − proportion_observed)` on `mu` (weighted least squares, weights `1/sem` of the binomial proportion) and back-transforming: `fitted_po = 1 − exp(B)·exp(A·mu)` (lines 137–141). The script's own committed values are `A = -1.885e7, B = -7.32e-5` (weighted R² = 0.9987), and they reproduce every `fitted_po` in the published file to 2e-16. Since `exp(B) = 0.99993`, the fit is in practice `fitted_po = 1 - exp(-1.885e7 · mu)` — the Poisson "seen at least once" map, which is why the probability compresses the methylation effect to 3.0-4.3x where `mu` spans 9.7-15.2x. Derived in `fig5/fig5.ipynb`, Supporting Figure 7's section. **`fitted_po` is what the pipeline actually uses as the per-site step-1 mutation probability** — `expected = possible × fitted_po` at line 188 — so it, not `mu` or raw `proportion_observed`, is the step-1 (context-only) mutation-rate table's operative output.
+
+### `context_prepared.ht`
+
+Hail native `Table`, key `(locus, alleles)`. **One row per *possible* SNV, not per polymorphic/observed site** — 3 rows per genomic position (one per alt allele), for every covered reference position genome-wide, regardless of whether gnomAD ever observed a variant there. Evidence: the row schema has no frequency/allele-count field at all (no `freq`/`AC`/`AN`); the *actual* gnomAD call set lives in a separate table, `genome_prepared.ht` (`run_nc_constraint_gnomad_v31_main.py` line 38), which does carry `.freq`/`.pass_filters`; and `context_prepared.ht` (aliased `context_ht`) is literally what gets grouped and counted to produce the `possible` denominator (line 111: `possible_ht = context_ht.group_by(context,ref,alt,methylation_level).aggregate(count())` → `possible_counts_by_context_methyl.txt`). Core columns actually used downstream: `context` (trinucleotide, e.g. `"TAA"`), `ref`, `alt`, `coverage_mean` (Float64, mean sequencing depth at that position), `methyl_level` (Int32, CpG methylation bin), `transition`/`cpg` (Boolean), `variant_type`/`variant_type_model` (String), `was_flipped` (Boolean, strand-flip flag), plus allele-splitting bookkeeping (`idx`, `a_index`, `was_split`, `old_locus`, `old_alleles`). Also carries a large unused `vep` struct (full Ensembl VEP annotation: transcript/regulatory/motif consequences, per-population MAFs, SIFT/PolyPhen, etc.) that `run_nc_constraint_gnomad_v31_main.py` never reads. Sample rows (`chr1:10002`–`10003`, not claimed to be polymorphic — just the first two reference positions): `context=TAA/AAC, ref=A, alt=C/G/T, coverage_mean=4.61/6.38`. Needs Hail to read — see the Hail-on-this-Mac recipe below. Superseded for this analysis by `expected_counts_by_context_methyl_genome_1kb.txt` below — no longer needed.
+
+### `expected_counts_by_context_methyl_genome_1kb.txt`
+
+**The step-1 (context-only) expected-count table, further summed down to one row per `element_id`: `element_id, possible, expected`.** Same `possible`/`expected` definitions as the row above, just summed again over all 32 contexts (so `possible` here matches the meaning of `possible` in `fig_tables/constraint_z_genome_1kb.annot.txt`, which the later `r`-adjustment never touches). Despite the name, this file is *not* produced anywhere in `run_nc_constraint_gnomad_v31_main.py` — the script only ever writes the per-`(element_id, context)` file above; this further `group_by('element_id')` sum must happen in a downstream/publication step. (Earlier text here said this was "the same situation as the missing `generic.py`/`constraint_basics.py`/`nc_constraint_utils.py`" — that was wrong: those three modules are *not* missing, they're at `misc/generic.py`, `misc/constraint_basics.py`, `misc/nc_constraint_utils.py` in the bucket, and are confirmed to be exactly what `run_nc_constraint_gnomad_v31_main.py:23–25` imports [`from generic import *`, etc.] — this local checkout just never fetched them. Checked directly: none of the three contain a `group_by('element_id')` step matching this file either, so the specific aggregation behind *this* file genuinely still isn't shown anywhere available — just don't extend that gap to the utility modules generally, see the "fitting code" section below.) Verified self-consistent by hand: summing the 4 per-context rows for `chr1-10000-11000` in the file above (`possible` 3+3+1+4=11, `expected` 0.31501+0.26256+0.074125+0.15301=0.804705) exactly matches this file's row (`11`, `0.80470500`). Trustworthy to use directly, just can't point to its exact generating code. Use this directly — no need to reconstruct step-1 from `context_prepared.ht` (Option A) or the reference FASTA (Option B). **A Hail-native counterpart, `expected_counts_by_context_methyl_genome_1kb.ht/`, also exists in the bucket** (fetch its `README.txt` and `metadata.json.gz` directly over HTTPS, same as any other bucket object) — its `table_type` schema (`Table{key:[element_id], row:Struct{element_id:String, possible:Int64, expected:Float64}}`) matches the `.txt` file column-for-column, confirming the same 3-column shape from an independent source. Its `metadata.json.gz` gives an exact row count via `sum(components.partition_counts.counts)`: 2,575,299 rows (38,029 partitions) — more precise than inferring row count from the `.txt` file's size. Written with Hail 0.2.62, created 2022/01/17. It does *not* resolve the generating-code gap above: the metadata is a standard Hail `TableSpec` (schema + partition counts only, no lineage/provenance field), so it confirms this was a real materialized Hail table upstream of the `.txt` export, but not which script produced it. **Genome-wide regeneration (not just the one hand-picked row above) confirms the r≡1 interpretation**: `preconditions/verify_expected_r1.py` downloads `expected_counts_per_context_methyl_genome_1kb.txt` (confirmed provenance, see row above) and `expected_counts_by_context_methyl_genome_1kb.txt`, sums the former over context per `element_id` in duckdb, and diffs against the latter for all 2,575,299 rows. `possible` (a plain count, independent of any model fit) matches exactly on every row. `expected` matches to within 1e-3 relative tolerance (max observed: 4.6e-5) — not bit-identical, but the residual is fully explained by GCS `customTime` metadata (each object's original creation date, preserved through a later 2023-12-15 bucket migration that overwrote every file's `timeCreated`): `mu_by_context_methyl_downsampled_1000.txt` (2022-01-16) feeds directly into `fig_tables/mutation_rate_by_context_methyl.txt` just two code-steps later (lines 134–148), yet the two are **277 days apart** (`mutation_rate_by_context_methyl.txt` is 2022-10-20) — meaning `expected_counts_by_context_methyl_genome_1kb.{txt,ht}` (clustered 2022-01-16/17/18) and `expected_counts_per_context_methyl_genome_1kb.txt` (2022-08-05, clustered with the October `mutation_rate` file) come from two separate pipeline runs, each with its own random-downsample mutation-rate refit (lines 43–83, 134–141) — plausibly explaining the tiny, symmetric-around-zero `expected` differences (mean diff ≈ 9e-6) without implicating the r≡1 assumption itself. Run `python preconditions/verify_expected_r1.py [-dest_dir published]` to reproduce (no Hail needed — both files are plain-text exports; ~8 min dominated by the 3.3 GB per-context file download). The script also saves the regenerated table itself to `{dest_dir}/expected_counts_by_context_methyl_genome_1kb.regenerated.txt` — sorted and `%.8f`-formatted to match the published file's own conventions (lexicographic `element_id` order, 8-decimal `expected`), purely so the two can be diffed/read side by side; the join-based comparison the script prints doesn't depend on this file or on row order. Local only — `published/` isn't tracked by git, so this file isn't committed.

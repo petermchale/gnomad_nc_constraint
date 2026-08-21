@@ -1020,17 +1020,6 @@ md(r"""
   overwrite the other's — switching back means rerunning again, ~6 min each. The panel-C
   and CpG caches in `output/` are keyed by a fingerprint of the edges and the window
   set, so those two do coexist.
-* **This is not a proposed Gnocchi 2.0.** It is a demonstration that the bias is
-  attributable to the training/scoring population mismatch. A corrected score would have
-  to decide what the scored population is *before* fitting, and that choice is not
-  obvious. A different route entirely (`chen_formula.tex` §9, migrated here): since DNMs
-  buy freedom from selection at the price of sparsity — introducing bias exactly where
-  they were meant to help — perhaps the attempt to avoid a selection-contaminated
-  training set was misguided, and it is better to tolerate some contamination in exchange
-  for a less biased score where it matters. That would mean capturing the $x$ dependence
-  of $p_c(x) = \sigma(\beta_c \cdot x)$ by training directly on dense gnomAD data,
-  rather than factorizing it and fitting one factor on sparse DNMs. It needs a new
-  training process and was out of scope for the rebuttal.
 """)
 
 md(r"""
