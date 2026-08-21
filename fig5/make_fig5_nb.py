@@ -890,10 +890,39 @@ alt alleles each. So $\kappa$ is **one global constant**, $8.849\times10^{-7}$ o
 published file, chosen so that
 $\sum_c \mu_c\,\mathrm{possible}^{1\mathrm{kg}}_{c}/N_{\mathrm{bases}}$ comes out at exactly
 $1.2000\times10^{-8}$ ($N_{\mathrm{bases}}=2.62\times10^{9}$). The superscript matters: these
-are the *downsampled* table's counts throughout, not the 76k table's `possible`. Being one constant, it fixes the **level** and cannot touch
-any **ratio**: all the shape in the dashed curve comes from the 1,000-genome proportions,
-while its level is a convention imported from the literature rather than measured here.
+are the *downsampled* table's counts throughout, not the 76k table's `possible`. Being one
+constant, it fixes the **level** and cannot touch any **ratio**: all the shape in the
+dashed curve comes from the 1,000-genome proportions, while its level is a convention
+imported from the literature rather than measured here.
 Hence normalizing both curves to methylation level 0 — only ratios mean anything.
+
+*Why that constant is the right thing to multiply by.* $\kappa$ arrives as a units fix, but
+the model says what the conversion from a proportion to a rate has to be: in the linear
+regime $P_{2000}\approx\mu_c L_{2000}$, so recovering $\mu_c$ means **dividing by
+$L_{2000}$**. And that is what $\kappa$ turns out to be — $1/\kappa = 1{,}130{,}033$
+generations, against $L_N/R = 1.885\times10^{7}/16.67 = 1{,}130{,}774$ from the fitted
+slope and the measured ratio below, agreeing to 0.07%.
+
+The logic runs the other way from how it looks, though. $\kappa=\mu_{\mathrm{tot}}/
+\overline{P_{2000}}$, and under the model $\overline{P_{2000}}=\bar\mu L_{2000}$, so
+$\kappa = \mu_{\mathrm{tot}}/(\bar\mu L_{2000})$, which is $1/L_{2000}$ **if and only if**
+$\bar\mu=\mu_{\mathrm{tot}}$. So "$\kappa$ is $1/L_{2000}$" is the assumption that the
+literature de novo rate is the truth, restated — not circular, but not free. What the data
+fix without any anchor is the *ratio* $R=L_N/L_{2000}$; the anchor is what splits it into
+two absolute branch lengths. Swap $1.2\times10^{-8}$ for $1.5\times10^{-8}$ and both $L$'s
+shrink by 1.25× while $R$ does not move.
+
+The two then cohere under growth rather than being two unrelated fudge factors. Against a
+constant-size coalescent at $N_e=2\times10^{4}$:
+
+| cohort | measured $L$ | $4N_e a_n$ | excess |
+|---|---|---|---|
+| 2,000 chromosomes | $1.13\times10^{6}$ | $6.54\times10^{5}$ | 1.7× |
+| 152,312 chromosomes | $1.885\times10^{7}$ | $1.00\times10^{6}$ | 18.8× |
+
+Growth distortion rises with cohort size, exactly as explosive recent expansion predicts:
+a small cohort coalesces in the deep, roughly constant-size past, while a large one picks
+up enormous recent tip branch length.
 
 *So `mu` is $\kappa P_{2000}$, where the model says the rate is
 $\mu_c=-\log(1-P_{2000})/L_{2000}$.* The pipeline never inverts; it uses the linear
