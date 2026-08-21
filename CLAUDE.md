@@ -29,11 +29,16 @@ gnocchi_bias/            shared library: windows.py (window table, z, ranks, GC 
 
 published/               Chen et al.'s data as downloaded (gitignored, ~7 GB)
 refits/                  one copy of each regional-adjustment refit (gitignored, ~12 GB)
+
+METHODS.md               the rank statistic's methods narrative -- extractable paper text,
+                         and the citation trail 9 of windows.py's docstrings point into.
+                         Kept at the root, not under fig5/, because windows.py is imported
+                         from preconditions/ and dnm_training_size/ too.
 ```
 
-Each directory has its own README with operational detail. **This file holds only what
-those READMEs do not**: the bucket inventory, the Hail recipe, the methods narrative for
-the paper, and the settled findings below.
+Each directory has its own README with operational detail, and METHODS.md holds the
+methods narrative. **This file holds only what those do not**: the bucket inventory, the
+settled findings below, and what the paper's Methods get wrong about its own code.
 
 Deleted, recoverable from git history: `fig3/` (superseded by fig5; preserved wholesale at
 `070fee9`), `compute_gc_bias_step1_vs_step2.py` (its reusable logic is `gnocchi_bias/
