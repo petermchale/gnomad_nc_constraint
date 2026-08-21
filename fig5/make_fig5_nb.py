@@ -856,9 +856,7 @@ says no site is ever hit twice, so no mutation reverts or lands on an allele alr
 present, and none of them cancel. The site is therefore polymorphic exactly when the count
 is non-zero, which has probability $1-\Pr(\text{count}=0)$:
 
-$$P_n(c) \;=\; 1-e^{-u_c L_n},
-\qquad\text{equivalently}\qquad
-\log\big(1-P_n(c)\big) \;=\; -L_n\,u_c .$$
+$$P_n(c) \;=\; 1-e^{-u_c L_n}.$$
 
 A rate and a polymorphism probability are therefore two points on one curve, separated
 only by $L_n$ — all of the cohort-size dependence sits there, and all of the sequence
