@@ -819,10 +819,8 @@ largest are exactly the ones the main panel cannot show.
 
 ### Panel A's two curves
 
-**The model both curves live in.** Infinite sites plus a genealogy. Throughout, $u_c$
-is the *true* per-generation mutation rate of class $c$ and $\mu_c$ is Chen et al.'s
-published `mu` column, which is **not** $u_c$ but $s P_{2000}(c)$ — see the dashed curve
-below. Trace the ancestry of
+**The model both curves live in.** Infinite sites plus a genealogy, with $u_c$ for class
+$c$'s *true* per-generation mutation rate. Trace the ancestry of
 the cohort's $n$ chromosomes back to their common ancestor and add up every generation of
 transmission in that tree: $L_n$ generations in all, the genealogy's **total branch
 length**. Each one is an independent chance for the site to mutate at rate $u_c$, so the
@@ -877,188 +875,23 @@ $$\boxed{\;P_n(c) \;\approx\; 1-e^{-k\,P_{2000}(c)},\qquad k=\frac{L_n}{L_{2000}
 
 One parameter, and it is not a mutation rate: it is the **ratio of the two cohorts'
 genealogies**. Everything class-specific — context, methylation, the whole point of the
-table — has cancelled. This is worth holding onto, because it is what the pipeline
-actually fits, and because it says the calibration needs no notion of an absolute rate at
-all.
+table — has cancelled, and with it any need for a notion of an absolute mutation rate:
+the two cohorts calibrate each other.
 
-**Solid, $p_c$ = `fitted_po`** — the probability that a site of a given (context, ref, alt,
-methylation level) — one row of the mutation-rate table — is **polymorphic** in the
-76,156-genome call set, i.e. $P_n(c)$ above at $n=152{,}312$ chromosomes. An event
-probability, capped at 1, and the operative output of step 1:
-`expected = possible × fitted_po`.
+**The two curves are that formula read at the two cohort sizes.** The **solid** curve is
+$P_n(c)$ itself at $n=152{,}312$ chromosomes — $p_c$ = `fitted_po`, the probability a site of that
+class is polymorphic in the 76,156-genome call set, and the operative output of step 1
+(`expected = possible × fitted_po`). The **dashed** curve is Chen et al.'s `mu` column,
+which despite its name and its units is $P_{2000}(c)$ times one global constant; the panel
+divides each curve by its own methylation-0 value, so that constant cancels exactly and the
+dashed curve *is* $P_{2000}$, normalized. Saturated end and unsaturated end of the same
+relation, in other words — which is why the solid curve is so much the flatter of the two.
 
-**Dashed, `mu`** — **not a measured mutation rate**, despite its name and its units. It is
-the same observable as the solid curve, read in a far smaller cohort: the proportion of
-class-$c$ sites carrying a variant in a **1,000-genome** ($n=2{,}000$ chromosome)
-*downsample of the same call set*, i.e. $P_{2000}(c)$, multiplied by one global constant
-that puts it in rate units. It is indexed by the same $c$ as $p_c$ — the class
-$(t,\mathrm{ref},\mathrm{alt},m)$ of the Notation section, one row of the mutation-rate
-table, 156 in all — and per row it is that proportion carrying a borrowed scale
-(`run_nc_constraint_gnomad_v31_main.py:60-67`):
-
-$$\mu_c \;\equiv\; s\,P_{2000}(c) \;=\; s\,\frac{\mathrm{observed}^{1\mathrm{kg}}_{c}}{\mathrm{possible}^{1\mathrm{kg}}_{c}},
-\qquad
-s \;=\; \frac{u_{\mathrm{tot}}}{\sum_c \mathrm{observed}^{1\mathrm{kg}}_{c}\,\big/\,N_{\mathrm{bases}}},
-\qquad
-N_{\mathrm{bases}}=\tfrac13\textstyle\sum_c \mathrm{possible}^{1\mathrm{kg}}_{c},$$
-
-with $u_{\mathrm{tot}}=1.2\times10^{-8}$ — the canonical human de novo point-mutation
-rate per base per generation — and the $\tfrac13$ converting possible SNVs to bases, three
-alt alleles each ($u_{\mathrm{tot}}$ is the script's `total_mu`, and $\mu_c$ its `mu`
-column — that first equality is a definition, not an approximation). So $s$ is **one
-global constant**, $8.849\times10^{-7}$ on the
-published file, chosen so that
-$\sum_c \mu_c\,\mathrm{possible}^{1\mathrm{kg}}_{c}/N_{\mathrm{bases}}$ comes out at exactly
-$1.2000\times10^{-8}$ ($N_{\mathrm{bases}}=2.62\times10^{9}$). The superscript matters: these
-are the *downsampled* table's counts throughout, not the 76k table's `possible`. Being one
-constant, it fixes the **level** and cannot touch any **ratio**: all the shape in the
-dashed curve comes from the 1,000-genome proportions, while its level is a convention
-imported from the literature rather than measured here.
-Hence normalizing both curves to methylation level 0 — only ratios mean anything.
-
-*So `mu` is $s P_{2000}$, where the model says the rate is
-$u_c=-\log(1-P_{2000})/L_{2000}$.* The pipeline never inverts; it uses the linear
-approximation $-\log(1-x)\approx x$. That is excellent where the cohort is far from
-saturation — at 1,000 genomes the median row is 0.75% polymorphic, and the shortcut costs
-0.4% there — but the largest row, ACG C>T at methylation 15 and the top of the dashed
-curve, is **27.6%**, where it costs **17%**. Read properly, that context's span against
-level 0 is 13.2× rather than the 11.4× the raw proportion gives. So the dashed curve
-understates the true rate spread as well, which makes the solid curve's compression below
-a **lower bound**.
-
-*Two further things `mu` is not.* It is not **independent** of the solid curve: the 1,000
-genomes are a downsample of the same call set (`observed_1kg` $\leq$ `observed` on all 156
-rows, as nesting requires), so the calibration below regresses a statistic on a subsample
-of itself, and its $R^2$ measures smoothness rather than agreement between two
-measurements. And the two are not even normalized on the same denominator — `possible` on
-the 76,156-genome side is coverage-30–32× and black-region filtered (6.08e9 sites) against
-7.86e9 in the downsampled table, and only the 76k numerator applies the AF $\leq$ 0.001 +
-PASS filter.
-
-*$k$ can be measured directly, without the fit — and the model says it must come out the same for every row.* If $\log(1-P_n)=-u_c L_n$ then
-$\log(1-P_N)/\log(1-P_{2000})=k$ — **one constant for all 156 rows**, with
-$u_c$ cancelling out. Measured on the two published tables: $16.08\pm1.11$ unweighted,
-**16.67** weighted by `possible` (IQR 15.4–17.0), i.e. constant to ~7% across a 76-fold
-change in cohort size. That is the sharpest available check that the saturating form is
-right rather than merely convenient.
-
-**The calibration is that boxed relation, and it is Chen et al.'s own Extended Data
-Fig. 1a.** Their panel plots the proportion observed in 76,156 genomes against `mu`,
-describes the two as "exponentially correlated" in the caption, and prints the fit on the
-figure: $y=1-\exp(-1.88\times10^{7}x-7.32\times10^{-5})$, $R^2=0.999$. The pipeline
-produces it by one weighted least-squares fit over the mutation-rate table's 156 rows, of
-$\log(1-\text{proportion observed})$ on $\mu_c$
-(`run_nc_constraint_gnomad_v31_main.py:139-141`):
-
-$$p_c \;=\; 1-e^{B}e^{A\mu_c},
-\qquad A=-1.885\times10^{7},\quad B=-7.32\times10^{-5},$$
-
-the script's own printed values (weighted $R^2=0.9987$), which reproduce every `fitted_po`
-in the published table to $2\times10^{-16}$. Since $\mu_c=s P_{2000}(c)$ and
-$e^{B}=0.99993$ — the intercept being ~0 is itself a check on the form, since a nonzero
-one would mean sites are polymorphic for reasons unrelated to $u_c$ — this is the boxed
-relation with
-
-$$k \;=\; |A|\,s \;=\; 16.681,$$
-
-against the $16.67$ measured directly just above — **0.07% apart**.
-So $A$ and $s$ are one parameter wearing two hats: the data fix their product $k$ and
-nothing else, and splitting $k$ into two absolute branch lengths — equivalently, calling
-`mu` a rate at all — is done entirely by the external $1.2\times10^{-8}$ anchor.
-
-*Their own figure corroborates that $k$ is a genealogy and not a nuisance constant.* Panel
-**b** refits on chromosome X and gets $|A|=1.28\times10^{7}$ against the autosomes'
-$1.885\times10^{7}$. A branch length has to shrink on X — three quarters as many
-chromosomes are sampled, and $N_e$ is three quarters as large — and a constant-size
-coalescent predicts $L_A/L_X\approx1.37$ against the $1.47$ observed. A normalization
-constant would have no reason to move at all, let alone in that direction. (Not a clean
-test: male mutation bias differs on X, and whether the X fit carries its own anchoring is
-not visible in the published code.)
-
-Written per row and dropping $e^B$, the solid curve is therefore
-
-$$p_c \;=\; 1-e^{-\lambda}, \qquad \lambda = 1.885\times10^{7}\,\mu_c \;=\; k\,P_{2000}(c),$$
-
-which reads the branch length straight off the fit: the 76,156-genome cohort gives each
-site **$1.885\times10^{7}$ generations of branch length**, that many chances to mutate
-against one for a single transmission — subject to $s$'s anchor, which is what turns
-the identified $k$ into two separate $L$'s.
-
-*Is that number sane?* Under a constant-size coalescent $L_n=4N_e a_n$ with
-$a_n=H_{n-1}=12.51$ at $n=152{,}312$ chromosomes, which inverts to $N_e=3.8\times10^{5}$ —
-19–38× the classical human $1$–$2\times10^{4}$. That excess is the expected signature of
-recent explosive growth, which piles branch length onto the terminal branches: the implied
-mean branch per cohort chromosome is $124$ generations, ~3.6 kyr. A genealogy dominated
-by very recent tips is exactly the regime that produces gnomAD's rare-variant excess.
-Three things stop $L_n$ from being read too literally, though. `observed` requires a
-**rare** (AF $\leq$ 0.001) PASS variant, so the observable is "carries a rare variant" and
-the deep branches carrying common variants are truncated away. $L$ is random under a
-coalescent, and $\mathbb{E}[e^{-u L}]>e^{-u\mathbb{E}[L]}$; the exact answer,
-$\Gamma(n)\Gamma(1+\theta)/\Gamma(n+\theta)$, is linear in $u$ only to $O(\theta^2)$, and
-$u_c L_n=4.6$ at the top of the CpG range is not small. And one global $L_n$ assumes the
-same genealogy everywhere — which is precisely the null Gnocchi tests: selection shortens
-the realized branch length, so a window with fewer observed variants than $E_1$ predicts is
-a window whose effective $L$ is below the genome-wide value, and $z$ is that departure.
-
-*Why $s$ is the right constant to multiply by.* It arrives as a units fix, but
-the model says what the conversion from a proportion to a rate has to be: in the linear
-regime $P_{2000}\approx u_c L_{2000}$, so recovering $u_c$ means **dividing by
-$L_{2000}$**. And that is what $s$ turns out to be — $1/s = 1{,}130{,}033$
-generations, against $L_N/k = 1.885\times10^{7}/16.67 = 1{,}130{,}774$ from the fitted
-slope and the ratio measured above, agreeing to 0.07%.
-
-The logic runs the other way from how it looks, though. $s=u_{\mathrm{tot}}/
-\overline{P_{2000}}$, and under the model $\overline{P_{2000}}=\bar u L_{2000}$, so
-$s = u_{\mathrm{tot}}/(\bar u L_{2000})$, which is $1/L_{2000}$ **if and only if**
-$\bar u=u_{\mathrm{tot}}$. So "$s$ is $1/L_{2000}$" is the assumption that the
-literature de novo rate is the truth, restated — not circular, but not free. What the data
-fix without any anchor is the *ratio* $k=L_N/L_{2000}$; the anchor is what splits it into
-two absolute branch lengths. Swap $1.2\times10^{-8}$ for $1.5\times10^{-8}$ and both $L$'s
-shrink by 1.25× while $k$ does not move.
-
-The two then cohere under growth rather than being two unrelated fudge factors. Against a
-constant-size coalescent at $N_e=2\times10^{4}$:
-
-| cohort | measured $L$ | $4N_e a_n$ | excess |
-|---|---|---|---|
-| 2,000 chromosomes | $1.13\times10^{6}$ | $6.54\times10^{5}$ | 1.7× |
-| 152,312 chromosomes | $1.885\times10^{7}$ | $1.00\times10^{6}$ | 18.8× |
-
-Growth distortion rises with cohort size, exactly as explosive recent expansion predicts:
-a small cohort coalesces in the deep, roughly constant-size past, while a large one picks
-up enormous recent tip branch length.
-
-What the saturation does to the methylation effect, for ACG C>T:
-
-| methylation level | `mu` | $\lambda$ | `fitted_po` |
-|---|---|---|---|
-| 0 | $2.15\times10^{-8}$ | 0.41 | 0.333 |
-| 15 | $2.44\times10^{-7}$ | 4.61 | 0.990 |
-
-The rate rises 11.4×; the probability rises 2.98×, because at level 15 essentially every
-such site is already polymorphic and the probability has nowhere left to go. Over the four
-CpG contexts that is 3.0–4.3× against 9.7–15.2× — the two spans in the panel's title.
-
-**Why the regression is necessary**, rather than using `proportion_observed` directly as
-the per-site probability (it is, after all, already an estimate of exactly that):
-
-1. **It carries rate information into the regime where the observable has stopped
-   responding.** At $p_c\approx0.99$ the polymorphism probability is nearly flat in $u$,
-   so the high-methylation rows are precisely where the raw proportions have lost the
-   ability to distinguish rates. $\mu_c$ comes from a cohort far from saturation, so the
-   fit is what lets a *saturated* observable be ordered and spaced by an *unsaturated*
-   measurement.
-2. **It borrows strength across rows, and restores monotonicity.** The raw proportion is
-   a binomial estimate per row, and the rows thin out badly at high methylation — the
-   sparsest holds 5,695 possible sites against 5.4 million at level 6. Raw
-   `proportion_observed` for ACG C>T actually *falls* from level 14 to 15 (0.98874 →
-   0.98859), which cannot be real; the fitted values are monotone in $\mu_c$ by construction
-   and read 0.98894 → 0.98998. Exactly one of the 96 (context, ref, alt) series is
-   non-monotone in the raw proportion, and it is that one.
-3. **The form is the model above, not an arbitrary smoother.** $\log(1-P_n)=-L_n u$ is
-   what infinite sites on a genealogy predicts, so a single global $A=-L_n$ is *expected*
-   to serve all 156 rows — an assumption that is checkable rather than assumed, and the
-   weighted $R^2=0.9987$ is the check.
+*"Unsaturated" is relative.* At 1,000 genomes the median row is 0.75% polymorphic, but the
+top of the dashed curve — ACG C>T at methylation 15 — is **27.6%**. Read as a Poisson rate,
+$-\log(1-P_{2000})$, that context's span against methylation 0 is 13.2× rather than the
+11.4× the raw proportion gives, so the dashed curve understates the true spread as well and
+the solid curve's compression is a lower bound.
 
 **What the gap does and does not imply.** Saturation is not an error in Chen et al.'s
 model. The expected counts built from $p_c$ are compared against observed *polymorphism*
