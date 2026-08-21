@@ -782,11 +782,9 @@ three measurements which the panel itself does not show, so they get their own f
 **A. The size of the methylation effect step 1 absorbs.** $p_c$ is keyed by methylation
 level, and for CpG C>T the fitted probability spans **3.0–4.3×** from level 0 to 15 —
 within a *single* trinucleotide context, and the largest single rate effect in the model.
-The dashed curves are `mu` ($\mu_c$), the same observable read in a 1,000-genome cohort and
-rescaled, which spans 9.7–15.2× over the same range; it is not itself a measured rate, and
-the subsection below says what it is. The gap between the curves is the saturation of
-$p_c$, which is a polymorphism probability and so compresses hardest where the true rate
-is highest.
+The dashed curves are `mu`, the same observable read in a 1,000-genome cohort and rescaled,
+which spans 9.7–15.2× over the same range; it is not itself a measured rate, and the
+subsection below says what it is. The gap between the curves is the saturation of $p_c$.
 
 **B. High-GC CpGs are CpG islands.** The hypomethylated fraction (level $\leq$ 1) runs
 ~2.5% through the GC bulk and **90–100% above GC 0.70**; mean methylation falls from ~6.5
@@ -879,13 +877,17 @@ table — has cancelled, and with it any need for a notion of an absolute mutati
 the two cohorts calibrate each other.
 
 **The two curves are that formula read at the two cohort sizes.** The **solid** curve is
-$P_n(c)$ itself at $n=152{,}312$ chromosomes — $p_c$ = `fitted_po`, the probability a site of that
-class is polymorphic in the 76,156-genome call set, and the operative output of step 1
+$P_n(c)$ itself at $n=152{,}312$ chromosomes — $p_c$ = `fitted_po`, the probability a site
+of that class is polymorphic in the 76,156-genome call set, and the operative output of step 1
 (`expected = possible × fitted_po`). The **dashed** curve is Chen et al.'s `mu` column,
 which despite its name and its units is $P_{2000}(c)$ times one global constant; the panel
 divides each curve by its own methylation-0 value, so that constant cancels exactly and the
 dashed curve *is* $P_{2000}$, normalized. Saturated end and unsaturated end of the same
 relation, in other words — which is why the solid curve is so much the flatter of the two.
+Chen et al. plot the relation itself in their **Extended Data Fig. 1a**: proportion observed
+in 76,156 genomes against `mu`, "exponentially correlated" in their caption, fitted as
+$y=1-\exp(-1.88\times10^{7}x-7.32\times10^{-5})$ with $R^2=0.999$ — the boxed relation, in
+their units.
 
 *"Unsaturated" is relative.* At 1,000 genomes the median row is 0.75% polymorphic, but the
 top of the dashed curve — ACG C>T at methylation 15 — is **27.6%**. Read as a Poisson rate,
