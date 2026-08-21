@@ -818,10 +818,28 @@ largest are exactly the ones the main panel cannot show.
 
 ### Panel A's two curves: a probability against a rate
 
+**The model both curves live in.** Infinite sites plus a genealogy. At a site of class
+$c$ with per-generation, per-base mutation rate $\mu_c$, the number of mutations landing on
+the genealogy of an $n$-chromosome sample is Poisson with mean $\mu_c L_n$, where $L_n$ is
+that genealogy's **total branch length in generations**. Under infinite sites the site is
+polymorphic in the sample iff at least one lands:
+
+$$P_n(c) \;=\; 1-e^{-\mu_c L_n},
+\qquad\text{equivalently}\qquad
+\log\big(1-P_n(c)\big) \;=\; -L_n\,\mu_c .$$
+
+A rate and a polymorphism probability are therefore two points on one curve, separated
+only by $L_n$ — all of the sample-size dependence sits there, and all of the sequence
+biology in $\mu_c$. The single-genome case is $n=2$, where $L_2=4N_e$ and
+$P_2\approx4N_e\mu_c$ is heterozygosity: $4\cdot2\times10^{4}\cdot1.2\times10^{-8}\approx
+9.6\times10^{-4}$, the textbook human per-base value. Panel A's two curves are the same
+quantity read at two ends of this scale.
+
 **Solid, $p_c$ = `fitted_po`** — the probability that a site of a given (context, ref, alt,
 methylation level) — one row of the mutation-rate table — is **polymorphic** in the
-76,156-genome call set. An event probability,
-capped at 1, and the operative output of step 1: `expected = possible × fitted_po`.
+76,156-genome call set, i.e. $P_n(c)$ above at $n=152{,}312$ chromosomes. An event
+probability, capped at 1, and the operative output of step 1:
+`expected = possible × fitted_po`.
 
 **Dashed, `mu`** — an independent mutation **rate** for the same table row, built from a
 separately downsampled **1,000-genome** subset, where saturation is far weaker. It is
@@ -865,9 +883,30 @@ precision it is used at this is
 
 $$p_c \;=\; 1-e^{-\lambda}, \qquad \lambda = 1.885\times10^{7}\,\mu,$$
 
-exactly *"at least one variant among the genomes sampled"* at Poisson rate $\lambda$ —
-concave in $\mu$, and saturating at 1 by construction. What that does to the methylation
-effect, for ACG C>T:
+which is the model above with $L_n=1.885\times10^{7}$: the fit is not a generic curve but
+$\log(1-P_n)=-L_n\mu$ with $L_n$ as its single free parameter, and $e^{B}=0.99993$ is a
+real check on the functional form — a nonzero intercept would mean sites are polymorphic
+for reasons unrelated to $\mu$. Read out, the constant says the 76,156-genome sample gives
+each site **$1.885\times10^{7}$ generations of branch length**: that many chances to
+mutate, against one for a single transmission.
+
+*Is that number sane?* Under a constant-size coalescent $L_n=4N_e a_n$ with
+$a_n=H_{n-1}=12.51$ at $n=152{,}312$ chromosomes, which inverts to $N_e=3.8\times10^{5}$ —
+19–38× the classical human $1$–$2\times10^{4}$. That excess is the expected signature of
+recent explosive growth, which piles branch length onto the terminal branches: the implied
+mean branch per sampled chromosome is $124$ generations, ~3.6 kyr. A genealogy dominated
+by very recent tips is exactly the regime that produces gnomAD's rare-variant excess.
+Three things stop $L_n$ from being read too literally, though. `observed` requires a
+**rare** (AF $\leq$ 0.001) PASS variant, so the observable is "carries a rare variant" and
+the deep branches carrying common variants are truncated away. $L$ is random under a
+coalescent, and $\mathbb{E}[e^{-\mu L}]>e^{-\mu\mathbb{E}[L]}$; the exact answer,
+$\Gamma(n)\Gamma(1+\theta)/\Gamma(n+\theta)$, is linear in $\mu$ only to $O(\theta^2)$, and
+$\mu L_n=4.6$ at the top of the CpG range is not small. And one global $L_n$ assumes the
+same genealogy everywhere — which is precisely the null Gnocchi tests: selection shortens
+the realized branch length, so a window with fewer observed variants than $E_1$ predicts is
+a window whose effective $L$ is below the genome-wide value, and $z$ is that departure.
+
+What the saturation does to the methylation effect, for ACG C>T:
 
 | methylation level | `mu` | $\lambda$ | `fitted_po` |
 |---|---|---|---|
@@ -894,10 +933,10 @@ the per-site probability (it is, after all, already an estimate of exactly that)
    0.98859), which cannot be real; the fitted values are monotone in $\mu$ by construction
    and read 0.98894 → 0.98998. Exactly one of the 96 (context, ref, alt) series is
    non-monotone in the raw proportion, and it is that one.
-3. **The form is a physical link, not an arbitrary smoother.** $1-e^{-\lambda}$ is the
-   map from rate to *seen at least once*, so a single global $A$ is expected to serve all
-   156 rows — an assumption that is checkable rather than assumed, and the weighted
-   $R^2=0.9987$ is the check.
+3. **The form is the model above, not an arbitrary smoother.** $\log(1-P_n)=-L_n\mu$ is
+   what infinite sites on a genealogy predicts, so a single global $A=-L_n$ is *expected*
+   to serve all 156 rows — an assumption that is checkable rather than assumed, and the
+   weighted $R^2=0.9987$ is the check.
 
 **What the gap does and does not imply.** Saturation is not an error in Chen et al.'s
 model. The expected counts built from $p_c$ are compared against observed *polymorphism*
