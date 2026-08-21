@@ -862,8 +862,7 @@ A rate and a polymorphism probability are therefore two points on one curve, sep
 only by $L_n$ — all of the cohort-size dependence sits there, and all of the sequence
 biology in $u_c$. The single-genome case is $n=2$, where $L_2=4N_e$ and
 $P_2\approx4N_e u_c$ is heterozygosity: $4\cdot2\times10^{4}\cdot1.2\times10^{-8}\approx
-9.6\times10^{-4}$, the textbook human per-base value. Panel A's two curves are the same
-quantity read at two ends of this scale.
+9.6\times10^{-4}$, the textbook human per-base value.
 
 **Two cohorts, one parameter** (Peter McHale's reduction, and the cleanest way in). Read
 the formula at the two cohort sizes the panel uses. In the 1,000-genome downsample
