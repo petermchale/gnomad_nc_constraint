@@ -31,7 +31,12 @@ import os
 # {CONSTRAINT_TOOLS_DATA}/depletion_rank_scores/
 #     41586_2022_4965_MOESM3_ESM.noncoding.enhancer.BGS.gBGC.GC_content.bed
 # None -> panel A builds with two curves instead of three.
-DEPLETION_RANK_BED = None
+# DEPLETION_RANK_BED = None
+# https://github.com/quinlan-lab/constraint-tools/blob/main/papers/neutral_models_are_biased/9.regression/experiment.1.ipynb : 
+# df[df['window overlaps enhancer'] == False] # putatively unconstrained windows
+# df.with_columns((1-pl.col('depletion_rank')).alias('depletion_rank_constraint_score_complement'))
+CONSTRAINT_TOOLS_DATA = '/scratch/ucgd/lustre-labs/quinlan/data-shared/constraint-tools'
+DEPLETION_RANK_BED  = f"{CONSTRAINT_TOOLS_DATA}/depletion_rank_scores/41586_2022_4965_MOESM3_ESM.noncoding.enhancer.BGS.gBGC.GC_content.bed"
 
 # McHale et al.'s putatively neutral window set -- the 693,270 windows behind their
 # Fig. 1 -- as their own analysis reads it:
@@ -46,7 +51,10 @@ DEPLETION_RANK_BED = None
 # everywhere. Both are meant to be run: the second is this repo's reproduction of their
 # definition from public data, the first is their definition itself, and a result that
 # holds on both is a result that does not depend on which one is right.
-NEUTRAL_WINDOWS_BED = None
+# NEUTRAL_WINDOWS_BED = None
+# https://github.com/quinlan-lab/constraint-tools/blob/main/papers/neutral_models_are_biased/9.regression/experiment.1.ipynb :
+# df.filter(pl.col('window overlaps enhancer') == False) # putatively unconstrained windows
+NEUTRAL_WINDOWS_BED = f"{CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/41586_2023_6045_MOESM4_ESM/Supplementary_Data_2.features.constraint_scores.bed"
 
 # Populations whose training set is defined BY the analyzed window set, and so by
 # NEUTRAL_WINDOWS_BED. "full" is not one of them -- it never builds the window table --
