@@ -95,10 +95,39 @@ python fig5/refit.py -population sizematched
 ~6 min and ~4 GB each. Each prints the tag it is writing and the `NEUTRAL_WINDOWS_BED` it
 saw, then stamps `refits/provenance.json`.
 
-**Do not rerun `full`.** It never builds the window table, so its tables are identical
-under either setting and one copy serves both -- it is the one population a window-set
-switch does not invalidate. It does have to be present, so copy `refits/*.full.txt` over
-if the checkout is fresh.
+**Do not rerun `full`.** It never builds the window table (`refit.py`'s
+`if args.population != "full":` guard is the only reader of `NEUTRAL_WINDOWS_BED` there),
+so its tables are identical under either setting and one copy serves both -- it is the
+one population a window-set switch does not invalidate. It does have to be present:
+`data.r_eff_by_gc(pop="full")` is the control that reproduces published Gnocchi through
+this repo's own fitting code, and the notebook will not build without it.
+
+So copy the five `full` tables across rather than spending 6 min regenerating identical
+bytes. **From the Mac**, with the HPC checkout already created:
+
+```bash
+rsync -av --partial --info=progress2 \
+  ~/gnomad_nc_constraint/refits/*.full.txt \
+  u6018199@father:/scratch/ucgd/lustre-labs/quinlan/u6018199/gnomad_nc_constraint/refits/
+```
+
+~4.0 GB, dominated by `rr_by_context.full.txt` (3.97 GB); the other four are
+`expected_counts_by_context_methyl_genome_1kb` (127 MB),
+`training_reliability_predictions` (144 MB), `coef_univariate` and `selected` (KBs).
+If outbound ssh from the laptop is blocked, run the same command in the pull direction
+from `father` with the Mac as the source.
+
+**Do not copy `refits/provenance.json`.** The `*.full.txt` glob excludes it, which is the
+point: `full` is outside `config.WINDOW_DEPENDENT` so it is never stamped or checked, and
+copying the Mac's file would overwrite the `scored.neutral` / `sizematched.neutral` stamps
+that this run's own refits wrote.
+
+Verify before trusting it -- `rsync` will resume a partial transfer but nothing downstream
+re-checks these sizes:
+
+```bash
+ls -l /scratch/ucgd/lustre-labs/quinlan/u6018199/gnomad_nc_constraint/refits/*.full.txt
+```
 
 ## 6. Build the figure
 
