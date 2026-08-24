@@ -37,7 +37,7 @@ LEGEND_FONTSIZE = 12
 
 def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
             legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None,
-            legend_frame: bool = False) -> None:
+            legend_frame: bool = False, legend_bbox=None, legend_ncol: int = 1) -> None:
     """
     The frame every panel shares: range, labels, grid, despined box, legend.
 
@@ -46,6 +46,12 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     drawn later sits on top -- so a panel whose legend should read in the order the
     reader sees things on the page passes its handles here instead of reordering its
     drawing.
+
+    `legend_bbox` (+ `legend_ncol`) puts the legend OUTSIDE the axes, as bbox_to_anchor in
+    axes coordinates. For a stacked composition there is no empty region inside the axes
+    to place it in -- the bands fill [0, 1] by construction -- so the only placement that
+    occludes nothing is off the artwork entirely. Panels are saved with
+    bbox_inches="tight", so an outside legend is included in the PDF rather than clipped.
     """
     ax.set_xlim(xrange)
     ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_FONTSIZE)
@@ -63,6 +69,9 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     # covers a uniform region of that band, not a boundary.
     frame_kw = ({"frameon": True, "facecolor": "white", "edgecolor": "0.7",
                  "framealpha": 1.0} if legend_frame else {"frameon": False})
+    if legend_bbox is not None:
+        frame_kw["bbox_to_anchor"] = legend_bbox
+        frame_kw["ncol"] = legend_ncol
     if handles is not None:
         ax.legend(handles, [h.get_label() for h in handles],
                   fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
@@ -274,9 +283,14 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     # A stack is drawn bottom-up, so the legend reads bottom-up unless reversed -- and a
     # reader matching swatch to band scans the plot top-down. Reversed, the two orders
     # agree and the legend can be read straight down the stack.
+    # ABOVE the axes, not in "lower left". The stack fills [0, 1] by construction, so an
+    # inside legend always covers artwork -- tolerable when the bottom-left band was one
+    # solid field (the default window set, where `scored` is 84% of the low-GC bins), but
+    # not on McHale et al.'s neutral set, where four bands share that corner and the
+    # legend hides the composition it is labelling. Outside, no frame is needed either.
     _finish(ax, "Fraction of non-CpG\ntraining sites", xrange, show_xlabel,
-            legend_loc="lower left", grid_axis="y", handles=bands[::-1],
-            legend_frame=True)
+            legend_loc="lower center", legend_bbox=(0.5, 1.01), legend_ncol=2,
+            grid_axis="y", handles=bands[::-1])
 
 
 # Exactly the colours and labels of the composition stack above, taken from the same
