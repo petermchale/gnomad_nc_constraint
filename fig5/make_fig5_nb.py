@@ -352,13 +352,21 @@ curves_a = [
 if binned_dr is not None:
     curves_a.append(panels.curve_from_binned(binned_dr, "dr", "dr",
                                              "Depletion rank (Halldorsson windows)"))
-# Legend order is draw order, so reverse the list rather than the legend handles: the
-# published score is the panel's subject and reads first, the model it is built on top of
-# second. Reversing here also puts the subject on top where the curves cross.
-curves_a = curves_a[::-1]
+
+# DRAW order and LEGEND order are different questions here, so they are stated separately.
+# Draw: depletion rank first, i.e. lowest, then the context-only model, then the published
+#   score on top -- it is the panel's subject and should not be crossed out where the
+#   curves meet.
+# Legend: the subject first, the model it is built on top of second, and depletion rank
+#   LAST. It is a different metric, on a different window set, binned on its own GC edges
+#   -- so it reads as the external comparison rather than as a third Gnocchi curve.
+DRAW_ORDER_A = ["dr", "step1", "step2"]
+LEGEND_ORDER_A = ["step2", "step1", "dr"]
+curves_a.sort(key=lambda c: DRAW_ORDER_A.index(c["key"]))
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
-panels.panel_rank_bias(ax, curves_a, gc_mean=gc_mean, xrange=XRANGE, min_n=MIN_N_WINDOWS)
+panels.panel_rank_bias(ax, curves_a, gc_mean=gc_mean, xrange=XRANGE, min_n=MIN_N_WINDOWS,
+                       legend_order=LEGEND_ORDER_A)
 save(fig, "A")
 """)
 
@@ -635,7 +643,7 @@ fig, (axC1, axC2) = plt.subplots(2, 1, figsize=(FIGSIZE[0], 7.6), sharex=True,
 panels.panel_training_composition(
     axC1, comp, min_n=MIN_N_SITES, xrange=XRANGE, show_xlabel=False,
     scored_note=("QC-pass noncoding" if NEUTRAL_WINDOWS_BED is None
-                 else "McHale et al.'s neutral set"))
+                 else "QC-pass putatively neutral noncoding"))
 panels.panel_stratum_ratios(axC2, ratios, xrange=XRANGE)
 save(fig, "C")
 

@@ -103,7 +103,8 @@ def curve_from_binned(binned, label: str, key: str, display: str) -> dict:
 
 def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
                     xrange=(0.2, 0.73), yrange=(0.0, 1.0), min_n: int = 100,
-                    show_xlabel: bool = True, legend_loc: str = "upper left") -> None:
+                    show_xlabel: bool = True, legend_loc: str = "upper left",
+                    legend_order: list[str] | None = None) -> None:
     """
     Panels A and E. Mean standardized rank of each constraint metric per GC bin.
 
@@ -114,10 +115,19 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
 
     min_n drops bins thinner than that many windows, where the mean is noise.
     yrange defaults to the full (0,1) of Fig. 2A, so the panels are read on that scale.
+
+    `legend_order` is a list of curve keys, and it decouples the legend from draw order.
+    They are not the same question: draw order decides which curve is on top where curves
+    cross, and the panel's subject should not be crossed out; legend order decides how the
+    panel reads, and a curve that is a different metric on a different window set belongs
+    at the end of the list rather than wherever its z-order put it. Keys absent from
+    `curves` are skipped, so a caller can name a curve that a run did not build.
     """
+    drawn = {}
     for c in curves:
         keep = c["n"] >= min_n if min_n else np.ones_like(c["n"], dtype=bool)
-        ax.errorbar(c["gc"][keep], c["mean"][keep], yerr=c["se"][keep],
+        drawn[c["key"]] = ax.errorbar(
+                    c["gc"][keep], c["mean"][keep], yerr=c["se"][keep],
                     marker=SERIES_MARKERS[c["key"]], color=SERIES_COLORS[c["key"]],
                     markersize=5, linewidth=2, capsize=3, elinewidth=1, label=c["display"])
     ax.axhline(0.5, **REF_LINE_KW)
@@ -131,7 +141,10 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
     # is empty by construction and is where a legend goes when the top is full.
     # Panels A and E share this label, as they share the statistic and the axes -- two
     # names for one quantity across two panels of one figure would read as two quantities.
-    _finish(ax, "Constraint metric (rank)", xrange, show_xlabel, legend_loc=legend_loc)
+    handles = ([drawn[k] for k in legend_order if k in drawn]
+               if legend_order is not None else None)
+    _finish(ax, "Constraint metric (rank)", xrange, show_xlabel, legend_loc=legend_loc,
+            handles=handles)
 
 
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
