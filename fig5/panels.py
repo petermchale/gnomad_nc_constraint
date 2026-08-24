@@ -94,11 +94,25 @@ def _log_ratio_axis(ax, values, ticks=(0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0,
     ax.set_ylim(lo * pad_lo, hi * pad_hi)
 
 
-def curve_from_binned(binned, label: str, key: str, display: str) -> dict:
-    """One column of a binned_rank_curves() table as the dict panel_rank_bias wants."""
+def curve_from_binned(binned, label: str, key: str, display: str,
+                      show_se: bool = True) -> dict:
+    """
+    One column of a binned_rank_curves() table as the dict panel_rank_bias wants.
+
+    `show_se=False` drops the error bars, and the ONE case for it is a curve whose
+    windows are not independent. bin_by_gc computes se = std / sqrt(n), which assumes
+    they are; Halldorsson's depletion-rank windows overlap (~38.6M of them over a 3.1 Gb
+    genome), so neighbouring windows share most of their sequence, the effective sample
+    size per GC bin is far below n, and the bar is understated by roughly
+    sqrt(window_length / step). The mean curve is unaffected -- it is unbiased either
+    way, and it is the only thing panel A reads off this curve -- but a bar we cannot
+    defend, drawn beside two curves whose 1 kb windows genuinely are disjoint, invites a
+    precision comparison that is not available. Better to draw none.
+    """
     return {"key": key, "display": display,
             "gc": binned["gc_mid"].to_numpy(), "mean": binned[f"mean_{label}"].to_numpy(),
-            "se": binned[f"se_{label}"].to_numpy(), "n": binned["n"].to_numpy()}
+            "se": binned[f"se_{label}"].to_numpy() if show_se else None,
+            "n": binned["n"].to_numpy()}
 
 
 def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
@@ -126,8 +140,12 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
     drawn = {}
     for c in curves:
         keep = c["n"] >= min_n if min_n else np.ones_like(c["n"], dtype=bool)
+        # se is None for a curve whose windows are not independent, so no bar can be
+        # computed honestly -- see curve_from_binned. errorbar(yerr=None) draws the line
+        # and markers exactly as for the others, which is what keeps the curves comparable.
         drawn[c["key"]] = ax.errorbar(
-                    c["gc"][keep], c["mean"][keep], yerr=c["se"][keep],
+                    c["gc"][keep], c["mean"][keep],
+                    yerr=c["se"][keep] if c["se"] is not None else None,
                     marker=SERIES_MARKERS[c["key"]], color=SERIES_COLORS[c["key"]],
                     markersize=5, linewidth=2, capsize=3, elinewidth=1, label=c["display"])
     ax.axhline(0.5, **REF_LINE_KW)

@@ -306,7 +306,13 @@ only difference between them is whether $r$ was applied.
 Depletion rank is an independently constructed metric on **Halldorsson's own windows**,
 so it is ranked within its own set and overlaid, never joined on `element_id`. That is
 legitimate here precisely because $\rho$ is uniform on $(0,1)$ for every curve: what is
-compared is how each metric's uniform mass redistributes across GC.
+compared is how each metric's uniform mass redistributes across GC. Two consequences the
+caption must carry: it is binned on **its own GC edges** (its windows span a wider GC
+range than the Gnocchi set), and it is drawn **without error bars**, because those
+windows overlap — roughly 38.6M of them over a 3.1 Gb genome — so within-bin windows are
+not independent and $\mathrm{std}/\sqrt{n}$ would understate the uncertainty by about
+$\sqrt{\text{length}/\text{step}}$. The mean curve is unaffected, and it is the only
+thing read off this curve.
 
 Summary statistic quoted in the text: $\;\overline{|\overline{\rho}_M(g)-0.5|}\;$ across bins.
 
@@ -350,8 +356,11 @@ curves_a = [
     panels.curve_from_binned(binned_a, "step2", "step2", "Gnocchi as published"),
 ]
 if binned_dr is not None:
+    # show_se=False: Halldorsson's windows OVERLAP, so std/sqrt(n) understates the
+    # uncertainty and the bar cannot be defended beside two curves of disjoint 1 kb tiles.
     curves_a.append(panels.curve_from_binned(binned_dr, "dr", "dr",
-                                             "Depletion rank (Halldorsson windows)"))
+                                             "Depletion rank (Halldorsson windows)",
+                                             show_se=False))
 
 # DRAW order and LEGEND order are different questions here, so they are stated separately.
 # Draw: depletion rank first, i.e. lowest, then the context-only model, then the published
@@ -1012,7 +1021,10 @@ md(r"""
   been run.
 * **The depletion-rank curve comes from a different window set** (Halldorsson windows, a
   different window size) than the two Gnocchi curves. They are not joined; each is
-  ranked within itself.
+  ranked within itself, and each is binned on its own GC edges. Halldorsson's windows
+  also **overlap**, so no error bar is drawn for that curve: the within-bin windows are
+  not independent, which the shared `std / sqrt(n)` assumes. It reads last in the
+  legend for the same reason — it is the external comparison, not a third Gnocchi curve.
 * **Which window set this run used is printed by the config cell**, and the caption must
   say which. `NEUTRAL_WINDOWS_BED` unset means the 1,843,559 noncoding + `pass_qc` +
   autosome/PAR windows this repo builds from the bucket; set, it means McHale et al.'s
