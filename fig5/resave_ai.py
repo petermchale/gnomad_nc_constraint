@@ -13,6 +13,12 @@ this script removes.
     .venv/bin/python fig5/resave_ai.py -dry_run   # what is stale, touching nothing
     .venv/bin/python fig5/resave_ai.py            # relink, save, re-export the PNG
     .venv/bin/python fig5/resave_ai.py -no_png    # ... leaving fig5.png alone
+    .venv/bin/python fig5/resave_ai.py -suffix .neutral   # the other window set's figure
+
+ONE ASSEMBLY PER WINDOW SET. `-suffix` (config.WINDOW_SET_SUFFIX) selects it: "" is
+fig5.ai, linking fig5A.pdf and friends; ".neutral" is fig5.neutral.ai, linking
+fig5A.neutral.pdf. Each has its own PNG and its own links manifest, and each sees only
+its own panels -- see DOC_STEM below.
 
 fig5.ipynb's last cell calls refresh() itself, so a notebook run leaves the assembly
 current without a second command. Running the script by hand is for the case where the
@@ -58,9 +64,33 @@ import sys
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-AI_PATH = os.path.join(HERE, "fig5.ai")
-PNG_PATH = os.path.join(HERE, "fig5.png")
 OUTPUT_DIR = os.path.join(HERE, "output")
+
+# ONE ASSEMBLY PER WINDOW SET, selected by `suffix` -- config.WINDOW_SET_SUFFIX, i.e. ""
+# for the default 1,843,559-window set and ".neutral" for McHale et al.'s 693,270. The
+# neutral set is a SECOND FIGURE to assemble, not a relink of the first (fig5/RUNBOOK.md
+# step 8), so each gets its own document, its own PNG and its own links manifest, and
+# each sees only its own panels:
+#
+#     fig5.ai          links fig5A.pdf         ... recorded in fig5.ai.links.json
+#     fig5.neutral.ai  links fig5A.neutral.pdf ... recorded in fig5.neutral.ai.links.json
+#
+# Without the split, one manifest covers both sets and every panel of the other one is
+# reported stale on every run -- harmless (Illustrator reports an unknown link name as
+# absent and leaves it alone) but it buries the panels that really did change.
+DOC_STEM = "fig5"
+
+
+def ai_path(suffix: str = "") -> str:
+    return os.path.join(HERE, f"{DOC_STEM}{suffix}.ai")
+
+
+def png_path(suffix: str = "") -> str:
+    return os.path.join(HERE, f"{DOC_STEM}{suffix}.png")
+
+
+def links_manifest(suffix: str = "") -> str:
+    return os.path.join(HERE, f"{DOC_STEM}{suffix}.ai.links.json")
 
 # The PNG beside the .ai is the readable copy of the assembled figure -- what a reader
 # sees on GitHub, where an .ai renders as nothing. 300 dpi, artboard-clipped, transparent
@@ -278,21 +308,31 @@ def save_panel(fig, stem: str, dpi: int = 200) -> list[str]:
 
 # --------------------------------------------------------- staleness checks
 
-# What each panel PDF hashed to when fig5.ai was last saved by this script. Tracked
-# beside the .ai, because it describes the .ai: with it, "is the assembly current?" is
-# answerable from content, by anyone, without opening Illustrator.
+# The links manifest (links_manifest() above) records what each panel PDF hashed to when
+# its .ai was last saved by this script. Tracked beside the .ai, because it describes the
+# .ai: with it, "is the assembly current?" is answerable from content, by anyone, without
+# opening Illustrator. One per assembly, so neither window set's manifest can be read as
+# an answer about the other's document.
 #
 # Content and not mtime, because mtimes move for reasons that have nothing to do with the
 # artwork -- `git checkout` of a panel, a stash pop, a rebase -- and each of those used to
 # send the next run relinking a panel to content already in the document, dirtying the .ai
 # again. Falls back to mtime when the manifest is missing (before the first save through
 # this script) so the check still works, just less exactly.
-LINKS_MANIFEST = os.path.join(HERE, "fig5.ai.links.json")
 
 
-def panel_pdfs() -> list[str]:
+def panel_pdfs(suffix: str = "") -> list[str]:
+    """
+    The panel PDFs belonging to ONE assembly.
+
+    A panel's window-set tag is whatever follows the first dot in its stem: `fig5A.pdf`
+    and `supp_fig7.pdf` have none, `fig5A.neutral.pdf` has "neutral". Panel stems carry
+    no other dots, so that one rule partitions fig5/output/ between the assemblies
+    without a list of known suffixes to keep in step.
+    """
+    want = suffix.lstrip(".")
     return [os.path.join(OUTPUT_DIR, f) for f in sorted(os.listdir(OUTPUT_DIR))
-            if f.endswith(".pdf")]
+            if f.endswith(".pdf") and f[:-len(".pdf")].partition(".")[2] == want]
 
 
 def _sha(path: str) -> str:
@@ -300,14 +340,15 @@ def _sha(path: str) -> str:
         return hashlib.sha256(fh.read()).hexdigest()
 
 
-def read_links_manifest() -> dict:
-    if not os.path.exists(LINKS_MANIFEST):
+def read_links_manifest(suffix: str = "") -> dict:
+    path = links_manifest(suffix)
+    if not os.path.exists(path):
         return {}
-    with open(LINKS_MANIFEST) as fh:
+    with open(path) as fh:
         return json.load(fh)
 
 
-def write_links_manifest() -> None:
+def write_links_manifest(suffix: str = "") -> None:
     """
     Record what the panels hash to now -- written whenever refresh() has reconciled the
     assembly, which includes the case where it found nothing to reconcile. A save made
@@ -319,28 +360,28 @@ def write_links_manifest() -> None:
     being reported as stale on every run when there is nothing in the assembly to do
     about it.
     """
-    manifest = {os.path.basename(p): _sha(p) for p in panel_pdfs()}
-    with open(LINKS_MANIFEST, "w") as fh:
+    manifest = {os.path.basename(p): _sha(p) for p in panel_pdfs(suffix)}
+    with open(links_manifest(suffix), "w") as fh:
         json.dump(manifest, fh, indent=1, sort_keys=True)
         fh.write("\n")
 
 
-def stale_links(ai_mtime: float) -> list[str]:
+def stale_links(ai_mtime: float, suffix: str = "") -> list[str]:
     """
     Panel PDFs whose content is not what fig5.ai was last saved against -- what the
     relink is for, computed without the app. Falls back to "newer than the .ai" when no
     manifest has been written yet.
     """
-    manifest = read_links_manifest()
+    manifest = read_links_manifest(suffix)
     if not manifest:
-        return [os.path.basename(p) for p in panel_pdfs()
+        return [os.path.basename(p) for p in panel_pdfs(suffix)
                 if os.path.getmtime(p) > ai_mtime]
-    return [os.path.basename(p) for p in panel_pdfs()
+    return [os.path.basename(p) for p in panel_pdfs(suffix)
             if manifest.get(os.path.basename(p)) != _sha(p)]
 
 
 def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
-            png: bool = True) -> int:
+            png: bool = True, suffix: str = "") -> int:
     """
     The whole job, as one call: relink fig5.ai's stale panels, save it, and re-export
     fig5.png from it. Separate from main() so fig5.ipynb's last cell can invoke it
@@ -354,30 +395,40 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
 
     `quiet_if_absent` is for the notebook: it must stay runnable by someone with no
     Illustrator and no .ai, so there the absence of either is a printed notice rather than
-    a failure. From the command line it is an error worth seeing.
+    a failure. From the command line it is an error worth seeing. It also covers the
+    case this parameterization exists for: a `suffix` whose assembly has not been built
+    yet -- fig5.neutral.ai does not exist until someone assembles it -- which is a
+    notice, not a failure, so a neutral notebook run finishes cleanly either way.
+
+    `suffix` picks the assembly; see DOC_STEM above. The notebook passes
+    config.WINDOW_SET_SUFFIX, so a run refreshes the document built from the panels that
+    run wrote, and leaves the other window set's assembly untouched.
     """
-    if not os.path.exists(AI_PATH):
-        msg = f"no such file: {AI_PATH}"
+    ai, png_file = ai_path(suffix), png_path(suffix)
+    ai_name, png_name = os.path.basename(ai), os.path.basename(png_file)
+    if not os.path.exists(ai):
+        msg = f"no such file: {ai}"
         if quiet_if_absent:
             print(msg + " -- nothing to refresh")
             return 0
         print(msg, file=sys.stderr)
         return 1
 
-    ai_mtime = os.path.getmtime(AI_PATH)
-    stale = stale_links(ai_mtime)
-    png_stale = png and (not os.path.exists(PNG_PATH)
-                         or os.path.getmtime(PNG_PATH) < ai_mtime)
+    ai_mtime = os.path.getmtime(ai)
+    stale = stale_links(ai_mtime, suffix)
+    png_stale = png and (not os.path.exists(png_file)
+                         or os.path.getmtime(png_file) < ai_mtime)
     if stale:
-        how = "content differs from" if read_links_manifest() else "newer than"
-        print(f"{len(stale)} panel PDF(s) {how} what fig5.ai was saved against: "
+        how = "content differs from" if read_links_manifest(suffix) else "newer than"
+        print(f"{len(stale)} panel PDF(s) {how} what {ai_name} was saved against: "
               f"{', '.join(stale)}")
     if png_stale and not stale:
-        print("fig5.ai is newer than fig5.png -- re-exporting")
+        print(f"{ai_name} is newer than {png_name} -- re-exporting")
     if not stale and not png_stale:
-        print(f"every panel PDF in {os.path.relpath(OUTPUT_DIR)}/ matches fig5.ai, "
-              "and fig5.png is newer than fig5.ai -- nothing to do")
-        write_links_manifest()
+        print(f"every {suffix or 'default'}-set panel PDF in "
+              f"{os.path.relpath(OUTPUT_DIR)}/ matches {ai_name}, "
+              f"and {png_name} is newer than {ai_name} -- nothing to do")
+        write_links_manifest(suffix)
         return 0
     if dry_run:
         print("dry run -- Illustrator not contacted")
@@ -386,38 +437,38 @@ def refresh(dry_run: bool = False, quiet_if_absent: bool = False,
     # Exported whenever the run does anything at all: a relink is always followed by a
     # save, which by itself leaves the PNG stale.
     try:
-        result = run_jsx(JSX % (applescript_json(AI_PATH),
+        result = run_jsx(JSX % (applescript_json(ai),
                                applescript_json(";".join(stale)),
-                               applescript_json(PNG_PATH) if png else '""',
+                               applescript_json(png_file) if png else '""',
                                100.0 * PNG_DPI / 72.0))
     except RuntimeError as e:
         if quiet_if_absent:
-            print(f"could not reach Illustrator, so fig5.ai is still stale:\n{e}")
+            print(f"could not reach Illustrator, so {ai_name} is still stale:\n{e}")
             return 0
         raise
 
     if result["opened"]:
-        print("opened fig5.ai (it was not already open)")
+        print(f"opened {ai_name} (it was not already open)")
     if result["relinked"]:
         print(f"relinked: {', '.join(result['relinked'])}")
     absent = [f for f in stale if f not in result["links"]]
     if absent:
-        print(f"not linked in fig5.ai, so left alone: {', '.join(absent)}")
-    print("saved fig5.ai" if result["saved"] else "nothing to save (already saved)")
+        print(f"not linked in {ai_name}, so left alone: {', '.join(absent)}")
+    print(f"saved {ai_name}" if result["saved"] else "nothing to save (already saved)")
     # For every panel, not just the relinked ones: the unchanged ones' hashes are what
     # let the next run leave them alone. Written after the run rather than only after a
     # save, so a document saved by hand in Illustrator -- nothing here to save, links
     # already current -- still gets recorded.
-    write_links_manifest()
-    print(f"recorded {os.path.basename(LINKS_MANIFEST)}")
+    write_links_manifest(suffix)
+    print(f"recorded {os.path.basename(links_manifest(suffix))}")
     if result["exported"]:
-        stamped = stamp_png_dpi(PNG_PATH)
-        print("exported fig5.png" + (f" at {PNG_DPI} dpi" if stamped
+        stamped = stamp_png_dpi(png_file)
+        print(f"exported {png_name}" + (f" at {PNG_DPI} dpi" if stamped
                                      else f" (could not stamp {PNG_DPI} dpi into it)"))
     if result["relinked"]:
         print("Check the relinked panels: a changed bounding box is stretched into the "
               "old frame.")
-    print("Undo with: git checkout fig5/fig5.ai fig5/fig5.png")
+    print(f"Undo with: git checkout fig5/{ai_name} fig5/{png_name}")
     return 0
 
 
@@ -427,9 +478,13 @@ def main() -> int:
     ap.add_argument("-dry_run", action="store_true",
                     help="report what is stale; touch nothing")
     ap.add_argument("-no_png", action="store_true",
-                    help="relink and save only, leaving fig5.png alone")
+                    help="relink and save only, leaving the PNG alone")
+    ap.add_argument("-suffix", default="",
+                    help="which assembly: '' (default window set, fig5.ai) or "
+                         "'.neutral' (McHale et al.'s window set, fig5.neutral.ai). "
+                         "Matches config.WINDOW_SET_SUFFIX.")
     args = ap.parse_args()
-    return refresh(dry_run=args.dry_run, png=not args.no_png)
+    return refresh(dry_run=args.dry_run, png=not args.no_png, suffix=args.suffix)
 
 
 def applescript_json(s: str) -> str:

@@ -160,9 +160,25 @@ jupyter nbconvert --to notebook --execute --inplace fig5/fig5.ipynb
 
 ## 8. Assembly comes back to the Mac
 
-`resave_ai.py` drives Illustrator through `osascript` and has no HPC equivalent. Copy
-`fig5/output/*.neutral.{pdf,png}` back. `fig5.ai` links the **unsuffixed** panels, so the
-neutral set is a second figure to assemble, not a relink of the first.
+`resave_ai.py` drives Illustrator through `osascript` and has no HPC equivalent (on Linux
+it prints a notice and returns). Copy `fig5/output/*.neutral.{pdf,png}` back.
+
+`fig5.ai` links the **unsuffixed** panels, so the neutral set is a second figure to
+assemble, not a relink of the first. `resave_ai` is parameterized by assembly:
+
+```bash
+.venv/bin/python fig5/resave_ai.py                    # fig5.ai <- fig5A.pdf ...
+.venv/bin/python fig5/resave_ai.py -suffix .neutral   # fig5.neutral.ai <- fig5A.neutral.pdf ...
+```
+
+Each assembly has its own PNG and its own links manifest (`fig5.neutral.ai.links.json`),
+and each sees only its own panels, so neither reports the other's as stale. Until you
+build `fig5.neutral.ai` in Illustrator, the neutral run's last notebook cell prints
+`no such file ... -- nothing to refresh` and moves on.
+
+Note the consequence of `NEUTRAL_WINDOWS_BED` being set: the notebook passes
+`config.WINDOW_SET_SUFFIX`, so a neutral run refreshes the *neutral* assembly and leaves
+`fig5.ai` alone. Refreshing `fig5.ai` is then a separate, explicit command.
 
 ## Two caveats for the caption that no check can enforce
 

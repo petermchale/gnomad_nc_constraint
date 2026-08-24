@@ -1043,11 +1043,14 @@ only the panels whose content the .ai does not already hold — judged by hash a
 item's frame rather than its aspect ratio, so a panel whose bounding box moved is worth a
 look. A run that changed no artwork has nothing to relink, because `save()` above left
 those files untouched. Nothing here is required to build the figure -- without Illustrator, or without the
-.ai, it prints a notice and moves on. `fig5/resave_ai.py` is the same code as a command.
+.ai, it prints a notice and moves on -- and the neutral window set's assembly (`fig5.neutral.ai`)
+does not exist until someone builds it, which is a notice too. `fig5/resave_ai.py` is the
+same code as a command; `-suffix .neutral` picks the other assembly.
 """)
 
 code(r"""
-_ = resave_ai.refresh(quiet_if_absent=True)   # the return code is for the shell, not here
+_ = resave_ai.refresh(quiet_if_absent=True,        # the return code is for the shell, not here
+                      suffix=config.WINDOW_SET_SUFFIX)
 """)
 
 
