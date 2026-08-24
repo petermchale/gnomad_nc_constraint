@@ -107,7 +107,7 @@ def main() -> None:
     # apply_genome_wide_context uses. Refits the per-context models (seconds); the
     # genome-wide apply above is what costs time.
     df_sel = pd.read_csv(
-        os.path.join(args.output_dir, f"selected.{args.population}.txt"), sep="\t")
+        os.path.join(args.output_dir, f"selected.{tag}.txt"), sep="\t")
     df_pred = M.predict_training_set(df_dnm1, df_dnm0, contexts, df_sel)
     pred_out = os.path.join(
         args.output_dir, f"training_reliability_predictions.{tag}.txt")
