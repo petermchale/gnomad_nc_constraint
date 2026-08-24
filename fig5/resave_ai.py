@@ -144,10 +144,20 @@ if (result.opened) { doc.close(SaveOptions.DONOTSAVECHANGES); }
 
 def run_jsx(script: str) -> dict:
     """Hand one ExtendScript string to Illustrator and parse what it returns."""
-    proc = subprocess.run(
-        ["osascript", "-e",
-         'tell application "Adobe Illustrator" to do javascript ' + applescript_str(script)],
-        capture_output=True, text=True)
+    try:
+        proc = subprocess.run(
+            ["osascript", "-e",
+             'tell application "Adobe Illustrator" to do javascript ' + applescript_str(script)],
+            capture_output=True, text=True)
+    except FileNotFoundError as e:
+        # No osascript: not a Mac. Raised as RuntimeError, not left as FileNotFoundError,
+        # because refresh(quiet_if_absent=True) catches RuntimeError to keep fig5.ipynb
+        # runnable without Illustrator -- and on Linux that is the WHOLE reason the
+        # notebook would otherwise die in its last cell, after the long run, on HPC.
+        raise RuntimeError(
+            "osascript not found, so Illustrator cannot be reached: this step is "
+            "macOS-only. Copy fig5/output/*.pdf back to the Mac and assemble there "
+            "(fig5/RUNBOOK.md step 8).") from e
     if proc.returncode != 0:
         raise RuntimeError(
             f"osascript failed ({proc.returncode}):\n{proc.stderr.strip()}\n\n"
