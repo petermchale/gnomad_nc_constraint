@@ -33,6 +33,17 @@ import polars as pl
 
 BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
 
+# Where every downloaded bucket file lands. ONE definition: eight entry points across
+# four directories default to it, and a second copy of this path is how half a run
+# silently refetches 8 GB into somewhere else.
+#
+# GNOCCHI_PUBLISHED_DIR overrides it, which is what HPC needs -- there the checkout sits
+# on a small home filesystem while Chen et al.'s data belongs in shared lab space, and
+# one copy serves every lab member. Set it in the job script / .bashrc, not in code:
+# scripts still take -cache_dir, and fig5/data.py exports this as its CACHE_DIR.
+CACHE_DIR = os.environ.get("GNOCCHI_PUBLISHED_DIR") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "published")
+
 REMOTE_FILES = {
     "step1_expected": "expected_counts_by_context_methyl_genome_1kb.txt",  # element_id, possible, expected  (step-1, r==1)
     "features": "misc/genomic_features13_genome_1kb.txt",                 # element_id, GC_content_1k, + 51 other cols

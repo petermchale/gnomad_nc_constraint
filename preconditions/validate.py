@@ -252,7 +252,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-check", choices=["both", "coefficients", "expected"], default="both")
-    ap.add_argument("-cache_dir", default=os.path.join(REPO_ROOT, "published"))
+    ap.add_argument("-cache_dir", default=W.CACHE_DIR)
     ap.add_argument("-output_dir", default=os.path.join(HERE, "output"))
     ap.add_argument("-refit_expected", default=FULL_REFIT_EXPECTED)
     args = ap.parse_args()

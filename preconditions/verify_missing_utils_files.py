@@ -20,13 +20,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from gnocchi_bias.windows import download  # noqa: E402
+from gnocchi_bias.windows import CACHE_DIR as W_CACHE_DIR, download  # noqa: E402
 from preconditions.report import Report  # noqa: E402
 
-# Repo-root cache, shared with every other script here; resolved from __file__ so
-# running from inside preconditions/ reuses it rather than refetching multi-GB files.
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "published")
+# Repo-root cache, shared with every other script here -- or wherever
+# $GNOCCHI_PUBLISHED_DIR points, so a run here reuses the same multi-GB files as
+# every other entry point rather than refetching them.
+DEFAULT_DEST_DIR = W_CACHE_DIR
 
 FILES = ["generic.py", "constraint_basics.py", "nc_constraint_utils.py"]
 MAIN_SCRIPT = "run_nc_constraint_gnomad_v31_main.py"

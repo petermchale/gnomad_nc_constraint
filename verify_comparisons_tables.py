@@ -22,6 +22,7 @@ import tarfile
 import pandas as pd
 
 import runlog
+from gnocchi_bias.windows import CACHE_DIR as W_CACHE_DIR
 
 BUCKET_URL = "https://storage.googleapis.com/gnomad-nc-constraint-v31-paper"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -97,8 +98,9 @@ def inspect(dest_dir: str) -> None:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "-dest_dir", default=os.path.join(HERE, "published"),
-        help="local directory to download/extract into (default: ./published)")
+        "-dest_dir", default=W_CACHE_DIR,
+        help="local directory to download/extract into (default: ./published, or "
+             "$GNOCCHI_PUBLISHED_DIR)")
     args = parser.parse_args()
 
     # The tee goes on before the download, so the log is the whole run and not just the

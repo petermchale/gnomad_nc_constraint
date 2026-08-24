@@ -1,8 +1,9 @@
 __pycache__/
 *.pyc
-# Downloaded copies of Chen et al.'s published data (~7 GB). Regenerable, but over
+# Downloaded copies of Chen et al.'s published data (~8 GB). Regenerable, but over
 # hours -- every script here re-downloads on demand. Named `published/` rather than
-# `tmp/` precisely so it does not read as disposable.
+# `tmp/` precisely so it does not read as disposable. $GNOCCHI_PUBLISHED_DIR moves it
+# out of the checkout entirely (shared lab space on a cluster).
 published/
 .DS_Store
 # The regional-adjustment refits (~12 GB), ONE copy read directly by fig5/ and

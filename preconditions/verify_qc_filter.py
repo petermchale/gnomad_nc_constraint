@@ -54,11 +54,14 @@ import duckdb
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gnocchi_bias import dnm_model as M  # noqa: E402
-from gnocchi_bias.windows import REMOTE_FILES, download  # noqa: E402
+from gnocchi_bias.windows import (  # noqa: E402
+    CACHE_DIR as W_CACHE_DIR,
+    REMOTE_FILES,
+    download,
+)
 from preconditions.report import Report  # noqa: E402
 
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_DEST_DIR = os.path.join(_REPO_ROOT, "published")
+DEFAULT_DEST_DIR = W_CACHE_DIR
 
 PASS_FILE = "misc/genome_1kb_gnomad_v31_pass.txt"          # element_id, fraction PASS
 COVERAGE_FILE = "misc/genome_1kb_gnomad_v31_coverage.txt"  # element_id, mean coverage

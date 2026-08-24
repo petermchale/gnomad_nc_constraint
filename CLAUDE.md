@@ -27,7 +27,9 @@ preconditions/           what had to be true about Chen et al.'s pipeline for an
 gnocchi_bias/            shared library: windows.py (window table, z, ranks, GC binning)
                          and dnm_model.py (training set, per-context refit pipeline)
 
-published/               Chen et al.'s data as downloaded (gitignored, ~7 GB)
+published/               Chen et al.'s data as downloaded (gitignored, ~8 GB; set
+                         $GNOCCHI_PUBLISHED_DIR to relocate it -- one definition, in
+                         gnocchi_bias/windows.py, that every entry point defaults to)
 refits/                  one copy of each regional-adjustment refit (gitignored, ~12 GB)
 
 METHODS.md               the rank statistic's methods narrative -- extractable paper text,

@@ -37,7 +37,7 @@ from gnocchi_bias import windows as W
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 OUTPUT_DIR = os.path.join(HERE, "output")     # figures and this figure's own caches
-CACHE_DIR = os.path.join(REPO_ROOT, "published")    # downloaded bucket files
+CACHE_DIR = W.CACHE_DIR      # downloaded bucket files; $GNOCCHI_PUBLISHED_DIR moves them
 REFITS_DIR = os.path.join(REPO_ROOT, "refits")  # the shared refit outputs
 
 N_BINS = 20

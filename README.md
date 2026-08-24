@@ -103,6 +103,14 @@ jupyter nbconvert --to notebook --execute --inplace fig5/fig5.ipynb
 
 Panels land in `fig5/output/fig5{A..E}.pdf`.
 
+Chen et al.'s data is downloaded on demand into `published/` (~8 GB, gitignored). Set
+`GNOCCHI_PUBLISHED_DIR` to put it somewhere else — shared lab space on a cluster, say —
+and every entry point here follows, so one copy serves all of them:
+
+```bash
+export GNOCCHI_PUBLISHED_DIR=/path/to/shared/published
+```
+
 **Two directories are unique to this fork but do not appear in the table above, because
 they are gitignored and so invisible to a diff of tracked files.** Neither contains
 anything to review — both are generated, and both are recreated by the commands above:

@@ -132,7 +132,7 @@ command if one is missing or was built under a different `NEUTRAL_WINDOWS_BED`.
 """)
 
 code(r"""
-CACHE_DIR = os.path.join(_REPO_ROOT, "published")  # Chen et al.'s downloaded data
+CACHE_DIR = D.CACHE_DIR                       # published/, or $GNOCCHI_PUBLISHED_DIR
 OUTPUT_DIR = D.OUTPUT_DIR                     # fig5/output
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 

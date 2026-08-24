@@ -57,14 +57,33 @@ rather than an error. Run it on a login node the moment the paths are set.
 
 `requirements.txt`: duckdb, polars, pandas, scikit-learn, statsmodels, matplotlib.
 **Hail and pyspark are not needed** -- nothing in fig5 reads a `.ht`. Budget ~32 GB RAM
-(duckdb is capped at 8-10 GB in `data.py`; the genome-wide apply is the peak), ~20 GB for
+(duckdb is capped at 8-10 GB in `data.py`; the genome-wide apply is the peak), ~8 GB for
 `published/`, ~8 GB for the two new refits. Set `MPLBACKEND=Agg`.
 
-## 4. Pre-stage `published/` if compute nodes have no egress
+## 4. Put `published/` in shared space, and pre-stage it if compute nodes have no egress
+
+`published/` defaults to the repo root, which is wrong on a cluster: it is ~8 GB of
+someone else's public data, identical for every lab member, and the checkout may be on a
+small filesystem. Point `GNOCCHI_PUBLISHED_DIR` at shared space instead — `gnocchi_bias.
+windows.CACHE_DIR` reads it, and every `-cache_dir`/`-dest_dir` default, `fig5/data.py`
+and the notebook all resolve through that one definition:
+
+```bash
+mkdir -p /scratch/ucgd/lustre-labs/quinlan/data-shared/gnomad_nc_constraint
+chmod g+ws /scratch/ucgd/lustre-labs/quinlan/data-shared/gnomad_nc_constraint  # group-writable, setgid
+export GNOCCHI_PUBLISHED_DIR=/scratch/ucgd/lustre-labs/quinlan/data-shared/gnomad_nc_constraint
+```
+
+Put the `export` in the job script and in `.bashrc`: it has to be set for the login-node
+download AND for the batch job, and a job that silently loses it refetches 8 GB into the
+checkout instead of failing.
 
 Everything is fetched on demand from `storage.googleapis.com`: 1.44 GB features, 3.3 GB
 per-context expected, 325 MB annot, 107 MB step-1 expected, plus the DNM training tables.
 `rsync` a working `published/` across, or run one refit on a login node to pull it.
+
+`refits/` (~12 GB, and written per run rather than shared) still lives in the checkout;
+`fig5/refit.py -output_dir` moves it if the checkout's filesystem is too small.
 
 ## 5. Rerun the two window-dependent refits
 

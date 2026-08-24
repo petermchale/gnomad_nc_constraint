@@ -62,9 +62,9 @@ from gnocchi_bias.dnm_model import (  # noqa: E402
     refit_and_apply,
     subsample_regime1,
 )
-from gnocchi_bias.windows import download  # noqa: E402
+from gnocchi_bias.windows import CACHE_DIR, download  # noqa: E402
 
-DEFAULT_CACHE_DIR = os.path.join(_REPO_ROOT, "published")
+DEFAULT_CACHE_DIR = CACHE_DIR
 DEFAULT_OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "output")
 
 
