@@ -106,12 +106,13 @@ So copy the five `full` tables across rather than spending 6 min regenerating id
 bytes. **From the Mac**, with the HPC checkout already created:
 
 ```bash
-rsync -av --partial --info=progress2 \
+rsync -avP \
   ~/gnomad_nc_constraint/refits/*.full.txt \
   u6018199@father:/scratch/ucgd/lustre-labs/quinlan/u6018199/gnomad_nc_constraint/refits/
 ```
 
-~4.0 GB, dominated by `rr_by_context.full.txt` (3.97 GB); the other four are
+`-P` (`--partial --progress`), not `--info=progress2`: macOS ships rsync 2.6.9, which
+predates that flag. ~4.0 GB, dominated by `rr_by_context.full.txt` (3.97 GB); the other four are
 `expected_counts_by_context_methyl_genome_1kb` (127 MB),
 `training_reliability_predictions` (144 MB), `coef_univariate` and `selected` (KBs).
 If outbound ssh from the laptop is blocked, run the same command in the pull direction
