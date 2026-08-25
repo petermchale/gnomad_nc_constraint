@@ -2,8 +2,9 @@
 
 `fig5.ipynb` builds the figure and writes each panel to `output/fig5{A..E}.pdf` as a
 standalone vector file for assembly in Illustrator, plus one supporting figure,
-`output/supp_fig7.pdf` — **Supporting Figure 7** in the manuscript, whose four rows are
-cited there as 7A-7D. Run it top to bottom.
+`output/supp_fig7.pdf` — **Supporting Figure 7** in the manuscript, whose four panels are
+cited there as 7A-7D (A alone on the left, B-D stacked on the right: A's abscissa is
+methylation level, not the GC content the other three share). Run it top to bottom.
 
 **Panel C is two rows** sharing a GC axis and built from one table: the composition of
 the training sites (how much of the training set is outside the scored population --
@@ -37,11 +38,11 @@ pre-saturation), the CpG-island character of high-GC CpGs (2.5% hypomethylated i
 GC bulk rising to 90-100% above GC 0.70), and the resulting DNM-rate collapse
 (0.53 -> 0.195, a 2.7x fall). Its bin floor is 100 sites, not the main figure's 500:
 the top two GC bins hold 356 and 169 sites and they ARE the claim, so they are drawn
-with error bars rather than dropped. **A fourth row** carries `Pi`, the CpG share of a
+with error bars rather than dropped. **A fourth panel** carries `Pi`, the CpG share of a
 bin's step-1 expected counts (0.025 -> 0.426), which is why that claim matters rather
 than merely holds: it is the weight in panel B's identity, so a GC trend in `R_CpG`
 would have reached the applied multiplier scaled by up to 0.43 rather than erased. It is
-binned over *windows* (`binned_b`, floor 100 windows) where the rows above are binned
+binned over *windows* (`binned_b`, floor 100 windows) where B and C above it are binned
 over *sites*, and it is drawn on this figure's wider 0.2-0.8 axis, so it shows the two
 highest-GC bins that panel B's own 0.2-0.73 range cuts off.
 

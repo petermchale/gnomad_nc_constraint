@@ -945,18 +945,39 @@ code(r"""
 ct = D.cpg_rate_by_methyl(cache_dir=CACHE_DIR)
 cpg = D.cpg_methylation_by_gc(edges, cache_dir=CACHE_DIR)
 
-fig, axes = plt.subplots(4, 1, figsize=(7.0, 16.5),
-                         gridspec_kw={"height_ratios": [1, 1, 1, 1], "hspace": 0.32})
-panels.panel_cpg_methylation_effect(axes[0], ct)
+# A ON THE LEFT, B-D STACKED ON THE RIGHT. A is the one panel whose abscissa is not GC
+# content -- it is methylation level -- so standing it beside the others rather than above
+# them stops the figure reading as one column against one x-axis, and puts the three GC
+# panels together, which is the order B -> C -> D is argued in. It also takes the figure
+# from 7 x 16.5 in, a column no page holds, to a landscape page.
+#
+# Six rows so A can span the middle four: it then sits vertically centred against the
+# three on the right at close to its own aspect, where spanning all six would stretch a
+# saturation curve over the full height of the page.
+fig = plt.figure(figsize=(12.5, 9.8))
+gs = fig.add_gridspec(6, 2, width_ratios=[1.05, 1], wspace=0.28, hspace=0.85)
+axA = fig.add_subplot(gs[1:5, 0])
+axB, axC, axD = (fig.add_subplot(gs[i:i + 2, 1]) for i in (0, 2, 4))
+
+panels.panel_cpg_methylation_effect(axA, ct)
 # MIN_N_CPG, not MIN_N_SITES: the top two GC bins (n = 356 and 169) carry the claim,
 # and their error bars show how thin they are. Quote numbers from this same subset.
-panels.panel_cpg_hypomethylation(axes[1], cpg, min_n=MIN_N_CPG, show_xlabel=False)
-panels.panel_cpg_dnm_rate(axes[2], cpg, min_n=MIN_N_CPG, show_xlabel=False)
+#
+# EVERY PANEL LABELS ITS OWN X-AXIS, hence no show_xlabel=False here. Nothing here shares
+# an axis: A's abscissa is methylation level, and B-D, though stacked, are three separate
+# axes with their own ticks and a gap between them rather than one sharex column, so each
+# is read -- and cited -- on its own. The suppression that is right in panel C, where two
+# sharex axes ARE one plot, would here leave two panels whose x quantity is named nowhere.
+panels.panel_cpg_hypomethylation(axB, cpg, min_n=MIN_N_CPG)
+panels.panel_cpg_dnm_rate(axC, cpg, min_n=MIN_N_CPG)
 # binned_b and MIN_N_WINDOWS, not cpg/MIN_N_CPG: Pi is a per-window weight, and this is
 # the same table and the same bin floor panel B decomposes, so the curve here IS the
 # weight in that identity rather than a second estimate of it.
-panels.panel_cpg_expected_share(axes[3], binned_b, min_n=MIN_N_WINDOWS)
-panels.label_panels(axes, ("A", "B", "C", "D"))
+panels.panel_cpg_expected_share(axD, binned_b, min_n=MIN_N_WINDOWS)
+# Two calls, two offsets: label_panels places the letter in AXES coordinates, so the -0.1
+# that clears A's ylabel lands on top of the narrower right-hand panels' ylabels.
+panels.label_panels((axA,), ("A",))
+panels.label_panels((axB, axC, axD), ("B", "C", "D"), x=-0.26)
 
 supp_name = f"supp_fig7{config.WINDOW_SET_SUFFIX}"
 written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, supp_name))

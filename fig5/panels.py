@@ -37,7 +37,8 @@ LEGEND_FONTSIZE = 12
 
 def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
             legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None,
-            legend_frame: bool = False, legend_bbox=None, legend_ncol: int = 1) -> None:
+            legend_frame: bool = False, legend_bbox=None, legend_ncol: int = 1,
+            legend: bool = True) -> None:
     """
     The frame every panel shares: range, labels, grid, despined box, legend.
 
@@ -46,6 +47,12 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     drawn later sits on top -- so a panel whose legend should read in the order the
     reader sees things on the page passes its handles here instead of reordering its
     drawing.
+
+    `legend=False` draws no legend at all. For a panel with ONE series whose y-axis
+    label already names it, a legend restates the ylabel in smaller type and takes a
+    corner of the artwork to do it -- the Supporting Figure's rows B, C and D. It is the
+    ylabel that has to carry the identity then, so a panel that switches the legend off
+    must say in its ylabel everything the legend entry said.
 
     `legend_bbox` (+ `legend_ncol`) puts the legend OUTSIDE the axes, as bbox_to_anchor in
     axes coordinates. For a stacked composition there is no empty region inside the axes
@@ -72,6 +79,8 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     if legend_bbox is not None:
         frame_kw["bbox_to_anchor"] = legend_bbox
         frame_kw["ncol"] = legend_ncol
+    if not legend:
+        return
     if handles is not None:
         ax.legend(handles, [h.get_label() for h in handles],
                   fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
@@ -426,7 +435,7 @@ CPG_COLORS = {"ACG": "#2a78d6", "CCG": "#eb6834", "GCG": "#1baf7a", "TCG": "#4a3
 
 def panel_cpg_methylation_effect(ax, ct, show_mu: bool = True) -> None:
     """
-    Supporting Figure 7 (the manuscript's label), row A. The CpG C>T rate against methylation level, per context,
+    Supporting Figure 7 (the manuscript's label), panel A. The CpG C>T rate against methylation level, per context,
     each curve divided by its own value at level 0. `ct` is
     data.cpg_rate_by_methyl() output.
 
@@ -482,7 +491,7 @@ def panel_cpg_methylation_effect(ax, ct, show_mu: bool = True) -> None:
 def panel_cpg_hypomethylation(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
                               show_xlabel: bool = True) -> None:
     """
-    Supporting Figure 7, row B. The fraction of CpG training sites that are
+    Supporting Figure 7, panel B. The fraction of CpG training sites that are
     hypomethylated (level <= 1) against GC content, with mean methylation level on a
     right-hand axis. `cpg` is data.cpg_methylation_by_gc() output.
 
@@ -507,18 +516,19 @@ def panel_cpg_hypomethylation(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
     rax.tick_params(axis="y", labelsize=TICK_LABEL_FONTSIZE, colors="0.35")
     rax.spines["top"].set_visible(False)
 
-    handles = ax.get_lines() + rax.get_lines()
-    _finish(ax, "Fraction of CpG sites\nthat are hypomethylated", xrange, show_xlabel)
-    # Not "upper left": the mean-methylation curve is flat and high across the whole
-    # left half, so a legend there sits on top of it. Mid-left is the empty region.
-    ax.legend(handles, [h.get_label() for h in handles], fontsize=LEGEND_FONTSIZE,
-              frameon=False, loc="center left")
+    # No legend: the two curves are named by the two y-axis labels, each in its own
+    # curve's colour (blue left, grey right), so a legend would say it a second time in
+    # smaller type -- and it had to sit mid-left, the one region the flat, high
+    # mean-methylation curve leaves free. The threshold that DEFINES hypomethylated was
+    # the one thing only the legend carried, so it moves into the ylabel.
+    _finish(ax, "Fraction of CpG sites that are\nhypomethylated (level $\\leq$ 1)",
+            xrange, show_xlabel, legend=False)
 
 
 def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
                        show_xlabel: bool = True) -> None:
     """
-    Supporting Figure 7, row C. The empirical DNM rate over CpG training sites against GC
+    Supporting Figure 7, panel C. The empirical DNM rate over CpG training sites against GC
     content, with binomial error bars.
 
     It is flat at ~0.53 through the GC bulk and collapses to ~0.195 in the top GC bin --
@@ -536,14 +546,15 @@ def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
     ax.errorbar(df["gc_pct"] / 100.0, df["p"], yerr=se, marker="o",
                 color=SERIES_COLORS["dr"], markersize=5, linewidth=2, capsize=3,
                 elinewidth=1, label="Empirical P(DNM), CpG contexts")
+    # One series, and the ylabel already names it -- see _finish's `legend`.
     _finish(ax, "P(DNM) in the training set\n(CpG contexts)", xrange, show_xlabel,
-            legend_loc="lower left")
+            legend=False)
 
 
 def panel_cpg_expected_share(ax, binned, min_n: int = 100, xrange=(0.2, 0.8),
                              show_xlabel: bool = True) -> None:
     """
-    Supporting Figure 7, row D. Pi(g), the CpG contexts' share of a GC bin's step-1
+    Supporting Figure 7, panel D. Pi(g), the CpG contexts' share of a GC bin's step-1
     expected counts. `binned` is data.r_eff_by_gc() output -- the same table panel B
     decomposes, so this curve is literally the weight in R_eff = Pi*R_CpG + (1-Pi)*R_non.
 
@@ -554,9 +565,9 @@ def panel_cpg_expected_share(ax, binned, min_n: int = 100, xrange=(0.2, 0.8),
     -- which is why the counterfactual in panel B is flat by measurement and not by
     construction.
 
-    Drawn against the same GC axis as the rows above, so it ends earlier: Pi is binned
+    Drawn against the same GC axis as B and C above it, so it ends earlier: Pi is binned
     over Chen windows, whose analyzed set thins out above GC 0.73, while the CpG training
-    sites of rows B and C reach 0.8.
+    sites of those two reach 0.8.
     """
     df = binned.to_pandas() if hasattr(binned, "to_pandas") else binned
     df = df[df["n"] >= min_n].sort_values("gc_mid") if min_n else df.sort_values("gc_mid")
@@ -565,7 +576,9 @@ def panel_cpg_expected_share(ax, binned, min_n: int = 100, xrange=(0.2, 0.8),
             color=SERIES_COLORS["scored"], markersize=5, linewidth=2,
             label=r"$\Pi$ — CpG share of step-1 expected counts")
     ax.set_ylim(0, float(df["pi_cpg"].max()) * 1.15)
-    _finish(ax, "CpG share of step-1\nexpected counts, $\\Pi$", xrange, show_xlabel)
+    # One series, and the ylabel already names it -- see _finish's `legend`.
+    _finish(ax, "CpG share of step-1\nexpected counts, $\\Pi$", xrange, show_xlabel,
+            legend=False)
 
 
 def label_panels(axes, labels=("A", "B", "C"), x: float = -0.1, y: float = 1.02) -> None:
