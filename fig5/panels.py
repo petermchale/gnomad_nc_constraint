@@ -97,24 +97,16 @@ def _gc_mean_line(ax, gc_mean: float | None) -> None:
     """
     Vertical line at `gc_mean`, in the panel's own x units (GC as a 0-1 fraction).
 
-    EACH PANEL MARKS THE MEAN OF THE POPULATION IT DRAWS, which is not one number across
-    the figure: A and E bin the windows left after their joint z filter, B bins the
-    windows of the analyzed table, D bins training SITES. On McHale et al.'s window set
-    those means span 0.390-0.402, so the lines land within half a bin of each other --
-    close enough to read across panels, and not so close that quoting one number for all
-    of them would be true. The caller passes the mean of the very frame it plots, so the
-    line cannot drift from the curves; None draws nothing.
+    EACH PANEL MARKS THE MEAN OF THE POPULATION IT DRAWS, which is not one number
+    across the figure: A and E bin the windows left after their joint z filter, D bins
+    training SITES. On McHale et al.'s window set those means span 0.390-0.402, so the
+    lines land within half a bin of each other -- close enough to read across panels,
+    and not so close that quoting one number for all of them would be true. The caller
+    passes the mean of the very frame it plots, so the line cannot drift from the curves;
+    None draws nothing.
 
-    IT IS NOT THE PIVOT OF r, and a caption must not say it is. r = 1 where the fitted
-    linear predictor is zero -- at each CONTEXT's own training mean in its own
-    standardized feature space -- and the published ft_mean_std files put that mean for
-    GC_content_1k anywhere from 37.5% (TAT) to 44.0% (CCC) across the 23 contexts that
-    select GC at all, over up to 12 features of which GC is one. R_non(g) therefore
-    crosses 1 at an E1-weighted compromise of 23 different pivots, shifted again by the
-    other features' bin-conditional means; on this window set that lands near GC 0.44
-    while the line sits at 0.397. Close, and for none of the reasons a reader would
-    assume. (The four CpG contexts carry no GC, SINE, met_sperm, CpG_island or
-    Nucleosome term at all -- FT_CORR_MET strips them -- which is why R_CpG is flat.)
+    PANEL B DELIBERATELY DOES NOT CALL THIS. The reason is in panel_r_eff, and it is
+    about that panel rather than about this line, so read it before adding one there.
     """
     if gc_mean is not None:
         ax.axvline(gc_mean, **GC_MEAN_LINE_KW)
@@ -206,7 +198,7 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
 
 
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
-                show_xlabel: bool = True, gc_mean: float | None = None) -> None:
+                show_xlabel: bool = True) -> None:
     """
     Panel B. The adjustment Gnocchi actually applies to a GC bin, R_eff(g) = sum E2 /
     sum E1, split into its CpG and non-CpG parts. `binned` is data.r_eff_by_gc() output.
@@ -223,6 +215,25 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
     contexts alone. Drawn as a dashed grey hypothetical rather than a fourth measured
     series. Its flatness is the claim, and it is not automatic: Pi reaches 0.43 at high
     GC, so a GC trend in R_CpG would show up here scaled by Pi rather than erased.
+
+    NO MEAN-GC LINE HERE, though A, D and E carry one (_gc_mean_line) and uniformity
+    would argue for it. It was drawn here for one commit and taken out: measured off the
+    render, R_eff and R_non cross 1 at GC 0.413 against a mean at 0.393, 0.8 of a bin
+    apart, and a vertical line that close to where three curves meet the horizontal
+    R = 1 reference reads as the explanation for the crossing. It is not one. r = 1
+    where the fitted linear predictor is zero -- at each CONTEXT's own training mean in
+    its own standardized space -- and the published ft_mean_std files put the
+    GC_content_1k mean anywhere from 37.5% (TAT) to 44.0% (CCC) across the 23 contexts
+    that select GC, over up to 12 features of which GC is one, with coefficients of both
+    signs. R_eff crosses 1 where an E1-weighted average of all that balances, which is
+    nobody's pivot and is not tied to the window population's mean. (The four CpG
+    contexts carry no GC, SINE, met_sperm, CpG_island or Nucleosome term at all --
+    FT_CORR_MET strips them -- which is why R_CpG is flat.) The mean is also the wrong
+    centre for this panel twice over: it is n-weighted over windows where R_eff is
+    E1-weighted. If the point to make is that the high-GC divergence happens in a sparse
+    tail -- true, and this is the one panel with no error bars to say so -- a rug or
+    marginal of window GC along the bottom axis says it without nominating an x value
+    for the reader to pair with the crossing. `binned` already carries n per bin.
     """
     df = binned.to_pandas() if hasattr(binned, "to_pandas") else binned
     df = df[df["n"] >= min_n].sort_values("gc_mid") if min_n else df.sort_values("gc_mid")
@@ -238,9 +249,6 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
             label=r"$\Pi R_{\mathrm{CpG}} + (1-\Pi)$ — if only CpG were adjusted")
 
     ax.axhline(1.0, **REF_LINE_KW)
-    # Where the windows actually are: R_non reaches 1.79 at the top of the axis, but the
-    # line says that is the far tail of the population being adjusted. See _gc_mean_line.
-    _gc_mean_line(ax, gc_mean)
     _log_ratio_axis(ax, df[["r_non", "r_eff", "r_cpg"]].to_numpy())
     _finish(ax, "Regional adjustment", xrange, show_xlabel)
 

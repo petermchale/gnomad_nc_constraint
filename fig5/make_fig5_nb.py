@@ -534,16 +534,15 @@ non-CpG — which is where the rest of this figure looks.
 code(r"""
 binned_b = D.r_eff_by_gc(df_win, edges, pop="full", cache_dir=CACHE_DIR)
 
-# Vertical reference at the mean GC of the windows this panel bins, computed from
-# binned_b itself: gc_mid is each bin's MEAN GC, not its centre, so the n-weighted
-# average over every bin -- including the thin ones min_n drops from the curves -- is
-# the population mean exactly. Taken from the plotted table rather than recomputed from
-# df_win so the line cannot end up describing a different population than the curves.
-gc_mean_b = float((binned_b["n"] * binned_b["gc_mid"]).sum() / binned_b["n"].sum())
-print(f"panel B: mean GC of the {int(binned_b['n'].sum()):,} windows = {gc_mean_b:.3f}")
+# No mean-GC line on this panel, though A, D and E carry one -- panel_r_eff's docstring
+# says why, and it is worth reading before adding one back. The mean is still printed:
+# it is the number the caption would quote, and the one that says how far out in the
+# tail the divergence at GC 0.6-0.7 happens.
+print(f"panel B: mean GC of the {int(binned_b['n'].sum()):,} windows = "
+      f"{float((binned_b['n'] * binned_b['gc_mid']).sum() / binned_b['n'].sum()):.3f}")
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
-panels.panel_r_eff(ax, binned_b, min_n=MIN_N_WINDOWS, xrange=XRANGE, gc_mean=gc_mean_b)
+panels.panel_r_eff(ax, binned_b, min_n=MIN_N_WINDOWS, xrange=XRANGE)
 save(fig, "B")
 
 binned_b.filter(pl.col("n") >= MIN_N_WINDOWS).select(
