@@ -51,6 +51,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
+# Arial throughout -- the manuscript's typeface. This notebook is the only thing that
+# draws the panels and Supporting Figure 7, so setting it here covers both (panels.py
+# deliberately configures nothing). mathtext has to be pointed at Arial separately or
+# every $R_{\mathrm{eff}}$ falls back to DejaVu Sans while the plain text does not;
+# fonttype 42 embeds TrueType instead of matplotlib's default Type 3, so the type stays
+# live and editable in the Illustrator assembly rather than arriving as outlines.
+plt.rcParams.update({
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+    "mathtext.fontset": "custom",
+    "mathtext.rm": "Arial",
+    "mathtext.it": "Arial:italic",
+    "mathtext.bf": "Arial:bold",
+    "pdf.fonttype": 42,
+})
+
 # Works whether the kernel's cwd is fig5/ (Jupyter's default) or the repo root.
 _HERE = os.path.abspath("")
 if os.path.basename(_HERE) != "fig5" and os.path.isdir(os.path.join(_HERE, "fig5")):
