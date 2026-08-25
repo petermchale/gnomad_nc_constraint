@@ -642,6 +642,7 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
 
     `gc_mean` is in the panel's 0-1 x units, i.e. the tables' `gc_mid` / 100.
     """
+    drawn_values = []
     for name, df in binned.items():
         style = PAIR_STYLE[name]
         color = SERIES_COLORS[style["key"]]
@@ -661,9 +662,34 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
         ax.errorbar(gc, emp, yerr=se, marker="o", color=color, markersize=5,
                     linewidth=2, linestyle="--", markerfacecolor="white",
                     capsize=3, elinewidth=1, label=f"empirical, {style['label']}")
+        # Error bars included, so the log limits below cannot clip a cap -- the lowest
+        # of them, at 0.84, sat outside a pad computed from the markers alone.
+        #
+        # The bar stays a symmetric +-se on the DATA, and is not rebuilt for the log
+        # axis. p +- se is the interval the binomial supports; the axis only maps its
+        # endpoints, so the arms come out unequal, by 11.5% on the widest bar (scored,
+        # GC 0.621: 85.0 px up against 94.8 down at 300 dpi) and under 2% through the
+        # GC bulk. That unevenness is the transform being honest -- forcing the caps
+        # equal would draw an interval the data do not support. Panel C's lower row
+        # uses the delta-method SE of the log instead, and is right to: it plots
+        # log(ratio) AS the quantity, on a linear axis, so the SE of the log is the
+        # only bar that means anything there. Here the quantity is the ratio itself.
+        drawn_values.append(np.concatenate([pred, emp - se, emp + se]))
 
     if normalize:
         ax.axhline(1.0, **REF_LINE_KW)
+        # LOG y, and only when normalized: the quantity is then a ratio to the curve's
+        # own GC-averaged value, strictly positive with its reference at 1, which is
+        # panel B's axis argument applied here -- a 10% deficit and a 10% excess should
+        # read as equal departures. It also buys back the low-GC end, where six curves
+        # sit inside 0.89-1.01: that band is 6% of a linear axis running to 2.75 and 11%
+        # of this one. It does not separate them, and nothing can -- normalize divides
+        # each curve by a mean the GC bulk dominates, so every curve is pinned near 1
+        # there BY CONSTRUCTION, and what the panel reads at low GC is that pinning
+        # rather than a measured agreement. Unnormalized the values are raw
+        # probabilities around 0.07 with no reference level, and the linear axis stands.
+        _log_ratio_axis(ax, np.concatenate(drawn_values),
+                        ticks=(0.8, 0.9, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0))
     # One line for three populations, which is honest here only because their site-
     # weighted mean GCs agree to ~0.01 (see _gc_mean_line): it marks where the training
     # set sits, and every curve's divergence from the others is out in the tail beyond
