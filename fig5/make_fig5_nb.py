@@ -534,8 +534,16 @@ non-CpG — which is where the rest of this figure looks.
 code(r"""
 binned_b = D.r_eff_by_gc(df_win, edges, pop="full", cache_dir=CACHE_DIR)
 
+# Vertical reference at the mean GC of the windows this panel bins, computed from
+# binned_b itself: gc_mid is each bin's MEAN GC, not its centre, so the n-weighted
+# average over every bin -- including the thin ones min_n drops from the curves -- is
+# the population mean exactly. Taken from the plotted table rather than recomputed from
+# df_win so the line cannot end up describing a different population than the curves.
+gc_mean_b = float((binned_b["n"] * binned_b["gc_mid"]).sum() / binned_b["n"].sum())
+print(f"panel B: mean GC of the {int(binned_b['n'].sum()):,} windows = {gc_mean_b:.3f}")
+
 fig, ax = plt.subplots(figsize=FIGSIZE)
-panels.panel_r_eff(ax, binned_b, min_n=MIN_N_WINDOWS, xrange=XRANGE)
+panels.panel_r_eff(ax, binned_b, min_n=MIN_N_WINDOWS, xrange=XRANGE, gc_mean=gc_mean_b)
 save(fig, "B")
 
 binned_b.filter(pl.col("n") >= MIN_N_WINDOWS).select(
@@ -753,10 +761,21 @@ code(r"""
 binned_d = D.dnm_probability(("full", "scored", "sizematched"), n_bins=N_BINS,
                              min_n=MIN_N_SITES)
 
+# ONE vertical reference for three populations, so it has to be a population the panel
+# names: `full`, the original training set the other two are compared against. The three
+# site-weighted means are printed below -- if they ever stop agreeing to ~0.01, this
+# panel needs three lines or none, because a single one would then be marking a place
+# two of its curves are not centred on. In the panel's 0-1 units, hence the /100.
+site_mean_gc = lambda b: float((b["n"] * b["gc_mid"]).sum() / b["n"].sum()) / 100.0
+gc_mean_d = site_mean_gc(binned_d["full"])
+
 fig, ax = plt.subplots(figsize=FIGSIZE)
-panels.panel_dnm_probability_pairs(ax, binned_d, min_n=MIN_N_SITES, normalize=True)
+panels.panel_dnm_probability_pairs(ax, binned_d, min_n=MIN_N_SITES, normalize=True,
+                                   gc_mean=gc_mean_d)
 save(fig, "D")
 
+print("mean GC of the training sites drawn:  "
+      + ",  ".join(f"{pop} {site_mean_gc(b):.3f}" for pop, b in binned_d.items()))
 for pop, b in binned_d.items():
     print(f"\n{pop}:")
     print(b[["gc_mid", "n", "n1", "mean_pred", "empirical_prop"]].round(4).to_string(index=False))

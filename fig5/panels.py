@@ -25,6 +25,11 @@ SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "D", "control
 
 GRID_KW = {"color": "0.85", "linewidth": 0.6}
 REF_LINE_KW = {"color": "0.45", "linewidth": 0.8, "linestyle": "--"}
+# The vertical reference a GC panel can carry: where the population it draws actually
+# sits on the axis. Every panel here divides at high GC, and the line says how far out
+# in the tail that happens -- solid to distinguish it from the dashed horizontal
+# references (rank 0.5, r = 1), thin and grey because it is a reference, not a series.
+GC_MEAN_LINE_KW = {"color": "0.45", "linewidth": 0.8}
 # Sized for the figure as it appears in the manuscript, where each panel PDF is placed
 # at roughly half a page width -- at the previous 12/11/10 the tick labels were the first
 # thing to become unreadable there. Every panel reads these three, so the figure cannot
@@ -86,6 +91,33 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
                   fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
     else:
         ax.legend(fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
+
+
+def _gc_mean_line(ax, gc_mean: float | None) -> None:
+    """
+    Vertical line at `gc_mean`, in the panel's own x units (GC as a 0-1 fraction).
+
+    EACH PANEL MARKS THE MEAN OF THE POPULATION IT DRAWS, which is not one number across
+    the figure: A and E bin the windows left after their joint z filter, B bins the
+    windows of the analyzed table, D bins training SITES. On McHale et al.'s window set
+    those means span 0.390-0.402, so the lines land within half a bin of each other --
+    close enough to read across panels, and not so close that quoting one number for all
+    of them would be true. The caller passes the mean of the very frame it plots, so the
+    line cannot drift from the curves; None draws nothing.
+
+    IT IS NOT THE PIVOT OF r, and a caption must not say it is. r = 1 where the fitted
+    linear predictor is zero -- at each CONTEXT's own training mean in its own
+    standardized feature space -- and the published ft_mean_std files put that mean for
+    GC_content_1k anywhere from 37.5% (TAT) to 44.0% (CCC) across the 23 contexts that
+    select GC at all, over up to 12 features of which GC is one. R_non(g) therefore
+    crosses 1 at an E1-weighted compromise of 23 different pivots, shifted again by the
+    other features' bin-conditional means; on this window set that lands near GC 0.44
+    while the line sits at 0.397. Close, and for none of the reasons a reader would
+    assume. (The four CpG contexts carry no GC, SINE, met_sperm, CpG_island or
+    Nucleosome term at all -- FT_CORR_MET strips them -- which is why R_CpG is flat.)
+    """
+    if gc_mean is not None:
+        ax.axvline(gc_mean, **GC_MEAN_LINE_KW)
 
 
 def _log_ratio_axis(ax, values, ticks=(0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5),
@@ -158,8 +190,7 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
                     marker=SERIES_MARKERS[c["key"]], color=SERIES_COLORS[c["key"]],
                     markersize=5, linewidth=2, capsize=3, elinewidth=1, label=c["display"])
     ax.axhline(0.5, **REF_LINE_KW)
-    if gc_mean is not None:
-        ax.axvline(gc_mean, color="0.45", linewidth=0.8)
+    _gc_mean_line(ax, gc_mean)
     ax.set_ylim(*yrange)
     # legend_loc is a parameter because A and E carry different numbers of curves in the
     # same frame: A's two fit above the rising published curve, E's three do not -- its
@@ -175,7 +206,7 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
 
 
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
-                show_xlabel: bool = True) -> None:
+                show_xlabel: bool = True, gc_mean: float | None = None) -> None:
     """
     Panel B. The adjustment Gnocchi actually applies to a GC bin, R_eff(g) = sum E2 /
     sum E1, split into its CpG and non-CpG parts. `binned` is data.r_eff_by_gc() output.
@@ -207,6 +238,9 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
             label=r"$\Pi R_{\mathrm{CpG}} + (1-\Pi)$ — if only CpG were adjusted")
 
     ax.axhline(1.0, **REF_LINE_KW)
+    # Where the windows actually are: R_non reaches 1.79 at the top of the axis, but the
+    # line says that is the far tail of the population being adjusted. See _gc_mean_line.
+    _gc_mean_line(ax, gc_mean)
     _log_ratio_axis(ax, df[["r_non", "r_eff", "r_cpg"]].to_numpy())
     _finish(ax, "Regional adjustment", xrange, show_xlabel)
 
@@ -589,7 +623,8 @@ def label_panels(axes, labels=("A", "B", "C"), x: float = -0.1, y: float = 1.02)
 
 
 def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: bool = True,
-                                xrange=(0.2, 0.76), show_xlabel: bool = True) -> None:
+                                xrange=(0.2, 0.76), show_xlabel: bool = True,
+                                gc_mean: float | None = None) -> None:
     """
     Panel D. Fitted and empirical P(DNM) vs GC, non-CpG contexts, for each training
     population. `binned` maps population name -> data.dnm_probability() table.
@@ -604,6 +639,8 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
     which removes that offset and compares SHAPE, and is what the figure needs. Within
     a pair the comparison is exact either way -- fitted and empirical come from the
     very same sites.
+
+    `gc_mean` is in the panel's 0-1 x units, i.e. the tables' `gc_mid` / 100.
     """
     for name, df in binned.items():
         style = PAIR_STYLE[name]
@@ -627,6 +664,11 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
 
     if normalize:
         ax.axhline(1.0, **REF_LINE_KW)
+    # One line for three populations, which is honest here only because their site-
+    # weighted mean GCs agree to ~0.01 (see _gc_mean_line): it marks where the training
+    # set sits, and every curve's divergence from the others is out in the tail beyond
+    # it. The caller says which population's mean it is.
+    _gc_mean_line(ax, gc_mean)
     # "GC-averaged value", not "its own mean": the divisor is that curve's mean ACROSS
     # GC bins, site-weighted, so the label has to say which average was taken out.
     _finish(ax, "P(DNM) relative to its\nGC-averaged value\n(non-CpG sites)" if normalize
