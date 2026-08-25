@@ -249,10 +249,24 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # it keep naming their filter, since each one IS a reason for exclusion.
 STRATUM_COLORS = {"scored": "0.78", "coding": "#eb6834",
                   "other_noncoding": "#2a78d6", "failed_qc": "#1baf7a"}
+
+# `other_noncoding` is named as the complement of the bottom band's own parenthetical
+# ("QC-pass putatively neutral noncoding", supplied by the caller as `scored_note`), so
+# the two read as one partition of QC-pass noncoding territory rather than as a named
+# category beside a leftover. "Putatively" carries the same weight on both sides and is
+# load-bearing on this one: these windows are outside a set McHale et al. call putatively
+# neutral, which is not itself evidence of selection.
+#
+# Labels wrap over two lines where they are long enough to widen the legend past the
+# axes. The break is explicit rather than left to the legend, which does not wrap: an
+# unbroken 34-character entry sets the column width, and with two columns above the axes
+# that pushed the legend wider than the panel it labels. Written as one string per label
+# with an embedded newline, so the wrap travels with the text -- both rows of panel C
+# read these same labels, and a label edited in one place cannot re-wrap in only one row.
 STRATUM_LABELS = {
     "scored": "In the scored population",
     "coding": "In QC-pass coding windows",
-    "other_noncoding": "In other QC-pass noncoding windows",
+    "other_noncoding": "In QC-pass putatively nonneutral\nnoncoding windows",
     "failed_qc": "In QC-fail windows",
 }
 # Bottom to top, matching data._STRATA: the scored population, then each kind of territory
@@ -302,7 +316,9 @@ def panel_training_composition(ax, comp, min_n: int = 500, xrange=(0.2, 0.73),
     style = [(c, col, lab) for c, col, lab in COMPOSITION_STYLE
              if c in df.columns and float(df[c].max()) > 0]
     if scored_note:
-        style = [(c, col, f"{lab} ({scored_note})" if c == "frac_scored" else lab)
+        # On its own line: with the note appended inline the bottom band's entry ran to
+        # 61 characters, half again the width of the panel.
+        style = [(c, col, f"{lab}\n({scored_note})" if c == "frac_scored" else lab)
                  for c, col, lab in style]
 
     # alpha=1: the lower row draws these same colours as solid lines, and any

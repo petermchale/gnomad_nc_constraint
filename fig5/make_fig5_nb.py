@@ -597,12 +597,15 @@ puts a GC slope into $r$.
 
 **The bands above the scored one**, where the labels matter because the mechanism
 differs. A *coding* window has a published Gnocchi score; it is this analysis that sets it
-aside, following McHale et al.'s noncoding restriction. An *other-noncoding* window is
-QC-pass and noncoding but outside their set — the rest of that category, given up in
-narrowing to it, for an enhancer overlap or one of their interval exclusions. That band
-is named for where those windows sit and not for what they are: being outside a set
-someone calls putatively neutral is not evidence of selection, and whether they differ at
-all is exactly what the lower row measures. A *QC-fail* window has no score at all —
+aside, following McHale et al.'s noncoding restriction. A *QC-pass putatively nonneutral
+noncoding* window is QC-pass and noncoding but outside their set — the rest of that
+category, given up in narrowing to it, for an enhancer overlap or one of their interval
+exclusions. Its label is the complement of the bottom band's own, *QC-pass putatively
+neutral noncoding*, so the two read as one partition of that category rather than as a
+named class beside a leftover; *putatively* is load-bearing on both sides, because being
+outside a set McHale et al. call putatively neutral is not itself evidence of selection,
+and whether these windows differ at all is exactly what the lower row measures.
+A *QC-fail* window has no score at all —
 Chen et al. dropped it before scoring, keeping only windows with $\ge1{,}000$ possible
 variants, $\ge80\%$ of observed variants PASS, and mean coverage 25–35×
 (`run_nc_constraint_gnomad_v31_main.py:296`). Since `pass_qc` is `True` on all 1,984,900
@@ -639,7 +642,7 @@ equally far from the reference line. Zero would mean those sites are exchangeabl
 the scored ones as far as mutation rate goes. The coding stratum sits there — within
 ~10%, i.e. $|\log|\lesssim0.1$, flat across the whole range — while the QC-failing
 stratum runs 1.55× ($\log = 0.44$) in the GC bulk and **4.06× ($\log = 1.40$) by
-GC 0.61**. Under the narrowed population, read the other-noncoding curve
+GC 0.61**. Under the narrowed population, read the putatively nonneutral curve
 first: flat at 0 across the range, the narrowing costs sample size and nothing else and the
 rest of this figure carries over; climbing with GC, it is a third population change and
 belongs in the caption beside the other two.

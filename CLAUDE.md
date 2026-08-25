@@ -87,17 +87,21 @@ figure.
    of coding and noncoding** windows (6.9% coding-overlapping, against 7.1% among the
    QC-pass ones, so QC failure is near-independent of coding status); panel C therefore
    draws the scored population as its bottom band and names the territory outside it
-   *QC-pass coding*, *other QC-pass noncoding* and *QC-fail*, splitting only the QC-pass
-   ones by coding status. The genome splits three ways -- QC-pass noncoding, QC-pass
+   *QC-pass coding*, *QC-pass putatively nonneutral noncoding* and *QC-fail*, splitting
+   only the QC-pass ones by coding status. The genome splits three ways -- QC-pass noncoding, QC-pass
    coding, QC-fail -- and the fourth band exists only when the scored population is
    narrower than QC-pass noncoding, cutting that category into McHale et al.'s set and
    the rest. The bottom band is defined by MEMBERSHIP in the analyzed window table,
    not by re-deriving its filters in SQL, so it follows `NEUTRAL_WINDOWS_BED` the moment
    that file is supplied; the `other_noncoding` band is empty and undrawn until then.
-   That band was called `non_neutral` until 2026-08-18: the name asserted more than the
+   That band was called `non_neutral` until 2026-08-18 and has read *QC-pass putatively
+   nonneutral noncoding* since 2026-08-25. The bare `non_neutral` asserted more than the
    data does, since being outside a set McHale et al. call putatively neutral is not
    evidence of selection, and whether those windows differ at all is the open question
-   the band exists to answer.
+   the band exists to answer; the legend now carries *putatively* on both sides -- the
+   bottom band reads *QC-pass putatively neutral noncoding* -- so the pair reads as one
+   partition of QC-pass noncoding territory rather than as a verdict on the upper half.
+   The stratum's column name is still `other_noncoding`.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
    smooth 1.57x, and the logistic regression can then track it instead of missing by 26%
