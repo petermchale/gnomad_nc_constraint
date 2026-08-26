@@ -123,6 +123,15 @@ holding on only one of them would be a result about the window definition. The f
 built to be recomputed by changing this one line — see the caveats at the end for what
 that costs.
 
+**This notebook's committed run is the narrowed one.** `NEUTRAL_WINDOWS_BED` is set, so
+every panel PDF and PNG in `output/` and every number quoted in the prose below comes
+from McHale et al.'s 693,270 windows, GC 0.212–0.716. Three side measurements are the
+exception, and each says so where it appears: the $\sqrt{E_1}$ sensitivity check in panel
+A, the weighted-vs-unweighted aggregation check in panel B, and the background-class-only
+variant of panel C's stack. All three were made on the 1,843,559-window reproduction, and
+none of them is a result — they bound how much a modelling choice could matter, and the
+narrowed set is a subset of the same windows.
+
 **Why this one is not just a notebook constant.** It defines the analyzed window set,
 which is used in two separate processes: `refit.py -population scored` uses it to decide
 which training sites survive the restriction (what the model is *fit* on), and this
@@ -163,7 +172,7 @@ XRANGE = D.XRANGE           # (0.2, 0.73), visually matched to Fig. 2A
 MIN_N_WINDOWS = 100         # drop GC bins holding fewer windows than this
 MIN_N_SITES = 500           # ... or fewer training sites, in panels C and D
 MIN_N_CPG = 100             # ... in the supporting CpG figure, whose top bins ARE the
-                            # claim (n = 356 and 169); error bars carry the uncertainty
+                            # claim (n = 932 and 1,434); error bars carry the uncertainty
 FIGSIZE = (7.0, 4.6)
 
 
@@ -325,10 +334,10 @@ legitimate here precisely because $\rho$ is uniform on $(0,1)$ for every curve: 
 compared is how each metric's uniform mass redistributes across GC. Two consequences the
 caption must carry: it is binned on **its own GC edges** (its windows span a wider GC
 range than the Gnocchi set), and it is drawn **without error bars**, because those
-windows overlap — roughly 38.6M of them over a 3.1 Gb genome — so within-bin windows are
-not independent and $\mathrm{std}/\sqrt{n}$ would understate the uncertainty by about
-$\sqrt{\text{length}/\text{step}}$. The mean curve is unaffected, and it is the only
-thing read off this curve.
+windows overlap — 30.4M of them after the enhancer filter, over a 3.1 Gb genome — so
+within-bin windows are not independent and $\mathrm{std}/\sqrt{n}$ would understate the
+uncertainty by about $\sqrt{\text{length}/\text{step}}$. The mean curve is unaffected,
+and it is the only thing read off this curve.
 
 Summary statistic quoted in the text: $\;\overline{|\overline{\rho}_M(g)-0.5|}\;$ across bins.
 
@@ -340,12 +349,15 @@ Then
 $$z_2 - z_1 = \sqrt{E_1}\left[\frac{f-1-\epsilon}{\sqrt{f}} + \epsilon\right]
 \;\approx\; \sqrt{E_1}\,(f-1) \qquad (f \to 1,\ \epsilon \to 0).$$
 
-The $\sqrt{E_1}$ prefactor is the point. A typical analyzed window has $E_1 \approx 174$,
-so $\sqrt{E_1} \approx 13$, and a mere 10% inflation displaces $z$ by more than one unit —
+The $\sqrt{E_1}$ prefactor is the point. $E_1$ averages 170 per window (median 181), so
+$\sqrt{E_1} \approx 13$, and a mere 10% inflation displaces $z$ by more than one unit —
 comparable to the spread of $z$ itself. Measured directly by re-ranking the real
 genome-wide $z$ distribution under a uniform $f$, the mean rank moves from 0.500 at
-$f = 1$ to 0.687 at $f = 1.10$ and 0.302 at $f = 0.90$. Small multiplicative errors in $r$
-are not a second-order concern; they are the whole effect.
+$f = 1$ to 0.705 at $f = 1.10$ and 0.284 at $f = 0.90$. Small multiplicative errors in $r$
+are not a second-order concern; they are the whole effect. (Both of those are measured on
+the 1,843,559-window reproduction, where the whole $z$ distribution is available offline.
+They bound the sensitivity rather than reporting a result, and the narrowed set is a
+subset of the same windows.)
 """)
 
 code(r"""
@@ -434,9 +446,11 @@ $R_{\mathrm{eff}}$ to floating point ($\le2\times10^{-16}$), where the unweighte
 misses by up to $4.9\times10^{-3}$ because a window's CpG share and its non-CpG adjustment
 are correlated within a bin. The two aggregations agree closely here in any case: Chen et
 al.'s QC filter admits only windows with $\ge1{,}000$ possible variants, so $E_1$ spans
-just 55.5–345.7 across the analyzed set, and switching to the unweighted mean would move
-$R_{\mathrm{eff}}$ by ~0.1% through the GC bulk and 0.79% at worst, in the sparsest
-low-GC bin. **Case carries the level throughout this notebook:** lowercase
+just 55.5–345.7, and switching to the unweighted mean would move $R_{\mathrm{eff}}$ by
+~0.1% through the GC bulk and 0.79% at worst, in the sparsest low-GC bin. (That
+comparison is on the 1,843,559-window reproduction; the narrowed set is a subset of the
+same windows, so its $E_1$ span can only be tighter and the two aggregations can only
+agree more closely.) **Case carries the level throughout this notebook:** lowercase
 $r$ is per context or per window, capital $R$ is the bin-level aggregate, a ratio of
 summed expected counts.
 
@@ -482,14 +496,14 @@ $$R_{\mathrm{eff}}\big|_{r_t\equiv1,\;t\notin\mathcal K}(g)
 =\Pi(g)\,R_{\mathrm{CpG}}(g)+\big(1-\Pi(g)\big),$$
 
 i.e. **what Gnocchi would apply if it adjusted CpG contexts alone**. It is flat within
-0.6% across the whole GC range while $R_{\mathrm{eff}}$ climbs to 1.44, so *none* of the
+0.4% across the whole GC range while $R_{\mathrm{eff}}$ climbs to 1.33, so *none* of the
 applied trend survives the removal of the non-CpG term: the GC dependence of what Gnocchi
 applies is wholly non-CpG.
 
-Flatness here is a result, not an identity. $\Pi$ reaches **0.43** at high GC, so a GC
-trend in $R_{\mathrm{CpG}}$ would appear in this curve scaled by $\Pi$, not erased — the
-curve is flat because $R_{\mathrm{CpG}}$ itself is (0.98–1.00), which is the next
-paragraph's subject and is *correct* rather than a failure.
+Flatness here is a result, not an identity. $\Pi$ reaches **0.26** in the highest bin the
+panel draws, so a GC trend in $R_{\mathrm{CpG}}$ would appear in this curve scaled by
+$\Pi$, not erased — the curve is flat because $R_{\mathrm{CpG}}$ itself is (0.997–1.014),
+which is the next paragraph's subject and is *correct* rather than a failure.
 
 **Where each quantity comes from.** `data._r_eff_components` builds the four per-window
 sums, one SQL query, and `data.r_eff_by_gc` does the binning and the divisions:
@@ -513,16 +527,17 @@ $R_{\mathrm{eff}}$, $R_{\mathrm{CpG}}$, $R_{\mathrm{non}}$, $\Pi$ and the counte
 are then the columns `r_eff`, `r_cpg`, `r_non`, `pi_cpg`, `r_counterfactual`. One further
 column, `r_eff_published` $=\sum_g E_2^{\mathrm{pub}}/\sum_g E_1$, replaces the refit's
 numerator with Chen et al.'s own published `expected`. It needs no per-context $r$, which
-is what makes it a check rather than a restatement: the two agree to $10^{-4}$ per bin,
-and that is what licenses using the refit's per-context $r$ above — the published pipeline
+is what makes it a check rather than a restatement: the two agree to $1.7\times10^{-5}$
+per bin, median $2.1\times10^{-6}$, and that is what licenses using the refit's
+per-context $r$ above — the published pipeline
 writes its own only to a local directory, never to the bucket.
 
 **Why $R_{\mathrm{CpG}}\approx1$ is correct, not a failure.** CpG mutability is dominated
 by methylation, and $p_c$ is already keyed by methylation level — across methylation 0 to
 15 the CpG C>T rate spans **3.0–4.3×** depending on context, the largest single rate
-effect in the model, inside one trinucleotide. High-GC CpGs are CpG islands: **90–100%
-hypomethylated above GC 0.70**, against ~2% in the GC bulk, and their empirical DNM rate
-falls from 0.53 in the bulk to 0.19 in the top GC bin (**2.8×**). **Step 1 has already
+effect in the model, inside one trinucleotide. High-GC CpGs are CpG islands: **92%
+hypomethylated in the top GC bin**, against 2.5% in the GC bulk, and their empirical DNM
+rate falls from 0.532 in the bulk to 0.283 in that bin (**1.9×**). **Step 1 has already
 applied that correction**,
 via the covariation of GC content with methylation, so there is nothing left for $r$ to
 adjust. (Chen et al. also strip `GC_content`, `CpG_island`, `Nucleosome`, `SINE` and
@@ -577,18 +592,19 @@ row in Chen et al.'s table — and what moves is the QC-pass noncoding territory
 the scored and other bands. The coding band can shift a little too, by any window their
 file lists that this repo would call coding; the join prints that count.
 
-**The numbers below are from the unset run** — the one this notebook's panels were built
-from. Under the narrowed one, read them from the table printed under the code cell,
-since the scored band is then a subset and the ratios divide by it.
+**The numbers below are from the narrowed run** — `NEUTRAL_WINDOWS_BED` set, which is
+what this notebook's panels were built from. So the stack has four bands, its bottom one
+is McHale et al.'s 693,270 windows, and the lower row's ratios divide by that band rather
+than by QC-pass noncoding as a whole.
 
 **Why both classes.** In a case-control design it is the controls that carry the
 covariate distribution, which argues for stacking the background class alone — but that
 is an argument about the *design*, not the *fit*. The fit minimizes its loss over the
 mixture, so the mixture is the training distribution, and that is what belongs beside the
-scored population. Stacking the background class alone barely moves the picture (the
-QC-fail band runs 0.13 → 0.24 instead of 0.14 → 0.28) because it outnumbers the DNMs
-about 12:1; what the DNM class adds is its own steeper drift, 64% QC-fail at GC 0.64
-against the background class's 26%.
+scored population. Stacking the background class alone barely moves the picture — on the
+1,843,559-window reproduction, where this was measured, the QC-fail band runs 0.13 → 0.24
+instead of 0.14 → 0.28 — because it outnumbers the DNMs about 12:1; what the DNM class
+adds is its own steeper drift, 64% QC-fail at GC 0.64 against the background class's 26%.
 
 **What the two rows are between them.** The upper row is *covariate shift*: $P(x)$ in the
 training data is not $P(x)$ in the scored data, and the gap grows with GC. The lower row
@@ -628,9 +644,11 @@ of coding and noncoding, deliberately: 6.9% of these windows overlap coding exon
 7.1% of the QC-pass ones, so QC failure is near-independent of coding status and this is
 not a coding band in disguise.
 
-The QC-pass noncoding share of the training set falls from ~0.82 in the GC bulk to under
-0.28 by GC 0.68. So the model is fit on one population and applied to another, and the
-two come apart exactly where panel A's bias is largest.
+The QC-pass noncoding share of the training set falls from 0.82 in the GC bulk to 0.27 by
+GC 0.68, and the scored band — the part of that territory McHale et al. call putatively
+neutral — peaks at 0.36 near GC 0.35 and is down to 0.007 over the same distance. So the
+model is fit on one population and applied to another, and the two come apart exactly
+where panel A's bias is largest.
 
 **The part of the DNM training set that lies outside the scored population has a
 different DNM rate** — that is what the lower row measures, and the difference is not
@@ -646,18 +664,20 @@ the delta-method binomial SE with $k$ the DNM count. That SE is symmetric in the
 ratio and in nothing else, so the log is the scale on which the bar drawn is the
 interval the data support; it also puts a $2\times$ excess and a $2\times$ deficit
 equally far from the reference line. Zero would mean those sites are exchangeable with
-the scored ones as far as mutation rate goes. The coding stratum sits there — within
-~10%, i.e. $|\log|\lesssim0.1$, flat across the whole range — while the QC-failing
-stratum runs 1.55× ($\log = 0.44$) in the GC bulk and **4.06× ($\log = 1.40$) by
-GC 0.61**. Under the narrowed population, read the putatively nonneutral curve
-first: flat at 0 across the range, the narrowing costs sample size and nothing else and the
-rest of this figure carries over; climbing with GC, it is a third population change and
-belongs in the caption beside the other two.
+the scored ones as far as mutation rate goes. The coding stratum sits there — 0.86–1.00×,
+i.e. $|\log|\lesssim0.15$, flat across the whole range — while the QC-failing stratum
+runs 1.50–1.63× ($\log = 0.41$–$0.49$) through the GC bulk and **3.39×
+($\log = 1.22$) by GC 0.58**. Under the narrowed population the curve to read first is
+the putatively nonneutral one, because it is precisely what the narrowing gave up: it is
+flat, at 0.94–1.03×, so the narrowing costs sample size and nothing else and the rest of
+this figure carries over unchanged. Had it climbed with GC it would have been a third
+population change, and would have belonged in the caption beside the other two.
 
 Both rows come from one table of per-stratum counts — this row divides the DNM count by
 the site count, the row above takes the site count as a share of its bin. 72,801 of the
-non-CpG autosomal DNMs fall in the QC-failing stratum, against 17,545 coding and 241,479
-in QC-pass noncoding windows.
+non-CpG autosomal DNMs fall in the QC-failing stratum and 17,537 in coding windows,
+against 241,487 in QC-pass noncoding ones — 91,906 of those in the scored band, 149,581
+in the putatively nonneutral rest of it.
 
 So the steep GC dependence the model learns comes from sequence gnomAD could not call
 reliably, which is also where trio DNM calling is least reliable: part of that excess is
@@ -727,7 +747,7 @@ Two cautions on what $P_g$ is *not*. It is a probability under the **training**
 distribution, not the genome's: every DNM is kept while background sites are sampled at
 some rate $s$, which multiplies the odds by $1/s$ and so shifts $\operatorname{logit}P_g$
 by $-\log s$ — a constant in $x$, and in particular in GC. Levels are therefore not
-comparable **across** populations, whose case-control ratios differ (12.2 vs 13.5
+comparable **across** populations, whose case-control ratios differ (12.2, 12.2 and 13.4
 background sites per DNM), while shapes in $g$ are; each curve is divided by its own
 site-weighted mean, leaving shape only. And $g$ enters only as a conditioning event: GC
 is one of the 13 candidate regional features, but $\widehat p(g)$ averages whatever the
@@ -744,10 +764,13 @@ Three populations:
 
 Two things happen at once when the training set is restricted. The **empirical** GC
 dependence itself shrinks and becomes monotone — on the original set $P(\mathrm{DNM})$
-rises 2.4× and then *collapses* above GC 0.66; on the scored set it rises smoothly by
-1.57× with no turnover. And the logistic regression can then actually fit it: on the
+rises 2.45× and then *collapses* above GC 0.66; on the scored set it rises smoothly by
+1.60× with no turnover. And the logistic regression can then actually fit it: on the
 original set it misses by 26% and 29% *in opposite directions*, because it is a smooth
-monotone surface chasing a curve that turns over.
+monotone surface chasing a curve that turns over, where on the scored set it tracks to
+within 6% through GC 0.58. The scored pair's final bin is the exception — 670 sites, and
+the fit 28% low there — so the claim is about the GC range the restriction leaves
+populated, not about the tail it thins.
 
 This is why $R_{\mathrm{non}}$ in panel B is inflated — the model has partly learned a GC
 slope that belongs to sequence outside the scored population.
@@ -800,7 +823,9 @@ rather than plotted (a curve indistinguishable from published Gnocchi is clutter
 Note the retrained curve is expected to end up *better than* the context-only model, not
 merely closer to it: a correct $r$ should repair the context-only model's own droop at
 both GC extremes. That is the sense in which this is a positive result and not just the
-removal of a defect.
+removal of a defect. On this run it does: mean $|\rho-0.5|$ is 0.168 for published
+Gnocchi, 0.046 for the context-only model and **0.026** for the retrained one, against
+0.168 for the full-population control and 0.162 for the size-matched one.
 """)
 
 code(r"""
@@ -845,33 +870,34 @@ which spans 9.7–15.2× over the same range; it is not itself a measured rate, 
 subsection below says what it is. The gap between the curves is the saturation of $p_c$.
 
 **B. High-GC CpGs are CpG islands.** The hypomethylated fraction (level $\leq$ 1) runs
-~2.5% through the GC bulk and **90–100% above GC 0.70**; mean methylation falls from ~6.5
-to near zero over the same range.
+2.5% through the GC bulk and **92% in the top GC bin**, the one bin above GC 0.70; mean
+methylation falls from ~6.4 to 0.47 over the same range.
 
-**C. So their DNM rate collapses.** Flat at ~0.53 through the bulk, falling to **0.195**
-in the top GC bin — a 2.7× fall, tracking B. The top two bins hold 356 and 169 sites;
-their error bars carry that.
+**C. So their DNM rate collapses.** Flat at 0.532 through the bulk, falling to **0.283**
+in the top GC bin — a 1.9× fall, tracking B. The two highest bins hold 932 and 1,434
+sites; their error bars carry that.
 
 **D. And these contexts are not a rounding error.** $\Pi$, the CpG share of a bin's step-1
 expected counts — the same weight panel B's identity
 $R_{\mathrm{eff}}=\Pi R_{\mathrm{CpG}}+(1-\Pi)R_{\mathrm{non}}$ uses — rises from
-**0.025 to 0.426** across the GC range. So the flatness of panel B's counterfactual is a
+**0.038 to 0.264** across the GC range. So the flatness of panel B's counterfactual is a
 measurement and not an artifact of negligible weight: had $R_{\mathrm{CpG}}$ carried a GC
-trend, it would have reached the applied multiplier scaled by up to 0.43. This is the
+trend, it would have reached the applied multiplier scaled by up to 0.26. This is the
 panel that says the A–C mechanism *matters* rather than merely *holds*.
 
 Put together: a large, strongly GC-dependent CpG effect exists, step 1 already applies it,
-and the contexts it applies to carry up to 43% of the expected counts. There is nothing
+and the contexts it applies to carry up to 26% of the expected counts. There is nothing
 left for $r$ to correct, which is exactly what panel B measures. (Level, not rate: these
 are case-control-sampled training sites at ~10:1, so the y-axis of C is not a genome-wide
 mutation rate.)
 
 D is binned over **Chen windows** and A–C over **training sites**, the same split the main
 figure runs on, so the two do not end in the same place: D's last bin above the 100-window
-floor is centred at GC 0.75 against 0.78 for B and C. Note also that D is drawn on this
-figure's wider 0.2–0.8 axis, so it shows the two bins (0.71 and 0.75, where $\Pi$ reaches
-0.38 and 0.43) that panel B's own 0.2–0.73 range cuts off — the bins where the weight is
-largest are exactly the ones the main panel cannot show.
+floor is centred at GC 0.65 against 0.73 for B and C. All four panels share this figure's
+0.2–0.8 axis. On the narrowed window set D no longer runs past panel B's own 0.2–0.73
+range; that it did — reaching GC 0.75 with $\Pi$ at 0.43, so that the bins carrying the
+most CpG weight were exactly the ones the main panel could not show — was a feature of the
+1,843,559-window run.
 
 ### Panel A's two curves
 
@@ -978,7 +1004,7 @@ axA = fig.add_subplot(gs[1:5, 0])
 axB, axC, axD = (fig.add_subplot(gs[i:i + 2, 1]) for i in (0, 2, 4))
 
 panels.panel_cpg_methylation_effect(axA, ct)
-# MIN_N_CPG, not MIN_N_SITES: the top two GC bins (n = 356 and 169) carry the claim,
+# MIN_N_CPG, not MIN_N_SITES: the top two GC bins (n = 932 and 1,434) carry the claim,
 # and their error bars show how thin they are. Quote numbers from this same subset.
 #
 # EVERY PANEL LABELS ITS OWN X-AXIS, hence no show_xlabel=False here. Nothing here shares
@@ -1083,9 +1109,9 @@ md(r"""
   also **overlap**, so no error bar is drawn for that curve: the within-bin windows are
   not independent, which the shared `std / sqrt(n)` assumes. It reads last in the
   legend for the same reason — it is the external comparison, not a third Gnocchi curve.
-* **Which window set this run used is printed by the config cell**, and the caption must
-  say which. `NEUTRAL_WINDOWS_BED` unset means the 1,843,559 noncoding + `pass_qc` +
-  autosome/PAR windows this repo builds from the bucket; set, it means McHale et al.'s
+* **This run used McHale et al.'s 693,270 windows**, and the caption says so.
+  `NEUTRAL_WINDOWS_BED` unset would mean the 1,843,559 noncoding + `pass_qc` +
+  autosome/PAR windows this repo builds from the bucket; set, as here, it means their
   693,270, taken from their file with none of those three filters applied on top —
   theirs is the definition, so it enters whole (`windows.build_window_table`). Either
   way it is one definition applied consistently: every panel, the population the
