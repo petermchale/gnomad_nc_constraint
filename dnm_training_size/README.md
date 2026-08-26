@@ -33,7 +33,9 @@ in `chen_formula/chen_formula.tex`, deleted 2026-08-07 with §§1–5 migrated i
 **The contrast with `fig5/` is the point of keeping both.** Shrinking the training set
 moves Gnocchi *toward* the context-only model but **never past it**. `fig5/`'s
 intervention — changing the training *population* at fixed size — goes past it
-(mean |rank − 0.5| 0.046, against the context-only model's 0.093). So the population fix
+(mean |rank − 0.5| 0.026, against the context-only model's 0.046, on the committed
+narrowed run; 0.046 against 0.093 on the wider set this directory's curves use). So the
+population fix
 differs in kind from merely having less data or more shrinkage. `fig5/`'s size-matched
 control tests one size and establishes that size does not explain *that* result; it
 cannot show the dose-response.

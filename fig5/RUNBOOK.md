@@ -152,11 +152,15 @@ jupyter nbconvert --to notebook --execute --inplace fig5/fig5.ipynb
 * **Panel A/E `mean |rank - 0.5|`.** Expect movement, and expect most of it to be bins
   dropping under the 100-window floor rather than the bias changing:
   `window_set_sensitivity.py` saw 0.212 -> 0.182 that way while step 2's per-bin curve
-  stayed put. Quote the per-bin curve, or say which bins the average covers.
+  stayed put. Quote the per-bin curve, or say which bins the average covers. The real
+  narrowed run came in at 0.168 for published Gnocchi, 0.046 for the context-only model
+  and 0.026 for the retrained one, against 0.212 / 0.093 / 0.046 on the wider set -- the
+  whole triple shifts down together, and the *contrast* is what carries over.
 * **Panel C's new middle band** (`other_noncoding`), the territory given up in the
   narrowing. Flat at 0 in the lower row means the narrowing costs sample size and nothing
   else, and the rest of the figure carries over; climbing with GC makes it a third
-  population change that belongs in the caption beside the other two.
+  population change that belongs in the caption beside the other two. **Measured: flat**,
+  0.94-1.03x across the plotted range.
 
 ## 8. Assembly comes back to the Mac
 

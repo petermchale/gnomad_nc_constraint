@@ -68,8 +68,8 @@ the two numbers involved, so it is worth stating plainly:
 
 The gap is 587,902 windows, and it is not a rounding difference: treating the step-1 file
 as "the windows Gnocchi scores" silently readmits every QC failure, which is exactly the
-territory panel C shows is *different* (its non-CpG DNM rate runs 4.06× the noncoding
-one by GC 0.61). `verify_qc_filter` needs both — the step-1 file as the universe to
+territory panel C shows is *different* (its non-CpG DNM rate runs 3.39× the scored one
+by GC 0.58 on the committed narrowed run, 4.06× by GC 0.61 on the wider set). `verify_qc_filter` needs both — the step-1 file as the universe to
 re-evaluate the filter on, the constraint table as the label saying who survived — and
 that pairing is what makes its confusion matrix meaningful. `windows.build_window_table`
 joins the two and keeps the intersection, so the analyzed set is derived from the scored
@@ -175,10 +175,10 @@ it does.
 ## Two checks live in `fig5/`, deliberately — and they are not extra evidence
 
 Both are `validate.expected` seen downstream, not independent confirmations of it.
-Refit-vs-published `r_eff` per GC bin (max 1.0e-4, median 3.9e-6, `data.r_eff_by_gc`) is
+Refit-vs-published `r_eff` per GC bin (max 1.7e-5, median 2.1e-6, `data.r_eff_by_gc`) is
 that same refit/published ratio aggregated over the analyzed windows — both sides divide by
 the same step-1 table, so it reduces to one — and the full-population refit landing on
-published Gnocchi in panel E (mean |rank − 0.5| 0.212 vs 0.212) is the ratio after z-scoring
+published Gnocchi in panel E (mean |rank − 0.5| 0.168 vs 0.168) is the ratio after z-scoring
 and ranking. `validate.expected` measures it per window, unaggregated and genome-wide, so it
 is the stronger form and the one with a recorded claim. Do not read the three as corroborating
 each other.

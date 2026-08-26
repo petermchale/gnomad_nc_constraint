@@ -157,7 +157,8 @@ loses nothing (0 of 410,542 DNM sites lack features) and that the tables' `3mer`
 the step-1 context-only mutation rate to 2.2e-16.
 
 **Is the `r = 1` baseline in panel A sound?** It carries the figure's headline comparison
-(0.093 against 0.212) and Chen et al. published no step-1 z to check it against, so it is
+(0.046 against 0.168 on the committed narrowed run; 0.093 against 0.212 on the wider
+1,843,559-window reproduction) and Chen et al. published no step-1 z to check it against, so it is
 validated in three pieces: `verify_expected_r1.py` confirms the expected counts are genuinely
 pre-adjustment (regenerated genome-wide from a file of confirmed provenance — `possible` exact
 on 2,575,299 rows) and that the r ≡ 1 table shares the published table's `possible` denominators
@@ -173,27 +174,32 @@ scale-free comparison, since median |coef| is 0.027 and an absolute tolerance wo
 interpretable. **Our feature selection reproduces theirs exactly**: 239 rows against Chen
 et al.'s own published `misc/genomic_features13_sel.txt`, with none on either side alone
 and no significance verdict flipped, and that selection is what propagates into the
-multivariate fit. Per GC bin, the refit's `r_eff` matches the published `E2/E1` to 1.0e-4 —
-printed by `fig5/data.py` on every run, not a recorded number.
+multivariate fit. Per GC bin, the refit's `r_eff` matches the published `E2/E1` to 1.7e-5
+(median 2.1e-6) — printed by `fig5/data.py` on every run, not a recorded number.
 
 **Is the improvement attributable to the intervention?** Two controls in panel E, both routed
 through the same code as the intervention itself:
 
-| panel E curve | mean \|rank − 0.5\| | what it rules out |
-|---|---|---|
-| Gnocchi as published | 0.212 | — |
-| retrained on the scored population | **0.046** | *(the result)* |
-| control: refit on the full training set | 0.212 | the reimplementation |
-| control: size-matched random subsample | 0.210 | simply having less data |
+(Narrowed run first — McHale et al.'s 693,270 windows, which is what the committed
+`fig5.neutral.png` shows — then the wider 1,843,559-window reproduction.)
+
+| panel E curve | mean \|rank − 0.5\| | (wider run) | what it rules out |
+|---|---|---|---|
+| Gnocchi as published | 0.168 | 0.212 | — |
+| context-only model (`r ≡ 1`) | 0.046 | 0.093 | — |
+| retrained on the scored population | **0.026** | **0.046** | *(the result)* |
+| control: refit on the full training set | 0.168 | 0.212 | the reimplementation |
+| control: size-matched random subsample | 0.162 | 0.210 | simply having less data |
 
 Panel B rests on a counterfactual rather than a fit: holding non-CpG `r` at 1 leaves the
-adjustment flat within 0.6% across GC, inside a decomposition (`r_eff = Π·r_CpG + (1−Π)·r_non`)
-that is an exact identity bin by bin. `dnm_training_size/` adds the training-size dose-response
+adjustment flat within 0.4% across GC (wider run: 0.6%), inside a decomposition
+(`r_eff = Π·r_CpG + (1−Π)·r_non`) that is an exact identity bin by bin. `dnm_training_size/` adds the training-size dose-response
 the size-matched control cannot show.
 
-Stated rather than buried: panel D is in-sample (panel E is not), `depletion_rank.py` has never
-been run against the real BED, and the callability caveat brackets the over-adjustment at
-**1.22–1.44** — do not quote 1.22 alone.
+Stated rather than buried: panel D is in-sample (panel E is not); the callability caveat
+brackets the over-adjustment at **1.22–1.44** — do not quote 1.22 alone — and that caveat,
+like everything else in the "adjustment is wrong, not merely present" block, was measured on
+the wider window set and has not been recomputed on the narrowed one.
 
 Each directory has its own `README.md` with the methodological detail, the caveats that
 belong in the caption, and the numbers each claim rests on.

@@ -22,7 +22,8 @@ noncoding* (the `other_noncoding` stratum -- empty and undrawn unless
 `NEUTRAL_WINDOWS_BED` is set) and *QC-fail*. That middle band is the one to read when asking whether the figure survives on
 McHale et al.'s window set: it is the territory given up in narrowing 1,843,559 windows
 to their 693,270, and if its DNM rate matches the scored population's, that narrowing
-costs sample size and nothing else. Its label mirrors the bottom band's own parenthetical,
+costs sample size and nothing else. **Measured: it does** -- 0.94-1.03x across the
+plotted range, flat, so the figure carries over between the two window sets. Its label mirrors the bottom band's own parenthetical,
 *QC-pass putatively neutral noncoding*, so the two read as one partition of that category;
 *putatively* is load-bearing on both sides, since being outside a set McHale et al. call
 putatively neutral is not itself evidence of selection, and whether these windows differ
@@ -35,16 +36,18 @@ windows' 7.1%.
 **Supporting Figure 7** backs panel B's claim that `R_CpG ~ 1` is *correct*: the
 methylation effect step 1 absorbs (3.0-4.3x within one trinucleotide, against 9.7-15.2x
 pre-saturation), the CpG-island character of high-GC CpGs (2.5% hypomethylated in the
-GC bulk rising to 90-100% above GC 0.70), and the resulting DNM-rate collapse
-(0.53 -> 0.195, a 2.7x fall). Its bin floor is 100 sites, not the main figure's 500:
-the top two GC bins hold 356 and 169 sites and they ARE the claim, so they are drawn
+GC bulk rising to 92% in the top GC bin), and the resulting DNM-rate collapse
+(0.532 -> 0.283, a 1.9x fall). Its bin floor is 100 sites, not the main figure's 500:
+the two highest GC bins hold 932 and 1,434 sites and they ARE the claim, so they are drawn
 with error bars rather than dropped. **A fourth panel** carries `Pi`, the CpG share of a
-bin's step-1 expected counts (0.025 -> 0.426), which is why that claim matters rather
+bin's step-1 expected counts (0.038 -> 0.264), which is why that claim matters rather
 than merely holds: it is the weight in panel B's identity, so a GC trend in `R_CpG`
-would have reached the applied multiplier scaled by up to 0.43 rather than erased. It is
+would have reached the applied multiplier scaled by up to 0.26 rather than erased. It is
 binned over *windows* (`binned_b`, floor 100 windows) where B and C above it are binned
-over *sites*, and it is drawn on this figure's wider 0.2-0.8 axis, so it shows the two
-highest-GC bins that panel B's own 0.2-0.73 range cuts off.
+over *sites*, so the two do not end in the same GC bin (0.65 against 0.73); all four
+panels share this figure's wider 0.2-0.8 axis. (Wider 1,843,559-window run: 90-100%
+hypomethylated above GC 0.70, 0.53 -> 0.195 and a 2.7x fall, top bins of 356 and 169
+sites, `Pi` 0.025 -> 0.426, and a D that ran past panel B's 0.2-0.73 range.)
 
 ```
 fig5.ipynb          the figure: LaTeX derivation of each plotted quantity, then the panels
@@ -217,15 +220,17 @@ window -- which would put a population difference into the curve while the Gnocc
 are ranked over enhancer-excluded windows. `exclude_enhancer_windows=False` is the
 deliberate opt-out.
 
-`depletion_rank.py` has been exercised against synthetic input (column resolution, GC
+`depletion_rank.py` was exercised against synthetic input (column resolution, GC
 unit detection, the `1 - DR` complement, the enhancer filter and its absence, error
-paths) but **never against the real
-file**. Check its printed summary the first time it runs.
+paths) before it was **run against the real file** on the HPC path: 38,632,866 windows,
+30,421,618 after the enhancer filter, GC 0.095-0.784, mean |rank - 0.5| = 0.096. Check
+its printed summary whenever the path changes.
 
 ## How panel A's `r = 1` curve is validated
 
-The context-only curve carries the comparison the whole figure rests on (0.093 against
-0.212), and Chen et al. never published anything to check it against directly — their
+The context-only curve carries the comparison the whole figure rests on (0.046 against
+0.168 on the committed narrowed run; 0.093 against 0.212 on the wider 1,843,559-window
+reproduction), and Chen et al. never published anything to check it against directly — their
 pipeline computes no step-1 z. So it is validated in three separable pieces, two of them
 runnable checks and one an inheritance argument:
 
@@ -256,10 +261,12 @@ filter, so neither is advantaged by its own window set.
   means of per-window ratios.
 - **Two claims the caption states as numbers are computed in `data.py` and printed by the
   notebook**, so nothing quoted in the text is unregenerable: the QC-fail stratum's
-  non-CpG DNM rate (1.55x the noncoding rate in the GC bulk, **4.06x by GC 0.61**, while
-  coding/noncoding stays at 0.90–0.99 and flat), and the CpG-island character of high-GC
-  CpGs (90–100% hypomethylated above GC 0.70, DNM rate 2.7x lower than the bulk, against
-  a 3.0–4.3x methylation effect that step 1 already absorbs). Both are also plotted —
+  non-CpG DNM rate (1.50–1.63x the scored rate through the GC bulk, **3.39x by GC 0.58**,
+  while coding/noncoding stays at 0.86–1.00 and flat), and the CpG-island character of
+  high-GC CpGs (92% hypomethylated in the top GC bin, DNM rate 1.9x lower than the bulk,
+  against a 3.0–4.3x methylation effect that step 1 already absorbs). Wider run: 1.55x and
+  4.06x by GC 0.61, coding 0.90–0.99, 90–100% hypomethylated above GC 0.70 and 2.7x lower.
+  Both are also plotted —
   panel C's lower row and `output/supp_fig7.pdf`. Migrated from `fig3/` when that
   directory was retired, then from `diagnostics.py` into `data.py` once they stopped
   being prose-only.
