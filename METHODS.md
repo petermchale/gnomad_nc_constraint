@@ -8,6 +8,20 @@ same window set with the same statistic. Every methodological choice recorded be
 still live: they are implemented in `gnocchi_bias/windows.py`, which was extracted
 verbatim from that script, and fig5 inherits all of them. Read `windows.py` for the code.
 
+**The other half of the manuscript's methods text lives in `fig5/methods.txt`** — the
+Methods subsection "How Gnocchi's regional adjustment drives its GC bias", covering
+everything Fig. 5 and Supporting Fig. 7 need beyond the rank statistic: the two-step
+model and the form of `r`, the per-GC-bin aggregation `R = ΣE2/ΣE1` and its CpG
+decomposition, the training-set strata and their DNM-rate comparison, the two `P(DNM)`
+estimators, the refit and its two controls, the depletion-rank overlay, and the
+saturation model behind Supporting Fig. 7A. The two figure captions that go with it are
+`fig5/captions.txt`. Both are written to be pasted into the manuscript, one paragraph per
+line, and both quote the **narrowed** run — McHale et al.'s 693,270 windows — which is
+what the committed `fig5.neutral.png` and `output/supp_fig7.neutral.png` were built from.
+`CLAUDE.md` and the READMEs now carry both runs, narrowed first and the wider
+1,843,559-window reproduction in parentheses: `0.046 / 0.168 / 0.026` against
+`0.093 / 0.212 / 0.046`.
+
 TWO CAPABILITIES WENT WITH THE SCRIPT and exist nowhere else, both concerning comparison
 against McHale et al.'s *existing published* figures rather than producing Fig. 5:
 the 2D hexbin density heat map of (GC, rank) that reproduces Fig. 2A's visual form
@@ -164,7 +178,14 @@ coding window; that is not enforced, so the join prints how many kept windows ha
 `coding_prop > 0` (0 means the nesting holds and the `coding` band is exactly QC-pass
 coding; anything else means those windows are labelled `scored`, not `coding`).
 
-**Will the narrowing change the answer? Probably not, but it is not yet settled.**
+**Will the narrowing change the answer? It did not — and this is now settled by the real
+run, not the stand-ins.** On McHale et al.'s own 693,270 windows the three statistics are
+0.046 / 0.168 / 0.026 (step1 / step2 / scored) against 0.093 / 0.212 / 0.046 on the wider
+set: the whole triple shifts down together, step 2 still sits far above step 1, and the
+retrained score still lands below both. Panel C's `other_noncoding` band — the territory
+the narrowing gives up, and the direct test of whether it costs anything but sample size —
+is flat at 0.94–1.03x across the plotted range. The paragraph below is the prediction made
+before that run, kept because it explains *why* the averages move at all.
 `fig5/window_set_sensitivity.py` reruns panel A's statistic on same-sized stand-in
 subsets. Over the 13 GC bins every arm draws: step1 / step2 / scored = 0.067 / 0.177 /
 0.034 on the full set, 0.066 / 0.177 / 0.033 on a random 693,270, and 0.067 / 0.180 /
