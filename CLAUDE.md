@@ -49,25 +49,46 @@ sections 1-5 are migrated into `fig5/fig5.ipynb`).
 
 ## Settled findings — do not re-derive these
 
-Numbers below are over the GC bins the panels actually draw (n >= 100 windows), which is
-what `fig5` reports. The same statistic over all 20 bins gives 0.130 / 0.221 / 0.079
-instead of 0.093 / 0.212 / 0.046; both are correct, so quote the filtered set to match the
-figure.
+**Two window sets, and which numbers go with which.** `NEUTRAL_WINDOWS_BED` in
+`fig5/config.py` decides: unset, the analyzed set is this repo's **1,843,559-window
+reproduction** (noncoding + `pass_qc` + autosome/PAR, built from the bucket); set, it is
+McHale et al.'s own **693,270** putatively neutral windows. **The committed figure is the
+narrowed run** -- `fig5/fig5.neutral.png`, `fig5/output/*.neutral.*`, and the executed
+`fig5/fig5.ipynb`, whose prose quotes it throughout -- and so are the two manuscript
+files, `fig5/captions.txt` and `fig5/methods.txt`. Numbers below therefore give the
+**narrowed run first, the wider one in parentheses**. A few measurements exist only on the
+wider set, because the neutral BED lives on the constraint-tools HPC path and is not
+available offline; each of those says so.
+
+Numbers are over the GC bins the panels actually draw (n >= 100 windows), which is what
+`fig5` reports. On the wider set the same statistic over all 20 bins gives
+0.130 / 0.221 / 0.079 instead of 0.093 / 0.212 / 0.046; both are correct, so quote the
+filtered set to match the figure.
 
 **The causal chain, panel by panel.**
 
 1. The GC bias is **introduced by the regional adjustment**, not inherited from the
-   context-only model: mean |rank - 0.5| is 0.093 for `r == 1` against 0.212 for published
-   Gnocchi.
-2. That adjustment's GC dependence is **wholly non-CpG**. `r_non` runs 0.95 -> 1.79 while
-   `r_CpG` stays 0.98-1.00, and the counterfactual holding non-CpG `r` at 1 is flat within
-   0.6% even though CpG contexts carry 43% of the expected-count weight at GC 0.75. This
-   is a decomposition identity, not a fit.
-3. The training set **is not the scored population**: the fraction of training sites
-   inside the analyzed windows falls 0.84 -> 0.28 across GC, and the excluded
+   context-only model: mean |rank - 0.5| is **0.046** for `r == 1` against **0.168** for
+   published Gnocchi (wider run: 0.093 against 0.212). Depletion rank, overlaid on its own
+   windows as an external comparison, sits at **0.096**.
+2. That adjustment's GC dependence is **wholly non-CpG**. `r_non` runs **0.96 -> 1.45**
+   while `r_CpG` stays **0.997-1.014**, and the counterfactual holding non-CpG `r` at 1 is
+   flat within **0.4%** even though CpG contexts carry **26%** of the expected-count weight
+   in the highest bin drawn (wider run: 0.95 -> 1.79, 0.98-1.00, 0.6%, 43% at GC 0.75).
+   This is a decomposition identity, not a fit.
+3. The training set **is not the scored population**: the QC-pass noncoding share of the
+   training sites falls **0.82 -> 0.27** across GC, and the scored band -- the part of that
+   territory McHale et al. call putatively neutral -- peaks at **0.36** near GC 0.35 and is
+   down to **0.007** by GC 0.68 (wider run, where the scored band *is* QC-pass noncoding:
+   0.84 -> 0.28). The excluded
    territory is *different*, not merely absent -- the QC-failing stratum's non-CpG DNM
-   rate runs 1.55x the noncoding rate in the GC bulk and 4.06x by GC 0.61, while
-   coding/noncoding stays flat at 0.90-0.99.
+   rate runs **1.50-1.63x** the scored rate through the GC bulk and **3.39x by GC 0.58**,
+   while coding/noncoding stays flat at **0.86-1.00** (wider run: 1.55x, 4.06x by GC 0.61,
+   coding 0.90-0.99). The *QC-pass putatively nonneutral noncoding* stratum -- the half of
+   QC-pass noncoding the narrowing gives up, and a band that exists only on the narrowed
+   run -- is flat too, at **0.94-1.03**. That is the measurement saying the narrowing costs
+   sample size and nothing else, which is why the whole figure carries over between the two
+   window sets.
    *Name that stratum carefully.* It is the windows with no row in the published
    constraint table, and until measured it was called "no gnomAD coverage" here, which is
    wrong: all 587,902 of them have their QC inputs on file, and they are absent because
@@ -104,16 +125,20 @@ figure.
    The stratum's column name is still `other_noncoding`.
 4. **Restricting** the training set to the scored population shrinks the empirical GC
    dependence of P(DNM) from 2.45x (and non-monotonic -- it collapses above GC 0.66) to a
-   smooth 1.57x, and the logistic regression can then track it instead of missing by 26%
-   and 29% in opposite directions.
-5. **Refitting `r` there removes the bias**: 0.212 -> 0.046, below the context-only
-   model's own 0.093. Two controls make this the population and not something else: the
-   full-population refit through the same code lands at 0.212 (so it is not the
-   reimplementation), and a size-matched random subsample lands at 0.210 (so it is not
-   less data).
+   smooth **1.60x** (wider run: 1.57x), and the logistic regression can then track it --
+   to within 6% through GC 0.58, its final 670-site bin excepted, where it is 28% low --
+   instead of missing by 26% and 29% in opposite directions.
+5. **Refitting `r` there removes the bias**: **0.168 -> 0.026**, below the context-only
+   model's own 0.046 (wider run: 0.212 -> 0.046, below 0.093). Two controls make this the
+   population and not something else: the full-population refit through the same code
+   lands at **0.168** (so it is not the reimplementation), and a size-matched random
+   subsample lands at **0.162** (so it is not less data). Wider run: 0.212 and 0.210.
 
-**The adjustment is wrong, not merely present.** Measured against the adjustment the
-observed DNMs support -- `DNMs / opportunities` per (context, GC bin), both sides
+**The adjustment is wrong, not merely present.** *(Wider run only -- this came from
+`fig3/`, which was built and deleted before `NEUTRAL_WINDOWS_BED` existed, so none of it
+has been recomputed on McHale et al.'s 693,270 windows. The direction is not in doubt, but
+do not pair these magnitudes with the committed panels.)* Measured against the adjustment
+the observed DNMs support -- `DNMs / opportunities` per (context, GC bin), both sides
 normalized per context -- the fitted non-CpG `r` climbs monotonically to 1.55 while the
 observed one stays near 1.0 until GC ~0.55. Over-adjustment reaches **1.22-1.26** at
 GC 0.61-0.68, many SEs from 1. Retraining on the scored population brings it to 0.92-0.97.
@@ -137,17 +162,19 @@ range. Code for this figure went with `fig3/`; it is at `070fee9`.
   apparent residual CpG decline is a `fitted_po` saturation artifact; corrected, true
   `r_CpG` is flat within +/-11% with no trend.
 - **The CpG mechanism Peter proposed**: steps 1-4 confirmed (CpG models are fit without
-  GC/methylation; high-GC CpGs are 90-100% hypomethylated with a 2.7x lower DNM rate; the
-  model over-predicts there). Step 5 refuted -- the counterfactual holding non-CpG `r` at 1
+  GC/methylation; high-GC CpGs are **92% hypomethylated in the top GC bin with a 1.9x
+  lower DNM rate**, 0.532 -> 0.283; the model over-predicts there). Wider run: 90-100%
+  above GC 0.70 and 2.7x, 0.53 -> 0.195 -- the bins differ because the GC edges span the
+  window set's own range. Step 5 refuted -- the counterfactual holding non-CpG `r` at 1
   is flat, so none of it reaches Gnocchi.
 - **The dnm0 background sample is not the cause.** Building the same empirical curve four
   ways, one ingredient at a time: denominator 2.4%, aggregation 4.3%, **window population
   37.6%**. The background sample IS non-uniform in GC (2.0-fold within a context) -- it is
-  just not what changes the curve.
+  just not what changes the curve. *(Wider run; not recomputed on the narrowed set.)*
 - **Training-set *size* is not the explanation either**, though it is a real effect:
   shrinking moves Gnocchi *toward* the context-only model (1% is indistinguishable from
   it) but never past it. The population fix goes past it. `dnm_training_size/` keeps that
-  contrast.
+  contrast. *(Wider run; not recomputed on the narrowed set.)*
 - **Calibration-gap / reliability panels measure a LEVEL error**, which cancels in
   `r = sigma(b0 + b.z)/sigma(b0)` and never reaches the score. They diagnose the fit; only
   panel E measures the bias.
@@ -233,19 +260,24 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
 
 ## Where to pick up
 
-1. **Fig. 5 is built and verified end to end.** `fig5/README.md` has the operational
-   detail; `fig5/fig5.ipynb` carries the derivation of every plotted quantity.
-2. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E
+1. **Fig. 5 is built and verified end to end, on both window sets.** `fig5/README.md` has
+   the operational detail; `fig5/fig5.ipynb` carries the derivation of every plotted
+   quantity and is committed with the **narrowed** run's outputs.
+2. **The manuscript text is written**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
+   and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
+   drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.
+   `METHODS.md` covers the rank statistic and points at them.
+3. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E
    already is, on gnomAD counts the DNM model never sees).
-3. **Still unavailable here**: `DEPLETION_RANK_BED` (panel A's third curve) and
-   `NEUTRAL_WINDOWS_BED` (McHale et al.'s 693,270-window file). Both live on the
-   constraint-tools HPC path and are `None` in `fig5/config.py`; the figure builds
-   without them. Neither `depletion_rank.py` nor the neutral-set join has been run
-   against its real file, so **run `fig5/preflight.py` first** -- it checks both files'
-   schemas in seconds and fails loudly on the quiet errors (chromosome naming, 1-based
-   coordinates, a constant enhancer flag). Running the figure on BOTH window sets is the
-   open item; their outputs no longer collide, since refits, provenance entries and panel
-   PDFs all carry `config.WINDOW_SET_SUFFIX` (`.neutral`).
-4. **Before quoting anything in the rebuttal**, re-read the callability caveat above:
+4. **`DEPLETION_RANK_BED` and `NEUTRAL_WINDOWS_BED` are both set** in `fig5/config.py` and
+   both have been run against their real files, on the constraint-tools HPC path -- which
+   is where the figure must be rebuilt, since neither file is available offline. Outputs of
+   the two window sets do not collide: refits, provenance entries and panel PDFs all carry
+   `config.WINDOW_SET_SUFFIX` (`.neutral`). **Run `fig5/preflight.py` first** after any
+   change to either path -- it checks both files' schemas in seconds and fails loudly on
+   the quiet errors (chromosome naming, 1-based coordinates, a constant enhancer flag).
+   The local `refits/` are the **wider** run's and carry the old provenance schema, so a
+   narrowed-run panel cannot be rebuilt here without rerunning `refit.py`.
+5. **Before quoting anything in the rebuttal**, re-read the callability caveat above:
    it brackets the over-adjustment across 1.22-1.44, so the figure must not be
-   captioned with 1.22 as though it were tight.
+   captioned with 1.22 as though it were tight -- and note that block is wider-run only.
