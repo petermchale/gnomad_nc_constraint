@@ -24,7 +24,6 @@ colour. Two exemptions, both deliberate:
 
 The Supporting Figure keeps SERIES_COLORS, which is now read only there.
 """
-import matplotlib.lines as mlines
 import matplotlib.ticker as mticker
 import numpy as np
 
@@ -36,7 +35,7 @@ import numpy as np
 # quantity is which.
 SERIES_COLORS = {"step1": "#2a78d6", "step2": "#eb6834",
                  "dr": "#1baf7a", "scored": "#4a3aa7"}
-SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "D"}
+SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "^"}
 
 # Near-black rather than pure black: at linewidth 2 over a 0.85 grid, "0.15" keeps the
 # curves dominant without the hard edge of #000, and it is the ink every monochrome
@@ -57,11 +56,13 @@ APPLIED_COLOR = "#eb6834"
 # Which of panels A and E's series are drawn with a WHITE marker face. Shape alone
 # separates three black curves in the clear, but they cross near GC 0.40 with markers
 # 5 pt across, and two filled black shapes there merge into one blob. Alternating fill
-# splits every adjacent pair the two panels can draw: A gets filled square / open circle
-# / filled triangle, E filled square / open circle / open diamond, so no two curves that
-# touch are both solid. Fill is also the cue that survives being printed small, where
-# square-versus-diamond is the first distinction to go.
-MONO_OPEN = ("step1", "scored")
+# splits the pair that actually overlaps: in both panels the context-only model runs
+# along the two curves nearest it through the whole GC bulk, and it is the one drawn
+# open. A then reads filled square / open circle / filled triangle and E the same, the
+# triangle being the retrained score rather than depletion rank. Fill is also the cue
+# that survives being printed small, where one filled shape versus another is the first
+# distinction to go.
+MONO_OPEN = ("step1",)
 
 GRID_KW = {"color": "0.85", "linewidth": 0.6}
 REF_LINE_KW = {"color": "0.45", "linewidth": 0.8, "linestyle": "--"}
@@ -141,16 +142,49 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
         leg.get_title().set_ha("left")
 
 
-def _legend_heading(text: str):
+def _grouped_legend(ax, groups, fontsize: int, x: float = 0.02, y: float = 0.98,
+                    handlelength: float = 3.2) -> None:
     """
-    A handle that draws nothing, so `text` reads as a heading over the entries after it.
+    One legend per group, stacked, each carrying its group's name as its own title.
 
-    matplotlib has no grouped legend, and the alternative -- one legend per group -- puts
-    two boxes on the artwork and loses the alignment that makes a group read as a group.
-    An empty Line2D costs one row and gets the indentation right: the heading sits flush
-    with the handle column, its members indented past it.
+    WHY NOT ONE LEGEND WITH HEADING ROWS. That was the first attempt: an empty Line2D
+    per group, whose label is the heading. It puts the heading one column in -- indented
+    past the very symbols it heads -- because the handle column comes first and the
+    heading's handle is blank. Reversing to markerfirst=False does not fix it either:
+    matplotlib then right-aligns the label column, so the long heading pins the short
+    labels to its right edge and the group reads as a ragged right margin.
+
+    A legend TITLE is the one piece of legend text matplotlib aligns to the box's left
+    edge, i.e. flush with the handles. So each group becomes its own legend, titled. The
+    `_legend_box.align` assignment is what makes the title left- rather than centre-
+    aligned; it is private API, and the fallback if it ever disappears is a centred title
+    rather than a traceback.
+
+    STACKED WITHOUT MEASURING. The second legend is offset by the first's height computed
+    from the type size and the row count -- one row per entry plus one for the title, at
+    1.45 line spacing -- against the axes height in points, which ax.get_position() gives
+    without a draw. Measuring the rendered legend would be exact but needs a canvas draw
+    inside a function that otherwise only describes what to draw, and every panel here is
+    saved at a size this module never sees.
+
+    `handlelength` is 3.2 rather than matplotlib's 2.0 because a 2.0 handle is too short
+    to fit one period of panel D's (4, 1.6) dash pattern: the dashed entries drew as
+    solid lines in the legend and dashed ones on the axes, which is worse than no
+    linestyle cue at all.
     """
-    return mlines.Line2D([], [], linestyle="none", marker="none", label=text)
+    axes_h_pt = ax.get_position().height * ax.figure.get_figheight() * 72.0
+    for title, handles in groups:
+        leg = ax.legend(handles, [h.get_label() for h in handles], title=title,
+                        loc="upper left", bbox_to_anchor=(x, y), frameon=False,
+                        fontsize=fontsize, handlelength=handlelength,
+                        borderpad=0.0, labelspacing=0.3)
+        leg.get_title().set_fontsize(fontsize)
+        try:
+            leg._legend_box.align = "left"
+        except AttributeError:
+            pass
+        ax.add_artist(leg)
+        y -= (len(handles) + 1) * fontsize * 1.45 / axes_h_pt
 
 
 def _gc_mean_line(ax, gc_mean: float | None) -> None:
@@ -792,7 +826,7 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
 
     `gc_mean` is in the panel's 0-1 x units, i.e. the tables' `gc_mid` / 100.
     """
-    drawn_values, handles = [], []
+    drawn_values, groups = [], []
     for name, df in binned.items():
         style = PAIR_STYLE[name]
         dash_kw = {} if style["dashes"] is None else {"dashes": style["dashes"]}
@@ -808,11 +842,11 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
             emp, se = emp / wemp, se / wemp
 
         fitted, = ax.plot(gc, pred, marker=style["marker"], color=MONO,
-                          markersize=5, linewidth=2, label="    fitted", **dash_kw)
+                          markersize=5, linewidth=2, label="fitted", **dash_kw)
         empirical = ax.errorbar(
             gc, emp, yerr=se, marker=style["marker"], color=MONO, markersize=5,
             linewidth=2, markerfacecolor="white", markeredgewidth=1.2,
-            capsize=3, elinewidth=1, label="    empirical", **dash_kw)
+            capsize=3, elinewidth=1, label="empirical", **dash_kw)
         # The population's name is a HEADING over its own two entries rather than a
         # suffix repeated on both of them. Repeated, "training set restricted to scored
         # population" set the legend's column width twice over for one fact, and the
@@ -820,7 +854,7 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
         # pair -- when the panel's whole claim is about what happens WITHIN a pair. A
         # headed group says it once and puts the pair members adjacent, which is also
         # the order they should be read in.
-        handles += [_legend_heading(f"{style['label']}:"), fitted, empirical]
+        groups.append((f"{style['label']}:", [fitted, empirical]))
         # Error bars included, so the log limits below cannot clip a cap -- the lowest
         # of them, at 0.84, sat outside a pad computed from the markers alone.
         #
@@ -858,4 +892,5 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
     # GC bins, site-weighted, so the label has to say which average was taken out.
     _finish(ax, "P(DNM) relative to its\nGC-averaged value\n(non-CpG sites)" if normalize
             else "P(DNM) in the\ntraining set\n(non-CpG sites)",
-            xrange, show_xlabel, legend_fontsize=LEGEND_FONTSIZE - 1, handles=handles)
+            xrange, show_xlabel, legend=False)
+    _grouped_legend(ax, groups, fontsize=LEGEND_FONTSIZE - 1)
