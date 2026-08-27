@@ -90,7 +90,7 @@ LEGEND_FONTSIZE = 12
 def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
             legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None,
             legend_frame: bool = False, legend_bbox=None, legend_ncol: int = 1,
-            legend: bool = True, legend_title: str | None = None) -> None:
+            legend: bool = True) -> None:
     """
     The frame every panel shares: range, labels, grid, despined box, legend.
 
@@ -105,11 +105,6 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     corner of the artwork to do it -- the Supporting Figure's rows B, C and D. It is the
     ylabel that has to carry the identity then, so a panel that switches the legend off
     must say in its ylabel everything the legend entry said.
-
-    `legend_title` puts one line above the entries. It exists for a number that belongs
-    to every entry -- panel E's mean |rank - 0.5|, which is appended to each label in
-    parentheses -- so the statistic is named once instead of three times. Naming it three
-    times is what makes the entries too wide for the axes.
 
     `legend_bbox` (+ `legend_ncol`) puts the legend OUTSIDE the axes, as bbox_to_anchor in
     axes coordinates. For a stacked composition there is no empty region inside the axes
@@ -139,13 +134,10 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     if not legend:
         return
     if handles is not None:
-        leg = ax.legend(handles, [h.get_label() for h in handles],
-                        fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
+        ax.legend(handles, [h.get_label() for h in handles],
+                  fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
     else:
-        leg = ax.legend(fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
-    if legend_title is not None:
-        leg.set_title(legend_title, prop={"size": legend_fontsize})
-        leg.get_title().set_ha("left")
+        ax.legend(fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
 
 
 def _grouped_legend(ax, groups, fontsize: int, x: float = 0.02, y: float = 0.98,
@@ -264,13 +256,19 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
     min_n drops bins thinner than that many windows, where the mean is noise.
     yrange defaults to the full (0,1) of Fig. 2A, so the panels are read on that scale.
 
-    `show_bias` appends each curve's mean |rank - 0.5| to its legend label, which is the
-    panel's own summary of itself: the departure from 0.5 IS the bias, and the number
-    saying how large it is belongs beside the curve rather than only in the caption. It
-    is computed here, from the very bins the panel draws (the `keep` mask below), so it
-    is identical by construction to data.rank_bias(binned, label, min_n) and cannot drift
-    from the plotted curve when min_n changes. Panel E carries it; panel A does not, and
-    quotes its numbers in the caption instead.
+    `show_bias` appends "(bias=x.xxx)" to each curve's legend label, which is the panel's
+    own summary of itself: the departure from 0.5 IS the bias, and the number saying how
+    large it is belongs beside the curve rather than only in the caption. It is computed
+    here, from the very bins the panel draws (the `keep` mask below), so it is identical
+    by construction to data.rank_bias(binned, label, min_n) and cannot drift from the
+    plotted curve when min_n changes. Panel E carries it; panel A does not, and quotes
+    its numbers in the caption instead.
+
+    The word "bias" is doing definitional work it cannot do alone -- the caption has to
+    say that it means the mean of |mean rank - 0.5| over the GC bins drawn. A legend
+    title spelling that out was tried here and taken out: it is a formula in 11 pt type
+    sitting on the artwork, where a caption sentence costs nothing and can also say which
+    bins the average covers, which matters (see the min_n note above).
 
     `legend_order` is a list of curve keys, and it decouples the legend from draw order.
     They are not the same question: draw order decides which curve is on top where curves
@@ -287,7 +285,7 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
         # and markers exactly as for the others, which is what keeps the curves comparable.
         label = c["display"]
         if show_bias:
-            label += f"  ({np.abs(c['mean'][keep] - 0.5).mean():.3f})"
+            label += f"  (bias={np.abs(c['mean'][keep] - 0.5).mean():.3f})"
         drawn[c["key"]] = ax.errorbar(
                     c["gc"][keep], c["mean"][keep],
                     yerr=c["se"][keep] if c["se"] is not None else None,
@@ -308,8 +306,7 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
     handles = ([drawn[k] for k in legend_order if k in drawn]
                if legend_order is not None else None)
     _finish(ax, "Constraint metric (rank)", xrange, show_xlabel, legend_loc=legend_loc,
-            handles=handles,
-            legend_title="mean |rank $-$ 0.5| in parentheses" if show_bias else None)
+            handles=handles)
 
 
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),

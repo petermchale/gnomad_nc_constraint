@@ -847,7 +847,7 @@ df_e, binned_e = D.rank_curves(df_win, extra=extra, min_n=MIN_N_WINDOWS)
 # score -- the order the argument is made in, and the same first-two order as panel A.
 curves_e = [
     panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi as published"),
-    panels.curve_from_binned(binned_e, "step1", "step1", r"Context-only model ($r \equiv 1$)"),
+    panels.curve_from_binned(binned_e, "step1", "step1", "Context-only model"),
     panels.curve_from_binned(binned_e, "scored", "scored",
                              "Gnocchi, $r$ retrained on the\n"
                              "training set restricted to scored population"),
