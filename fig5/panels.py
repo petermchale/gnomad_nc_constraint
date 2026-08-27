@@ -22,17 +22,20 @@ colour. Two exemptions, both deliberate:
     marker and differ only in linestyle. They are the same quantity under two worlds and
     should read as a pair; the contrast between them IS that panel. See panel_r_eff.
 
-The Supporting Figure keeps SERIES_COLORS, which is now read only there.
+The Supporting Figure follows the same rule. Its single-series rows are monochrome --
+one curve and no legend leaves a hue naming nothing -- and colour survives only in its
+hypomethylation row, where two curves share an x axis and have separate y axes, and the
+hue is what says which curve reads against which scale.
 """
 import matplotlib.ticker as mticker
 import numpy as np
 
 # Categorical slots of the validated default palette (dataviz skill,
-# references/palette.md). SERIES_COLORS is read by the Supporting Figure's panels only,
-# the main figure's line panels being monochrome (see the module docstring);
-# SERIES_MARKERS still keys panels A and E, where the marker is now the whole of a
-# curve's identity. Both keep the same key per series so the two figures agree on which
-# quantity is which.
+# references/palette.md). SERIES_COLORS is down to one reader, the Supporting Figure's
+# hypomethylation row, where the two hues tie each curve to its own y axis; everything
+# else is monochrome (see the module docstring). SERIES_MARKERS still keys panels A and
+# E, where the marker is the whole of a curve's identity. Both keep the same key per
+# series so the two figures agree on which quantity is which.
 SERIES_COLORS = {"step1": "#2a78d6", "step2": "#eb6834",
                  "dr": "#1baf7a", "scored": "#4a3aa7"}
 SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "v", "scored": "^"}
@@ -755,8 +758,11 @@ def panel_cpg_dnm_rate(ax, cpg, min_n: int = 100, xrange=(0.2, 0.8),
     df = df[df["n"] >= min_n].sort_values("gc_pct") if min_n else df.sort_values("gc_pct")
     se = np.sqrt(df["p"] * (1 - df["p"]) / df["n"])
 
+    # MONO, like every other single-series panel here: there is one curve and no legend,
+    # so a hue would be naming nothing. Colour is spent in this figure only on row B,
+    # where it ties each curve to its own y axis.
     ax.errorbar(df["gc_pct"] / 100.0, df["p"], yerr=se, marker="o",
-                color=SERIES_COLORS["dr"], markersize=5, linewidth=2, capsize=3,
+                color=MONO, markersize=5, linewidth=2, capsize=3,
                 elinewidth=1, label="Empirical P(DNM), CpG contexts")
     # One series, and the ylabel already names it -- see _finish's `legend`.
     _finish(ax, "P(DNM) in the training set\n(CpG contexts)", xrange, show_xlabel,
@@ -785,7 +791,7 @@ def panel_cpg_expected_share(ax, binned, min_n: int = 100, xrange=(0.2, 0.8),
     df = df[df["n"] >= min_n].sort_values("gc_mid") if min_n else df.sort_values("gc_mid")
 
     ax.plot(df["gc_mid"], df["pi_cpg"], marker=SERIES_MARKERS["scored"],
-            color=SERIES_COLORS["scored"], markersize=5, linewidth=2,
+            color=MONO, markersize=5, linewidth=2,
             label=r"$\Pi$ — CpG share of step-1 expected counts")
     ax.set_ylim(0, float(df["pi_cpg"].max()) * 1.15)
     # One series, and the ylabel already names it -- see _finish's `legend`.
