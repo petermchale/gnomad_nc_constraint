@@ -263,6 +263,16 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
 1. **Fig. 5 is built and verified end to end, on both window sets.** `fig5/README.md` has
    the operational detail; `fig5/fig5.ipynb` carries the derivation of every plotted
    quantity and is committed with the **narrowed** run's outputs.
+   **The committed notebook and PNG are one restyle behind `fig5/panels.py`.** The panels
+   were made monochrome on 2026-08-27 -- A, D and E carry identity in marker shape, fill,
+   dash pattern and presence of error bars rather than in colour, with two exemptions
+   (panel C, which recolours to green-for-QC-pass / red-for-QC-fail, and panel B's
+   R_eff-plus-counterfactual pair) -- panel D lost the size-matched control's two curves,
+   and panel E now prints each curve's mean |rank - 0.5| in its legend. No number changed;
+   `captions.txt` and `methods.txt` are already updated. What is outstanding is the rebuild,
+   which can only happen on the constraint-tools HPC path: regenerate and re-execute the
+   notebook (no `refit.py` rerun -- no training population changed) and re-place the PDFs
+   in `fig5.neutral.ai`.
 2. **The manuscript text is written**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
    and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
    drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.

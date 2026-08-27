@@ -477,9 +477,11 @@ using only that expected counts add and that $\sum_g E_1^{\neg\mathcal K}/\sum_g
 This is an **exact identity**, not a fit, so the panel reads additively.
 
 **Reading the panel.** Its four curves are these symbols, in this order:
-$R_{\mathrm{eff}}$ (violet, what Gnocchi applies), $R_{\mathrm{non}}$ (orange) and
-$R_{\mathrm{CpG}}$ (green) — the two terms it decomposes into — and the dashed grey
-counterfactual derived next. The y-axis is $R(g)$ itself, a ratio of summed expected
+$R_{\mathrm{eff}}$ (solid violet diamonds, what Gnocchi applies), $R_{\mathrm{non}}$
+(black dashed squares) and $R_{\mathrm{CpG}}$ (black dotted triangles) — the two terms it
+decomposes into — and the counterfactual derived next, drawn in $R_{\mathrm{eff}}$'s own
+colour and symbol but dashed and hollow, because it *is* $R_{\mathrm{eff}}$ with one term
+switched off. The y-axis is $R(g)$ itself, a ratio of summed expected
 counts, so 1 means *no adjustment* and the horizontal line at 1 is the null. Since
 $R_{\mathrm{eff}}$ is a $\Pi$-weighted average of the other two, it must lie between
 them: it tracks $R_{\mathrm{non}}$ closely at low GC, where $\Pi$ is small, and is pulled
@@ -489,7 +491,7 @@ down towards $R_{\mathrm{CpG}}\approx1$ as $\Pi$ grows.
 $R_{\mathrm{eff}}$'s rise the CpG contexts could account for on their own. So switch off
 the *non-CpG* adjustment — set $r_t\equiv1$ for $t\notin\mathcal K$, which sends
 $E_2^{\neg\mathcal K}\!\to\!E_1^{\neg\mathcal K}$ — and change nothing else: the fitted
-$r_t$ for $t\in\mathcal K$ stay, the weights $\Pi(g)$ stay. The dashed grey curve is
+$r_t$ for $t\in\mathcal K$ stay, the weights $\Pi(g)$ stay. The dashed violet curve is
 
 $$R_{\mathrm{eff}}\big|_{r_t\equiv1,\;t\notin\mathcal K}(g)
 =\frac{\sum_g E_2^{\mathcal K}+\sum_g E_1^{\neg\mathcal K}}{\sum_g E_1}
@@ -754,13 +756,17 @@ is one of the 13 candidate regional features, but $\widehat p(g)$ averages whate
 fit selected for that context, so a pair can come apart in a bin even where GC itself was
 never selected.
 
-Three populations:
+Two populations:
 
 * **original** — the training set as published;
-* **scored** — restricted to the analyzed windows (the intervention);
-* **size-matched** — the same *number* of sites as *scored*, drawn at random from the
-  whole genome. This is the control that separates "better-matched population" from
-  "less data", and it lies on top of the original pair.
+* **scored** — restricted to the analyzed windows (the intervention).
+
+A third, **size-matched** — the same *number* of sites as *scored*, drawn at random from
+the whole genome — is fit and reported, but not drawn here. It is the control that
+separates "better-matched population" from "less data", and it lies on top of the
+original pair; a curve indistinguishable from one already on the axes costs two of this
+panel's series to say nothing the number cannot. It is reported under panel E, where the
+same control is measured on the statistic that matters.
 
 Two things happen at once when the training set is restricted. The **empirical** GC
 dependence itself shrinks and becomes monotone — on the original set $P(\mathrm{DNM})$
@@ -780,14 +786,13 @@ $r$. It diagnoses the fit; it is not itself a measurement of Gnocchi's bias. Pan
 """)
 
 code(r"""
-binned_d = D.dnm_probability(("full", "scored", "sizematched"), n_bins=N_BINS,
-                             min_n=MIN_N_SITES)
+binned_d = D.dnm_probability(("full", "scored"), n_bins=N_BINS, min_n=MIN_N_SITES)
 
-# ONE vertical reference for three populations, so it has to be a population the panel
-# names: `full`, the original training set the other two are compared against. The three
+# ONE vertical reference for two populations, so it has to be a population the panel
+# names: `full`, the original training set the other is compared against. Both
 # site-weighted means are printed below -- if they ever stop agreeing to ~0.01, this
-# panel needs three lines or none, because a single one would then be marking a place
-# two of its curves are not centred on. In the panel's 0-1 units, hence the /100.
+# panel needs two lines or none, because a single one would then be marking a place
+# one of its curves is not centred on. In the panel's 0-1 units, hence the /100.
 site_mean_gc = lambda b: float((b["n"] * b["gc_mid"]).sum() / b["n"].sum()) / 100.0
 gc_mean_d = site_mean_gc(binned_d["full"])
 
@@ -825,7 +830,9 @@ merely closer to it: a correct $r$ should repair the context-only model's own dr
 both GC extremes. That is the sense in which this is a positive result and not just the
 removal of a defect. On this run it does: mean $|\rho-0.5|$ is 0.168 for published
 Gnocchi, 0.046 for the context-only model and **0.026** for the retrained one, against
-0.168 for the full-population control and 0.162 for the size-matched one.
+0.168 for the full-population control and 0.162 for the size-matched one. The first
+three of those five are the curves the panel draws, and it carries them in its legend;
+the two controls are print-only.
 """)
 
 code(r"""
@@ -849,8 +856,13 @@ curves_e = [
 fig, ax = plt.subplots(figsize=FIGSIZE)
 # Lower left: E's third label wraps to two lines, and at the panel's type size that
 # second line runs through the published curve if the legend stays top-left as in A.
+# show_bias=True: each legend entry carries its own mean |rank - 0.5|, computed over the
+# same bins the panel draws. This panel IS the measurement of the bias and of its repair,
+# so the three numbers belong on it. Panel A's stay in its caption -- it is the panel that
+# poses the problem, and a reader meets the statistic there for the first time.
 panels.panel_rank_bias(ax, curves_e, gc_mean=float(df_e["GC_content"].mean()),
-                       xrange=XRANGE, min_n=MIN_N_WINDOWS, legend_loc="lower left")
+                       xrange=XRANGE, min_n=MIN_N_WINDOWS, legend_loc="lower left",
+                       show_bias=True)
 save(fig, "E")
 """)
 
@@ -1121,8 +1133,9 @@ md(r"""
   ENCODE-exclude and low-coverage exclusions are in it too — so a result that holds on
   only one of them is a result about the window definition.
 
-  Switching recomputes everything: A, B and E directly, D through the `scored` and
-  `sizematched` refits, and C through both its bottom band and the shared GC bin edges,
+  Switching recomputes everything: A, B and E directly, D through the `scored` refit
+  (`sizematched` is no longer drawn there, but panel E still reports it), and C through
+  both its bottom band and the shared GC bin edges,
   which span the window set's own GC range. Two operational costs. The refits must be
   rerun (`config.check()` refuses one stamped with a different value, naming the
   command), and since they are keyed by population alone, one window set's refits

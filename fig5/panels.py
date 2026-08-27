@@ -7,21 +7,52 @@ over two populations: A/B/E bin Chen windows by their own GC, C/D bin DNM traini
 SITES by the GC_content_1k regional feature at that site. Same quantity, two
 populations; the caption should say so.
 
-COLOUR IS CONSISTENT ACROSS THE FIGURE, which is the point of keeping the panels in
-one module: blue = the context-only model or an empirical measurement, orange = the
-published pipeline, violet = the scored-population intervention, aqua = an
-independent metric (depletion rank), grey = a control or a hypothetical.
+IDENTITY IS CARRIED BY SYMBOL, NOT COLOUR, in the line panels. A, D and E are drawn
+entirely in near-black (MONO): a curve is named by its marker shape, its fill, its
+linestyle and whether it carries error bars, so every one of them survives greyscale
+printing, a photocopy and colour-blind readers without the legend having to be read in
+colour. Two exemptions, both deliberate:
+
+  * PANEL C, whose stacked bands cannot be told apart by symbol at all -- there is no
+    marker on a filled area -- so hue is the only channel available. It uses hue to
+    carry the finding rather than to enumerate categories: green for the two QC-pass
+    strata that are merely excluded, red for the QC-fail one that is genuinely
+    different. See STRATUM_COLORS.
+  * PANEL B's applied pair, R_eff and its counterfactual, which share one colour and one
+    marker and differ only in linestyle. They are the same quantity under two worlds and
+    should read as a pair; the contrast between them IS that panel. See panel_r_eff.
+
+The Supporting Figure keeps SERIES_COLORS, which is now read only there.
 """
+import matplotlib.lines as mlines
 import matplotlib.ticker as mticker
 import numpy as np
 
 # Categorical slots of the validated default palette (dataviz skill,
-# references/palette.md). The aqua's contrast against the surface is 2.74:1, a WARN
-# that obligates relief -- discharged by the legend plus a distinct marker per
-# series, so identity is never carried by colour alone.
+# references/palette.md). SERIES_COLORS is read by the Supporting Figure's panels only,
+# the main figure's line panels being monochrome (see the module docstring);
+# SERIES_MARKERS still keys panels A and E, where the marker is now the whole of a
+# curve's identity. Both keep the same key per series so the two figures agree on which
+# quantity is which.
 SERIES_COLORS = {"step1": "#2a78d6", "step2": "#eb6834",
-                 "dr": "#1baf7a", "scored": "#4a3aa7", "control": "0.55"}
-SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "D", "control": "v"}
+                 "dr": "#1baf7a", "scored": "#4a3aa7"}
+SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "D"}
+
+# Near-black rather than pure black: at linewidth 2 over a 0.85 grid, "0.15" keeps the
+# curves dominant without the hard edge of #000, and it is the ink every monochrome
+# series in A, B, D and E is drawn in.
+MONO = "0.15"
+# The one hue that survives in the line panels, and it is a PAIR's colour rather than a
+# series' -- panel B's R_eff and the counterfactual that removes its non-CpG term.
+APPLIED_COLOR = "#4a3aa7"
+# Which of panels A and E's series are drawn with a WHITE marker face. Shape alone
+# separates three black curves in the clear, but they cross near GC 0.40 with markers
+# 5 pt across, and two filled black shapes there merge into one blob. Alternating fill
+# splits every adjacent pair the two panels can draw: A gets filled square / open circle
+# / filled triangle, E filled square / open circle / open diamond, so no two curves that
+# touch are both solid. Fill is also the cue that survives being printed small, where
+# square-versus-diamond is the first distinction to go.
+MONO_OPEN = ("step1", "scored")
 
 GRID_KW = {"color": "0.85", "linewidth": 0.6}
 REF_LINE_KW = {"color": "0.45", "linewidth": 0.8, "linestyle": "--"}
@@ -43,7 +74,7 @@ LEGEND_FONTSIZE = 12
 def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
             legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None,
             legend_frame: bool = False, legend_bbox=None, legend_ncol: int = 1,
-            legend: bool = True) -> None:
+            legend: bool = True, legend_title: str | None = None) -> None:
     """
     The frame every panel shares: range, labels, grid, despined box, legend.
 
@@ -58,6 +89,11 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     corner of the artwork to do it -- the Supporting Figure's rows B, C and D. It is the
     ylabel that has to carry the identity then, so a panel that switches the legend off
     must say in its ylabel everything the legend entry said.
+
+    `legend_title` puts one line above the entries. It exists for a number that belongs
+    to every entry -- panel E's mean |rank - 0.5|, which is appended to each label in
+    parentheses -- so the statistic is named once instead of three times. Naming it three
+    times is what makes the entries too wide for the axes.
 
     `legend_bbox` (+ `legend_ncol`) puts the legend OUTSIDE the axes, as bbox_to_anchor in
     axes coordinates. For a stacked composition there is no empty region inside the axes
@@ -87,10 +123,25 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     if not legend:
         return
     if handles is not None:
-        ax.legend(handles, [h.get_label() for h in handles],
-                  fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
+        leg = ax.legend(handles, [h.get_label() for h in handles],
+                        fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
     else:
-        ax.legend(fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
+        leg = ax.legend(fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
+    if legend_title is not None:
+        leg.set_title(legend_title, prop={"size": legend_fontsize})
+        leg.get_title().set_ha("left")
+
+
+def _legend_heading(text: str):
+    """
+    A handle that draws nothing, so `text` reads as a heading over the entries after it.
+
+    matplotlib has no grouped legend, and the alternative -- one legend per group -- puts
+    two boxes on the artwork and loses the alignment that makes a group read as a group.
+    An empty Line2D costs one row and gets the indentation right: the heading sits flush
+    with the handle column, its members indented past it.
+    """
+    return mlines.Line2D([], [], linestyle="none", marker="none", label=text)
 
 
 def _gc_mean_line(ax, gc_mean: float | None) -> None:
@@ -151,7 +202,8 @@ def curve_from_binned(binned, label: str, key: str, display: str,
 def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
                     xrange=(0.2, 0.73), yrange=(0.0, 1.0), min_n: int = 100,
                     show_xlabel: bool = True, legend_loc: str = "upper left",
-                    legend_order: list[str] | None = None) -> None:
+                    legend_order: list[str] | None = None,
+                    show_bias: bool = False) -> None:
     """
     Panels A and E. Mean standardized rank of each constraint metric per GC bin.
 
@@ -162,6 +214,14 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
 
     min_n drops bins thinner than that many windows, where the mean is noise.
     yrange defaults to the full (0,1) of Fig. 2A, so the panels are read on that scale.
+
+    `show_bias` appends each curve's mean |rank - 0.5| to its legend label, which is the
+    panel's own summary of itself: the departure from 0.5 IS the bias, and the number
+    saying how large it is belongs beside the curve rather than only in the caption. It
+    is computed here, from the very bins the panel draws (the `keep` mask below), so it
+    is identical by construction to data.rank_bias(binned, label, min_n) and cannot drift
+    from the plotted curve when min_n changes. Panel E carries it; panel A does not, and
+    quotes its numbers in the caption instead.
 
     `legend_order` is a list of curve keys, and it decouples the legend from draw order.
     They are not the same question: draw order decides which curve is on top where curves
@@ -176,11 +236,16 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
         # se is None for a curve whose windows are not independent, so no bar can be
         # computed honestly -- see curve_from_binned. errorbar(yerr=None) draws the line
         # and markers exactly as for the others, which is what keeps the curves comparable.
+        label = c["display"]
+        if show_bias:
+            label += f"  ({np.abs(c['mean'][keep] - 0.5).mean():.3f})"
         drawn[c["key"]] = ax.errorbar(
                     c["gc"][keep], c["mean"][keep],
                     yerr=c["se"][keep] if c["se"] is not None else None,
-                    marker=SERIES_MARKERS[c["key"]], color=SERIES_COLORS[c["key"]],
-                    markersize=5, linewidth=2, capsize=3, elinewidth=1, label=c["display"])
+                    marker=SERIES_MARKERS[c["key"]], color=MONO,
+                    markerfacecolor="white" if c["key"] in MONO_OPEN else MONO,
+                    markeredgewidth=1.2,
+                    markersize=5, linewidth=2, capsize=3, elinewidth=1, label=label)
     ax.axhline(0.5, **REF_LINE_KW)
     _gc_mean_line(ax, gc_mean)
     ax.set_ylim(*yrange)
@@ -194,7 +259,8 @@ def panel_rank_bias(ax, curves: list[dict], gc_mean: float | None = None,
     handles = ([drawn[k] for k in legend_order if k in drawn]
                if legend_order is not None else None)
     _finish(ax, "Constraint metric (rank)", xrange, show_xlabel, legend_loc=legend_loc,
-            handles=handles)
+            handles=handles,
+            legend_title="mean |rank $-$ 0.5| in parentheses" if show_bias else None)
 
 
 def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
@@ -209,12 +275,32 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 
         R_eff = Pi*R_CpG + (1-Pi)*R_non          exact, bin by bin
 
+    THE TWO R_eff ENTRIES CARRY THEIR FORMULAE RATHER THAN A GLOSS. The panel's whole
+    content is one identity and one intervention on it, and the legend is where a reader
+    can be shown both at once: the applied curve is written out in full, and the
+    counterfactual is written as the same expression with R_non replaced by 1, under the
+    same name. Side by side, the single substitution IS the argument, which no amount of
+    "what Gnocchi applies" / "if only CpG were adjusted" says as directly. Those glosses
+    are in the caption, where a sentence is the right form for them. R_non and R_CpG keep
+    theirs, since a formula cannot say which contexts a term is summed over.
+
     THE COUNTERFACTUAL IS AN INTERVENTION ON THE NON-CpG TERM, not on the CpG one: it
     sets r_t = 1 for non-CpG contexts and leaves the fitted CpG r_t and the weights Pi
     untouched, giving Pi*R_CpG + (1-Pi) -- what Gnocchi would apply if it adjusted CpG
-    contexts alone. Drawn as a dashed grey hypothetical rather than a fourth measured
-    series. Its flatness is the claim, and it is not automatic: Pi reaches 0.43 at high
-    GC, so a GC trend in R_CpG would show up here scaled by Pi rather than erased.
+    contexts alone. Its flatness is the claim, and it is not automatic: Pi reaches 0.43 at
+    high GC, so a GC trend in R_CpG would show up here scaled by Pi rather than erased.
+
+    IT IS DRAWN AS R_eff's TWIN, and this is the one place in the line panels where
+    colour is used. It was a dashed grey line with no marker, which put it in the same
+    ink as the R = 1 reference it sits on top of, underneath R_CpG, in the region of the
+    panel where three curves already converge -- invisible exactly where its flatness is
+    supposed to be read. It now takes R_eff's colour and R_eff's diamond and differs from
+    it only in being dashed and hollow, because that is what it IS: the same applied
+    quantity with the non-CpG term switched off. The gap between the two curves is then
+    the whole result of the panel, drawn as one pair pulling apart rather than as a
+    measured series and an unrelated grey hypothetical. R_non and R_CpG stay monochrome
+    -- they are the decomposition, not the claim -- and are separated from each other by
+    marker and by dash pattern, so the panel still reads in greyscale.
 
     NO MEAN-GC LINE HERE, though A, D and E carry one (_gc_mean_line) and uniformity
     would argue for it. It was drawn here for one commit and taken out: measured off the
@@ -238,19 +324,33 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
     df = binned.to_pandas() if hasattr(binned, "to_pandas") else binned
     df = df[df["n"] >= min_n].sort_values("gc_mid") if min_n else df.sort_values("gc_mid")
 
-    for col, key, label in [
-            ("r_eff", "scored", r"$R_{\mathrm{eff}}$ — all contexts, what Gnocchi applies"),
-            ("r_non", "step2", r"$R_{\mathrm{non}}$ — non-CpG contexts"),
-            ("r_cpg", "dr", r"$R_{\mathrm{CpG}}$ — CpG contexts")]:
-        ax.plot(df["gc_mid"], df[col], marker=SERIES_MARKERS[key],
-                color=SERIES_COLORS[key], markersize=5, linewidth=2, label=label)
-    ax.plot(df["gc_mid"], df["r_counterfactual"], linestyle="--", linewidth=1.8,
-            color="0.45",
-            label=r"$\Pi R_{\mathrm{CpG}} + (1-\Pi)$ — if only CpG were adjusted")
+    # The two decomposition terms, in the figure's monochrome: marker AND linestyle, so
+    # neither depends on the other surviving a greyscale conversion.
+    parts = {}
+    for col, marker, dash, label in [
+            ("r_non", "s", (4, 1.6), r"$R_{\mathrm{non}}$ — non-CpG contexts"),
+            ("r_cpg", "^", (1, 1.6), r"$R_{\mathrm{CpG}}$ — CpG contexts")]:
+        parts[col], = ax.plot(df["gc_mid"], df[col], marker=marker, color=MONO,
+                              markersize=5, linewidth=2, dashes=dash, label=label)
+    # The applied pair: same colour, same marker, differing only in linestyle. Drawn
+    # after the two parts so neither crosses out the quantity the panel is about.
+    parts["r_eff"], = ax.plot(
+        df["gc_mid"], df["r_eff"], marker="D", color=APPLIED_COLOR, markersize=5,
+        linewidth=2,
+        label=r"$R_{\mathrm{eff}} = \Pi R_{\mathrm{CpG}} + (1-\Pi)R_{\mathrm{non}}$")
+    parts["r_counterfactual"], = ax.plot(
+        df["gc_mid"], df["r_counterfactual"], marker="D", color=APPLIED_COLOR,
+        markersize=4, markerfacecolor="white", markeredgewidth=1.2,
+        linestyle="--", linewidth=1.8,
+        label=r"$R_{\mathrm{eff}}$ (counterfactual)$ = \Pi R_{\mathrm{CpG}} + (1-\Pi)$")
 
     ax.axhline(1.0, **REF_LINE_KW)
     _log_ratio_axis(ax, df[["r_non", "r_eff", "r_cpg"]].to_numpy())
-    _finish(ax, "Regional adjustment", xrange, show_xlabel)
+    # Legend order is the derivation's, not the draw order's: applied quantity, then the
+    # two parts it decomposes into, then the hypothetical.
+    _finish(ax, "Regional adjustment", xrange, show_xlabel,
+            handles=[parts[k] for k in
+                     ("r_eff", "r_non", "r_cpg", "r_counterfactual")])
 
 
 # Panel C's two rows share one colour per stratum, defined once here so the band in the
@@ -261,14 +361,25 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # promise a curve that does not exist. That also puts the colour on the bands whose
 # growth is the point.
 #
-# NOT violet for `failed_qc`, though it reads well here: violet already carries the
-# scored-population intervention through panels B, D and E, and a fourth meaning would
-# undo that thread. Aqua is the slot the bottom band vacated, so it collides only with
-# panel A's depletion-rank curve -- a different panel with its own legend, and not part
-# of a thread that runs across several. `other_noncoding` takes the palette's blue on the
-# same reasoning: blue means the context-only model in panels A and E, but nothing in
-# panel C does, and blue is the last categorical slot that is not load-bearing across
-# panels.
+# HUE CARRIES THE FINDING HERE, rather than merely enumerating four categories. This is
+# the one panel that cannot encode identity in symbols -- there is no marker on a filled
+# area -- so its colours are spent on the result the lower row measures: the two QC-PASS
+# strata outside the scored population are two shades of GREEN, and the QC-FAIL stratum
+# is RED. Green says "the same territory, merely excluded", which is what the lower row
+# finds (coding 0.86-1.00x, other-noncoding 0.94-1.03x, both flat across GC); red says
+# "different", which is the QC-fail stratum alone (1.50-1.63x through the bulk, 3.39x by
+# GC 0.58). A reader gets the panel's conclusion from the palette before reading a
+# number, and the two greens being shades of one hue says the two strata are one kind of
+# thing -- which is precisely the claim that the narrowing costs sample size and nothing
+# else.
+#
+# Dark green below light green in the stack, so the pair reads as one ramp against the
+# grey band under it rather than as two unrelated bands; red on top, where it is the
+# thing that grows.
+#
+# This freed the panel from a constraint it used to be under -- avoiding hues that meant
+# something in A, B, D or E. Those panels are monochrome now (see the module docstring),
+# so no assignment here can collide with them.
 #
 # No "Excluded:" prefix, though both lower strata are indeed outside the scored
 # population. The word needs an antecedent the legend does not supply, and it papers over
@@ -298,8 +409,13 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # neutral windows, and a legend reading "QC-pass noncoding windows" would then be
 # quietly wrong. The bands above
 # it keep naming their filter, since each one IS a reason for exclusion.
-STRATUM_COLORS = {"scored": "0.78", "coding": "#eb6834",
-                  "other_noncoding": "#2a78d6", "failed_qc": "#1baf7a"}
+# The lighter green is bounded from below by the lower row rather than by the stack: as
+# a band it could be much paler and still read, but the same value is a 2 px line on
+# white there, and at #79c9a4 that line was the palest thing in the figure. #3aa77c
+# clears 3:1 against the surface; the darker green drops to #0b5238 to keep the two
+# shades apart once the light one has been pulled down.
+STRATUM_COLORS = {"scored": "0.78", "coding": "#0b5238",
+                  "other_noncoding": "#3aa77c", "failed_qc": "#c9384a"}
 
 # `other_noncoding` is named as the complement of the bottom band's own parenthetical
 # ("QC-pass putatively neutral noncoding", supplied by the caller as `scored_note`), so
@@ -459,12 +575,20 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
             show_xlabel, handles=[handles[s] for s in order])
 
 
+# Panel D's two populations. A pair -- one population's fitted and empirical curves --
+# shares a marker AND a dash pattern, so it reads as one object; see
+# panel_dnm_probability_pairs for what separates the members.
+#
+# The size-matched random control (same NUMBER of sites as `scored`, drawn from the same
+# population as `full`) used to be a third pair here. It is not plotted any more: it lies
+# on top of the original pair, which is the whole of what it has to say, and saying it
+# cost two of the panel's six curves. It survives as a refit and is reported numerically
+# under panel E, where the same control lands at 0.162 against published Gnocchi's 0.168.
 PAIR_STYLE = {
-    "full": {"key": "step2", "label": "original training set"},
-    "scored": {"key": "scored", "label": "training set restricted to scored population"},
-    # Same NUMBER of sites as `scored`, drawn from the same population as `full`. It
-    # should track `full`, and that it does is what rules out sample size.
-    "sizematched": {"key": "control", "label": "size-matched random control"},
+    "full": {"marker": "s", "dashes": None,
+             "label": "original training set"},
+    "scored": {"marker": "D", "dashes": (4, 1.6),
+               "label": "training set restricted to scored population"},
 }
 
 
@@ -637,9 +761,18 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
     Panel D. Fitted and empirical P(DNM) vs GC, non-CpG contexts, for each training
     population. `binned` maps population name -> data.dnm_probability() table.
 
-    Colour encodes the population; line style encodes fitted (solid, filled) vs
-    empirical (dashed, open, binomial error bars). So each pair reads as one
-    reliability diagram and the pairs are separable.
+    THE PAIR IS THE UNIT, so the pair is what the styling groups. A population's two
+    curves share one marker and one dash pattern (`full` solid squares, `scored` dashed
+    diamonds), and within a pair the empirical curve is the one carrying ERROR BARS while
+    the fitted curve carries none -- which is also true, not just a convention: the
+    binomial standard error belongs to the measurement, and the fitted curve is a
+    prediction with no such bar to draw. Empirical markers are additionally hollow, since
+    at low GC the bars are shorter than a marker and would be doing the work alone there.
+
+    This is a swap from what the panel used to do, where colour grouped the pairs and
+    linestyle separated their members. With the size-matched control gone there are two
+    pairs rather than three, which is few enough for linestyle to do the grouping, and
+    that frees the panel from colour entirely.
 
     LEVELS ARE NOT COMPARABLE ACROSS POPULATIONS. The class balance differs (12.2 vs
     13.5 background sites per DNM), which shifts P(DNM) by that factor for reasons
@@ -650,10 +783,10 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
 
     `gc_mean` is in the panel's 0-1 x units, i.e. the tables' `gc_mid` / 100.
     """
-    drawn_values = []
+    drawn_values, handles = [], []
     for name, df in binned.items():
         style = PAIR_STYLE[name]
-        color = SERIES_COLORS[style["key"]]
+        dash_kw = {} if style["dashes"] is None else {"dashes": style["dashes"]}
         d = df[df["n"] >= min_n] if min_n else df
         gc = d["gc_mid"] / 100.0
         d = d[(gc >= xrange[0]) & (gc <= xrange[1])].sort_values("gc_mid")
@@ -665,11 +798,20 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
             wemp = np.average(emp, weights=d["n"])
             emp, se = emp / wemp, se / wemp
 
-        ax.plot(gc, pred, marker=SERIES_MARKERS[style["key"]], color=color,
-                markersize=5, linewidth=2, label=f"fitted, {style['label']}")
-        ax.errorbar(gc, emp, yerr=se, marker="o", color=color, markersize=5,
-                    linewidth=2, linestyle="--", markerfacecolor="white",
-                    capsize=3, elinewidth=1, label=f"empirical, {style['label']}")
+        fitted, = ax.plot(gc, pred, marker=style["marker"], color=MONO,
+                          markersize=5, linewidth=2, label="    fitted", **dash_kw)
+        empirical = ax.errorbar(
+            gc, emp, yerr=se, marker=style["marker"], color=MONO, markersize=5,
+            linewidth=2, markerfacecolor="white", markeredgewidth=1.2,
+            capsize=3, elinewidth=1, label="    empirical", **dash_kw)
+        # The population's name is a HEADING over its own two entries rather than a
+        # suffix repeated on both of them. Repeated, "training set restricted to scored
+        # population" set the legend's column width twice over for one fact, and the
+        # reader had to compare two long strings to find out that two entries were a
+        # pair -- when the panel's whole claim is about what happens WITHIN a pair. A
+        # headed group says it once and puts the pair members adjacent, which is also
+        # the order they should be read in.
+        handles += [_legend_heading(f"{style['label']}:"), fitted, empirical]
         # Error bars included, so the log limits below cannot clip a cap -- the lowest
         # of them, at 0.84, sat outside a pad computed from the markers alone.
         #
@@ -707,4 +849,4 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
     # GC bins, site-weighted, so the label has to say which average was taken out.
     _finish(ax, "P(DNM) relative to its\nGC-averaged value\n(non-CpG sites)" if normalize
             else "P(DNM) in the\ntraining set\n(non-CpG sites)",
-            xrange, show_xlabel, legend_fontsize=LEGEND_FONTSIZE - 1)
+            xrange, show_xlabel, legend_fontsize=LEGEND_FONTSIZE - 1, handles=handles)
