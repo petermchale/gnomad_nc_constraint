@@ -477,7 +477,7 @@ using only that expected counts add and that $\sum_g E_1^{\neg\mathcal K}/\sum_g
 This is an **exact identity**, not a fit, so the panel reads additively.
 
 **Reading the panel.** Its four curves are these symbols, in this order:
-$R_{\mathrm{eff}}$ (solid violet diamonds, what Gnocchi applies), $R_{\mathrm{non}}$
+$R_{\mathrm{eff}}$ (solid orange diamonds, what Gnocchi applies), $R_{\mathrm{non}}$
 (black dashed squares) and $R_{\mathrm{CpG}}$ (black dotted triangles) — the two terms it
 decomposes into — and the counterfactual derived next, drawn in $R_{\mathrm{eff}}$'s own
 colour and symbol but dashed and hollow, because it *is* $R_{\mathrm{eff}}$ with one term
@@ -491,7 +491,7 @@ down towards $R_{\mathrm{CpG}}\approx1$ as $\Pi$ grows.
 $R_{\mathrm{eff}}$'s rise the CpG contexts could account for on their own. So switch off
 the *non-CpG* adjustment — set $r_t\equiv1$ for $t\notin\mathcal K$, which sends
 $E_2^{\neg\mathcal K}\!\to\!E_1^{\neg\mathcal K}$ — and change nothing else: the fitted
-$r_t$ for $t\in\mathcal K$ stay, the weights $\Pi(g)$ stay. The dashed violet curve is
+$r_t$ for $t\in\mathcal K$ stay, the weights $\Pi(g)$ stay. The dashed orange curve is
 
 $$R_{\mathrm{eff}}\big|_{r_t\equiv1,\;t\notin\mathcal K}(g)
 =\frac{\sum_g E_2^{\mathcal K}+\sum_g E_1^{\neg\mathcal K}}{\sum_g E_1}

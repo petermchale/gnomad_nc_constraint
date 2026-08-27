@@ -44,7 +44,16 @@ SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "D"}
 MONO = "0.15"
 # The one hue that survives in the line panels, and it is a PAIR's colour rather than a
 # series' -- panel B's R_eff and the counterfactual that removes its non-CpG term.
-APPLIED_COLOR = "#4a3aa7"
+#
+# WARM AND LIGHT, not the palette's violet. The pair has to separate from two things at
+# once: the black R_non and R_CpG curves, and the grey dashed R = 1 reference that the
+# counterfactual lies along for the whole panel. Violet (#4a3aa7) has the hue for the
+# first but not the luminance -- at 0.073 relative luminance against MONO's 0.015 it
+# still reads as a dark line among dark lines, and a dashed dark line sitting on a dashed
+# grey one is exactly the confusion the counterfactual needed rescuing from. This orange
+# sits at 0.278, so the pair is lighter than every black curve and darker and far more
+# saturated than the reference, and it holds 3.2:1 against the surface as a 2 px line.
+APPLIED_COLOR = "#eb6834"
 # Which of panels A and E's series are drawn with a WHITE marker face. Shape alone
 # separates three black curves in the clear, but they cross near GC 0.40 with markers
 # 5 pt across, and two filled black shapes there merge into one blob. Alternating fill
