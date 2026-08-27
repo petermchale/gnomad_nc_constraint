@@ -35,7 +35,7 @@ import numpy as np
 # quantity is which.
 SERIES_COLORS = {"step1": "#2a78d6", "step2": "#eb6834",
                  "dr": "#1baf7a", "scored": "#4a3aa7"}
-SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "^", "scored": "^"}
+SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "v", "scored": "^"}
 
 # Near-black rather than pure black: at linewidth 2 over a 0.85 grid, "0.15" keeps the
 # curves dominant without the hard edge of #000, and it is the ink every monochrome
@@ -58,10 +58,16 @@ APPLIED_COLOR = "#eb6834"
 # 5 pt across, and two filled black shapes there merge into one blob. Alternating fill
 # splits the pair that actually overlaps: in both panels the context-only model runs
 # along the two curves nearest it through the whole GC bulk, and it is the one drawn
-# open. A then reads filled square / open circle / filled triangle and E the same, the
-# triangle being the retrained score rather than depletion rank. Fill is also the cue
-# that survives being printed small, where one filled shape versus another is the first
-# distinction to go.
+# open. Fill is also the cue that survives being printed small, where one filled shape
+# versus another is the first distinction to go.
+#
+# A AND E SHARE TWO GLYPHS AND MUST NOT SHARE A THIRD. They are read as a before/after
+# pair on one statistic, so the square and the circle carrying the same meaning in both
+# is the point; a third glyph common to both would read as a third shared series when it
+# is nothing of the kind -- depletion rank is an external metric on its own windows in A,
+# the retrained score is the intervention in E. Hence `dr` takes the DOWN triangle and
+# `scored` the up one: distinguishable side by side on the page, and neither panel has
+# to be read against the other to know which is which.
 MONO_OPEN = ("step1",)
 
 GRID_KW = {"color": "0.85", "linewidth": 0.6}
