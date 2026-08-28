@@ -387,7 +387,7 @@ if binned_dr is not None:
     # show_se=False: Halldorsson's windows OVERLAP, so std/sqrt(n) understates the
     # uncertainty and the bar cannot be defended beside two curves of disjoint 1 kb tiles.
     curves_a.append(panels.curve_from_binned(binned_dr, "dr", "dr",
-                                             "Depletion rank (Halldorsson windows)",
+                                             "Depletion rank",
                                              show_se=False))
 
 # DRAW order and LEGEND order are different questions here, so they are stated separately.
