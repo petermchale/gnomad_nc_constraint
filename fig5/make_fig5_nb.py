@@ -380,7 +380,7 @@ else:
     print("DEPLETION_RANK_BED is not set -- panel A gets two curves instead of three.")
 
 curves_a = [
-    panels.curve_from_binned(binned_a, "step1", "step1", r"Context-only model ($r \equiv 1$)"),
+    panels.curve_from_binned(binned_a, "step1", "step1", "Context-only model"),
     panels.curve_from_binned(binned_a, "step2", "step2", "Gnocchi as published"),
 ]
 if binned_dr is not None:
@@ -846,16 +846,15 @@ df_e, binned_e = D.rank_curves(df_win, extra=extra, min_n=MIN_N_WINDOWS)
 # Published Gnocchi first, then the context-only model it is built on, then the retrained
 # score -- the order the argument is made in, and the same first-two order as panel A.
 curves_e = [
-    panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi as published"),
+    panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi, as published"),
     panels.curve_from_binned(binned_e, "step1", "step1", "Context-only model"),
     panels.curve_from_binned(binned_e, "scored", "scored",
-                             "Gnocchi, $r$ retrained on the\n"
-                             "training set restricted to scored population"),
+                             "Gnocchi, decontaminated DNM training set"),
 ]
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
-# Lower left: E's third label wraps to two lines, and at the panel's type size that
-# second line runs through the published curve if the legend stays top-left as in A.
+# Lower left: E carries three labels, each with its bias appended, and at the panel's
+# type size that block runs into the published curve if the legend stays top-left as in A.
 # show_bias=True: each legend entry carries its own mean |rank - 0.5|, computed over the
 # same bins the panel draws. This panel IS the measurement of the bias and of its repair,
 # so the three numbers belong on it. Panel A's stay in its caption -- it is the panel that
