@@ -615,11 +615,11 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     # QC-fail and coding ones, and the legend follows it there.
     order = sorted(drawn, key=lambda s: float(np.log(df[f"{s}_ratio"]).mean()),
                    reverse=True)
-    # "log fold change", not "log P(DNM) relative to ...": the reader is being asked to
-    # read 0.44 as 1.55x, so the label has to say that what is logged is the ratio and
-    # not the rate. Plain text at the panel's own type size, not a mathtext \\dfrac,
-    # which renders smaller and in a different font from every other label here.
-    _finish(ax, "Log fold change of DNM rate\nrelative to scored population"
+    # "Log fold change of", not "Log P(DNM) relative to ...": the reader is being asked
+    # to read 0.44 as 1.55x, so the label has to say that what is logged is the ratio
+    # and not the rate itself. Plain text at the panel's own type size, not a mathtext
+    # \\dfrac, which renders smaller and in a different font from every other label here.
+    _finish(ax, "Log fold change of P(DNM)\nrelative to scored population"
                 "\n(non-CpG sites)", xrange,
             show_xlabel, handles=[handles[s] for s in order])
 
@@ -635,9 +635,9 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
 # under panel E, where the same control lands at 0.162 against published Gnocchi's 0.168.
 PAIR_STYLE = {
     "full": {"marker": "s", "dashes": None,
-             "label": "original training set"},
+             "label": "Original training set"},
     "scored": {"marker": "D", "dashes": (4, 1.6),
-               "label": "training set restricted to scored population"},
+               "label": "Decontaminated training set"},
 }
 
 
@@ -857,9 +857,9 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
             linewidth=2, markerfacecolor="white", markeredgewidth=1.2,
             capsize=3, elinewidth=1, label="empirical", **dash_kw)
         # The population's name is a HEADING over its own two entries rather than a
-        # suffix repeated on both of them. Repeated, "training set restricted to scored
-        # population" set the legend's column width twice over for one fact, and the
-        # reader had to compare two long strings to find out that two entries were a
+        # suffix repeated on both of them. Repeated, a population's name set the
+        # legend's column width twice over for one fact, and the reader had to
+        # compare two near-identical strings to find out that two entries were a
         # pair -- when the panel's whole claim is about what happens WITHIN a pair. A
         # headed group says it once and puts the pair members adjacent, which is also
         # the order they should be read in.
