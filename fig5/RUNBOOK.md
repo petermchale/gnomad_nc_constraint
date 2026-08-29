@@ -184,18 +184,6 @@ Note the consequence of `NEUTRAL_WINDOWS_BED` being set: the notebook passes
 `config.WINDOW_SET_SUFFIX`, so a neutral run refreshes the *neutral* assembly and leaves
 `fig5.ai` alone. Refreshing `fig5.ai` is then a separate, explicit command.
 
-## 9. Rebuild the supporting text
-
-The submittable PDF of the notebook is built from the executed notebook AND the panel
-PDFs, so it is stale after any rebuild of either:
-
-```
-.venv/bin/python fig5/make_supporting_pdf.py
-```
-
-Mac-side, like the assembly -- it wants xelatex and pandoc, not `published/`. See
-`README.md` for what it filters out and why.
-
 ## Two caveats for the caption that no check can enforce
 
 1. **The DR curve comes from a different window set** than the two Gnocchi curves. It is

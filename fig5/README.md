@@ -58,7 +58,6 @@ resave_ai.py        relink fig5.ai's panel PDFs, save it, re-export fig5.png -- 
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)
 preflight.py        checks the two hand-supplied files' schemas before the expensive run
-make_supporting_pdf.py  the executed notebook as a submittable PDF (prose + panels, no code)
 RUNBOOK.md          the ordered procedure for rebuilding with both files set (HPC)
 window_set_sensitivity.py  does the answer change on 693,270 windows? stand-in subsets
 output/             panel PDFs, the supporting figure, and this figure's own caches
@@ -126,41 +125,6 @@ changed.
 A scripted save also rewrites Illustrator's private data more compactly than an
 interactive one: expect the file to roughly halve the first time. Verified lossless --
 the artwork renders byte-identically, fonts stay embedded, `AIPrivateData` survives.
-
-## The supplement: the notebook as a submittable PDF
-
-```
-.venv/bin/python fig5/make_supporting_pdf.py            # -> output/supporting_text.neutral.pdf
-.venv/bin/python fig5/make_supporting_pdf.py -keep_tex  # leave the .tex to hand-edit
-```
-
-`fig5.ipynb` already carries the derivation of every plotted quantity, which is what a
-supporting-text document is; `make_supporting_pdf.py` turns the executed notebook into
-one rather than restating it somewhere else, so there is no second copy of the prose to
-keep in step. It is a FILTER, not a converter: it drops the code, the two sections that
-are about operating this repo (Configuration, Refresh the Illustrator assembly) and the
-progress output, keeps the derivations and the printed values the captions quote, and
-takes the artwork from `output/*.pdf` -- the same vector panels the manuscript is
-assembled from, not the notebook's ~100 dpi inline PNGs -- captioned from `captions.txt`
-under the manuscript's own names (`Fig. 5C`, `Supporting Fig. 7`), unnumbered so this
-document never invents a second numbering for a figure the paper has already named.
-
-Two things it is deliberately strict about. Every prose rewrite in `REWRITES` must match
-exactly once, so a notebook edit that strands one is an error and not a silent no-op;
-and the figure-bearing cells are matched to `PANELS` by ORDER, checked for count, so a
-new figure cell fails the build rather than shifting every caption by one. It also
-prints the "notebook-isms" it can see but will not touch -- prose that says *this
-notebook* or names a `.py` file. Those are judgement calls, and the fix belongs upstream
-in `make_fig5_nb.py`.
-
-Needs `xelatex` (MacTeX) and pandoc. Pandoc is not a system install here: the venv
-carries it via `pypandoc_binary`, symlinked onto the venv's own PATH, which is where
-nbconvert looks.
-
-```
-.venv/bin/pip install nbconvert pypandoc_binary
-ln -sf ../lib/python3.13/site-packages/pypandoc/files/pandoc .venv/bin/pandoc
-```
 
 ## Prerequisite: three refits
 

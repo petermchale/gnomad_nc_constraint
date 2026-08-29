@@ -37,8 +37,4 @@ fig3/output/training_reliability_predictions.*
 # cached bucket files. The panel PDFs and the small binned tables ARE tracked.
 fig5/output/r_eff_components.*.parquet
 
-# The supporting-text build directory (xelatex aux, .tex, .log). The PDF beside it
-# IS tracked -- it is a deliverable, like the panel PDFs.
-fig5/output/_supporting_text_build/
-
 .trash
