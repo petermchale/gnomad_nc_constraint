@@ -480,7 +480,7 @@ STRATUM_COLORS = {"scored": "0.78", "coding": "#0b5238",
 # with an embedded newline, so the wrap travels with the text -- both rows of panel C
 # read these same labels, and a label edited in one place cannot re-wrap in only one row.
 STRATUM_LABELS = {
-    "scored": "In the scored population",
+    "scored": "In the Gnocchi-scored test population",
     "coding": "In QC-pass coding windows",
     "other_noncoding": "In QC-pass putatively nonneutral\nnoncoding windows",
     "failed_qc": "In QC-fail windows",
@@ -619,7 +619,7 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
     # to read 0.44 as 1.55x, so the label has to say that what is logged is the ratio
     # and not the rate itself. Plain text at the panel's own type size, not a mathtext
     # \\dfrac, which renders smaller and in a different font from every other label here.
-    _finish(ax, "Log fold change of P(DNM)\nrelative to scored population"
+    _finish(ax, "Log fold change of P(DNM)\nrelative to test population"
                 "\n(non-CpG sites)", xrange,
             show_xlabel, handles=[handles[s] for s in order])
 
