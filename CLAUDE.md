@@ -269,10 +269,18 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    (panel C, which recolours to green-for-QC-pass / red-for-QC-fail, and panel B's
    R_eff-plus-counterfactual pair) -- panel D lost the size-matched control's two curves,
    and panel E now prints each curve's mean |rank - 0.5| in its legend. No number changed;
-   `captions.txt` and `methods.txt` are already updated. What is outstanding is the rebuild,
-   which can only happen on the constraint-tools HPC path: regenerate and re-execute the
-   notebook (no `refit.py` rerun -- no training population changed) and re-place the PDFs
-   in `fig5.neutral.ai`.
+   `captions.txt` and `methods.txt` are already updated. **Panel D was then split into two
+   stacked rows on 2026-09-01** -- empirical curves above, fitted below, over a shared x
+   axis and a single shared y range, one curve per training population in each row, a
+   population's marker and dash pattern the same in both. Its shape is now
+   `panel_dnm_probability_pairs(ax_empirical, ax_fitted, binned, ...)`, the notebook cell
+   builds a 2x1 like panel C's, and `_grouped_legend` went with the change (no other
+   caller). Again no number changed, and `captions.txt`/`methods.txt` are updated. What is
+   outstanding is the rebuild, which can only happen on the constraint-tools HPC path:
+   regenerate and re-execute the notebook (no `refit.py` rerun -- no training population
+   changed) and re-place the PDFs in `fig5.neutral.ai`. Panel D's placed PDF changes aspect
+   ratio there (4.6 in tall -> 7.6, matching panel C), so its frame needs resizing rather
+   than only relinking.
 2. **The manuscript text is written**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
    and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
    drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.

@@ -741,9 +741,22 @@ $\sqrt{\bar y(1-\bar y)/|S_g|}$, which is what the error bars carry. The right o
 Monte-Carlo average of the fitted conditional over the same sites, so it estimates the
 same $P_g$ **provided the model is calibrated on that bin's covariate distribution** —
 and departs from it when the model is not, which is the whole point of the panel. So
-$\widehat p(g)-\bar y(g)$ is a calibration gap conditioned on GC, and each pair is a
-reliability diagram on its own population: *fitted vs empirical within a pair* is the
+$\widehat p(g)-\bar y(g)$ is a calibration gap conditioned on GC, and each population is
+a reliability diagram on itself: *fitted vs empirical within a population* is the
 comparison that means something.
+
+**The panel is drawn as two rows over one x axis** — $\bar y(g)$ for both populations on
+top, $\widehat p(g)$ for both below — because there are two claims here and they are read
+in different directions. The first is about the empirical curves alone (restriction
+flattens $\bar y$ and removes its turnover), and it is read *within* the top row, where
+those two curves are now adjacent instead of separated by two fitted ones. The second is
+the calibration gap above, read *between* the rows at fixed GC; the rows therefore share
+one y range, computed over all four curves, so a given vertical distance is the same
+interval in either row. A population keeps one symbol and one dash pattern in both rows,
+so it reads as a single object down the figure. The axis is linear: normalization puts
+every curve through 1 by construction, so that 1 is not a null a departure is being
+weighed against, and the ratios the panel is quoted for are read off the curves rather
+than off the axis.
 
 Two cautions on what $P_g$ is *not*. It is a probability under the **training**
 distribution, not the genome's: every DNM is kept while background sites are sampled at
@@ -764,8 +777,8 @@ Two populations:
 A third, **size-matched** — the same *number* of sites as *scored*, drawn at random from
 the whole genome — is fit and reported, but not drawn here. It is the control that
 separates "better-matched population" from "less data", and it lies on top of the
-original pair; a curve indistinguishable from one already on the axes costs two of this
-panel's series to say nothing the number cannot. It is reported under panel E, where the
+original pair; a curve indistinguishable from one already on the axes costs a series in
+each row to say nothing the number cannot. It is reported under panel E, where the
 same control is measured on the statistic that matters.
 
 Two things happen at once when the training set is restricted. The **empirical** GC
@@ -796,9 +809,14 @@ binned_d = D.dnm_probability(("full", "scored"), n_bins=N_BINS, min_n=MIN_N_SITE
 site_mean_gc = lambda b: float((b["n"] * b["gc_mid"]).sum() / b["n"].sum()) / 100.0
 gc_mean_d = site_mean_gc(binned_d["full"])
 
-fig, ax = plt.subplots(figsize=FIGSIZE)
-panels.panel_dnm_probability_pairs(ax, binned_d, min_n=MIN_N_SITES, normalize=True,
-                                   gc_mean=gc_mean_d)
+# Two rows over one x axis, as in panel C, and the same figure height: the top holds
+# the empirical curves and the bottom the fitted ones. sharex is what lets the two be
+# read as one panel; the shared y range that makes the rows comparable is set inside
+# panel_dnm_probability_pairs, from both rows' values, rather than here.
+fig, (axD1, axD2) = plt.subplots(2, 1, figsize=(FIGSIZE[0], 7.6), sharex=True,
+                                 gridspec_kw={"height_ratios": [1, 1], "hspace": 0.12})
+panels.panel_dnm_probability_pairs(axD1, axD2, binned_d, min_n=MIN_N_SITES,
+                                   normalize=True, gc_mean=gc_mean_d)
 save(fig, "D")
 
 print("mean GC of the training sites drawn:  "

@@ -93,7 +93,7 @@ LEGEND_FONTSIZE = 12
 def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
             legend_fontsize=LEGEND_FONTSIZE, grid_axis="both", handles=None,
             legend_frame: bool = False, legend_bbox=None, legend_ncol: int = 1,
-            legend: bool = True) -> None:
+            legend: bool = True, legend_handlelength: float | None = None) -> None:
     """
     The frame every panel shares: range, labels, grid, despined box, legend.
 
@@ -114,6 +114,11 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     to place it in -- the bands fill [0, 1] by construction -- so the only placement that
     occludes nothing is off the artwork entirely. Panels are saved with
     bbox_inches="tight", so an outside legend is included in the PDF rather than clipped.
+
+    `legend_handlelength` lengthens the handle column. Matplotlib's default 2.0 is too
+    short to fit one period of panel D's (4, 1.6) dash pattern, so a dashed series draws
+    as a solid line in the legend and a dashed one on the axes -- worse than no linestyle
+    cue at all. Any panel whose curves are named by their dashes has to pass this.
     """
     ax.set_xlim(xrange)
     ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_FONTSIZE)
@@ -131,6 +136,8 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
     # covers a uniform region of that band, not a boundary.
     frame_kw = ({"frameon": True, "facecolor": "white", "edgecolor": "0.7",
                  "framealpha": 1.0} if legend_frame else {"frameon": False})
+    if legend_handlelength is not None:
+        frame_kw["handlelength"] = legend_handlelength
     if legend_bbox is not None:
         frame_kw["bbox_to_anchor"] = legend_bbox
         frame_kw["ncol"] = legend_ncol
@@ -141,51 +148,6 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
                   fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
     else:
         ax.legend(fontsize=legend_fontsize, loc=legend_loc, **frame_kw)
-
-
-def _grouped_legend(ax, groups, fontsize: int, x: float = 0.02, y: float = 0.98,
-                    handlelength: float = 3.2) -> None:
-    """
-    One legend per group, stacked, each carrying its group's name as its own title.
-
-    WHY NOT ONE LEGEND WITH HEADING ROWS. That was the first attempt: an empty Line2D
-    per group, whose label is the heading. It puts the heading one column in -- indented
-    past the very symbols it heads -- because the handle column comes first and the
-    heading's handle is blank. Reversing to markerfirst=False does not fix it either:
-    matplotlib then right-aligns the label column, so the long heading pins the short
-    labels to its right edge and the group reads as a ragged right margin.
-
-    A legend TITLE is the one piece of legend text matplotlib aligns to the box's left
-    edge, i.e. flush with the handles. So each group becomes its own legend, titled. The
-    `_legend_box.align` assignment is what makes the title left- rather than centre-
-    aligned; it is private API, and the fallback if it ever disappears is a centred title
-    rather than a traceback.
-
-    STACKED WITHOUT MEASURING. The second legend is offset by the first's height computed
-    from the type size and the row count -- one row per entry plus one for the title, at
-    1.45 line spacing -- against the axes height in points, which ax.get_position() gives
-    without a draw. Measuring the rendered legend would be exact but needs a canvas draw
-    inside a function that otherwise only describes what to draw, and every panel here is
-    saved at a size this module never sees.
-
-    `handlelength` is 3.2 rather than matplotlib's 2.0 because a 2.0 handle is too short
-    to fit one period of panel D's (4, 1.6) dash pattern: the dashed entries drew as
-    solid lines in the legend and dashed ones on the axes, which is worse than no
-    linestyle cue at all.
-    """
-    axes_h_pt = ax.get_position().height * ax.figure.get_figheight() * 72.0
-    for title, handles in groups:
-        leg = ax.legend(handles, [h.get_label() for h in handles], title=title,
-                        loc="upper left", bbox_to_anchor=(x, y), frameon=False,
-                        fontsize=fontsize, handlelength=handlelength,
-                        borderpad=0.0, labelspacing=0.3)
-        leg.get_title().set_fontsize(fontsize)
-        try:
-            leg._legend_box.align = "left"
-        except AttributeError:
-            pass
-        ax.add_artist(leg)
-        y -= (len(handles) + 1) * fontsize * 1.45 / axes_h_pt
 
 
 def _gc_mean_line(ax, gc_mean: float | None) -> None:
@@ -624,9 +586,10 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
             show_xlabel, handles=[handles[s] for s in order])
 
 
-# Panel D's two populations. A pair -- one population's fitted and empirical curves --
-# shares a marker AND a dash pattern, so it reads as one object; see
-# panel_dnm_probability_pairs for what separates the members.
+# Panel D's two populations. A population's marker AND dash pattern are its identity in
+# BOTH of the panel's rows -- fitted and empirical are told apart by which row they are
+# in, not by anything on the curve -- so the pair still reads as one object, now
+# vertically; see panel_dnm_probability_pairs.
 #
 # The size-matched random control (same NUMBER of sites as `scored`, drawn from the same
 # population as `full`) used to be a third pair here. It is not plotted any more: it lies
@@ -806,65 +769,61 @@ def label_panels(axes, labels=("A", "B", "C"), x: float = -0.1, y: float = 1.02)
                 fontweight="bold", va="bottom", ha="right")
 
 
-def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: bool = True,
-                                xrange=(0.2, 0.76), show_xlabel: bool = True,
+def panel_dnm_probability_pairs(ax_empirical, ax_fitted, binned: dict, min_n: int = 500,
+                                normalize: bool = True, xrange=(0.2, 0.76),
+                                show_xlabel: bool = True,
                                 gc_mean: float | None = None) -> None:
     """
-    Panel D. Fitted and empirical P(DNM) vs GC, non-CpG contexts, for each training
-    population. `binned` maps population name -> data.dnm_probability() table.
+    Panel D, as two stacked rows over one x axis: the top row carries only the EMPIRICAL
+    P(DNM) curves, the bottom only the FITTED ones, one curve per training population in
+    each. `binned` maps population name -> data.dnm_probability() table.
 
-    THE PAIR IS THE UNIT, so the pair is what the styling groups. A population's two
-    curves share one marker and one dash pattern (`full` solid squares, `scored` dashed
-    diamonds), and within a pair the empirical curve is the one carrying ERROR BARS while
-    the fitted curve carries none -- which is also true, not just a convention: the
-    binomial standard error belongs to the measurement, and the fitted curve is a
-    prediction with no such bar to draw. Empirical markers are additionally hollow, since
-    at low GC the bars are shorter than a marker and would be doing the work alone there.
+    WHAT MOVES TO THE ROW, AND WHAT STAYS ON THE CURVE. Fitted-versus-empirical is now
+    said by which row a curve is in, so the only thing left for a curve to say within its
+    row is which population it belongs to -- `full` solid squares, `scored` dashed
+    diamonds, the same symbol and dash in both rows, so a population reads as one object
+    down the figure. The old within-pair cues are kept anyway rather than freed up: the
+    empirical row keeps its error bars and hollow markers, the fitted row its filled
+    markers and no bars, because that distinction is true and not merely a convention --
+    the binomial standard error belongs to the measurement, and a prediction has no such
+    bar to draw. A row lifted out of the figure still says which quantity it holds
+    without its ylabel being read.
 
-    This is a swap from what the panel used to do, where colour grouped the pairs and
-    linestyle separated their members. With the size-matched control gone there are two
-    pairs rather than three, which is few enough for linestyle to do the grouping, and
-    that frees the panel from colour entirely.
+    WHAT THE SPLIT COSTS, AND WHAT PAYS FOR IT. The panel's second claim -- that the fit
+    MISSES the empirical curve by 26% and 29% in opposite directions on the original
+    training set, and tracks it to within 6% on the scored one -- is a comparison within
+    a population, whose two curves now sit on different axes. So the rows are given ONE
+    shared y range, computed over every curve in both, on top of the shared x: a given
+    vertical distance is then the same interval in either row and the gap can be read
+    across the break. What the split buys is the first claim, which was the crowded one -- four
+    curves on one axis, and the two that carry it (empirical against empirical: 2.45x and
+    turning over, against 1.60x and monotone) were the two the pair styling deliberately
+    kept apart.
 
     LEVELS ARE NOT COMPARABLE ACROSS POPULATIONS. The class balance differs (12.2 vs
     13.5 background sites per DNM), which shifts P(DNM) by that factor for reasons
     unrelated to GC. normalize=True divides each curve by its own site-weighted mean,
     which removes that offset and compares SHAPE, and is what the figure needs. Within
-    a pair the comparison is exact either way -- fitted and empirical come from the
+    a population the comparison is exact either way -- fitted and empirical come from the
     very same sites.
 
-    `gc_mean` is in the panel's 0-1 x units, i.e. the tables' `gc_mid` / 100.
+    `show_xlabel` applies to the bottom row, the only one with visible tick labels under
+    the sharex the caller sets up. `gc_mean` is in the panel's 0-1 x units, i.e. the
+    tables' `gc_mid` / 100, and is drawn on both rows so neither can be read without it.
     """
-    drawn_values, groups = [], []
+    frames, drawn_values = {}, []
     for name, df in binned.items():
-        style = PAIR_STYLE[name]
-        dash_kw = {} if style["dashes"] is None else {"dashes": style["dashes"]}
         d = df[df["n"] >= min_n] if min_n else df
         gc = d["gc_mid"] / 100.0
         d = d[(gc >= xrange[0]) & (gc <= xrange[1])].sort_values("gc_mid")
-        gc = d["gc_mid"] / 100.0
 
         pred, emp, se = d["mean_pred"], d["empirical_prop"], d["se"]
         if normalize:
             pred = pred / np.average(pred, weights=d["n"])
             wemp = np.average(emp, weights=d["n"])
             emp, se = emp / wemp, se / wemp
-
-        fitted, = ax.plot(gc, pred, marker=style["marker"], color=MONO,
-                          markersize=5, linewidth=2, label="fitted", **dash_kw)
-        empirical = ax.errorbar(
-            gc, emp, yerr=se, marker=style["marker"], color=MONO, markersize=5,
-            linewidth=2, markerfacecolor="white", markeredgewidth=1.2,
-            capsize=3, elinewidth=1, label="empirical", **dash_kw)
-        # The population's name is a HEADING over its own two entries rather than a
-        # suffix repeated on both of them. Repeated, a population's name set the
-        # legend's column width twice over for one fact, and the reader had to
-        # compare two near-identical strings to find out that two entries were a
-        # pair -- when the panel's whole claim is about what happens WITHIN a pair. A
-        # headed group says it once and puts the pair members adjacent, which is also
-        # the order they should be read in.
-        groups.append((f"{style['label']}:", [fitted, empirical]))
-        # Error bars included, so the log limits below cannot clip a cap -- the lowest
+        frames[name] = (d["gc_mid"] / 100.0, pred, emp, se)
+        # Error bars included, so the shared limits below cannot clip a cap -- the lowest
         # of them, at 0.84, sat outside a pad computed from the markers alone.
         #
         # The bar stays a symmetric +-se on the DATA, and is not rebuilt for the log
@@ -878,28 +837,60 @@ def panel_dnm_probability_pairs(ax, binned: dict, min_n: int = 500, normalize: b
         # only bar that means anything there. Here the quantity is the ratio itself.
         drawn_values.append(np.concatenate([pred, emp - se, emp + se]))
 
-    if normalize:
-        ax.axhline(1.0, **REF_LINE_KW)
-        # LOG y, and only when normalized: the quantity is then a ratio to the curve's
-        # own GC-averaged value, strictly positive with its reference at 1, which is
-        # panel B's axis argument applied here -- a 10% deficit and a 10% excess should
-        # read as equal departures. It also buys back the low-GC end, where six curves
-        # sit inside 0.89-1.01: that band is 6% of a linear axis running to 2.75 and 11%
-        # of this one. It does not separate them, and nothing can -- normalize divides
-        # each curve by a mean the GC bulk dominates, so every curve is pinned near 1
-        # there BY CONSTRUCTION, and what the panel reads at low GC is that pinning
-        # rather than a measured agreement. Unnormalized the values are raw
-        # probabilities around 0.07 with no reference level, and the linear axis stands.
-        _log_ratio_axis(ax, np.concatenate(drawn_values),
-                        ticks=(0.8, 0.9, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0))
-    # One line for three populations, which is honest here only because their site-
-    # weighted mean GCs agree to ~0.01 (see _gc_mean_line): it marks where the training
-    # set sits, and every curve's divergence from the others is out in the tail beyond
-    # it. The caller says which population's mean it is.
-    _gc_mean_line(ax, gc_mean)
-    # "GC-averaged value", not "its own mean": the divisor is that curve's mean ACROSS
-    # GC bins, site-weighted, so the label has to say which average was taken out.
-    _finish(ax, "P(DNM) relative to its\nGC-averaged value\n(non-CpG sites)" if normalize
-            else "P(DNM) in the\ntraining set\n(non-CpG sites)",
-            xrange, show_xlabel, legend=False)
-    _grouped_legend(ax, groups, fontsize=LEGEND_FONTSIZE - 1)
+    handles = {id(ax_empirical): [], id(ax_fitted): []}
+    for name, (gc, pred, emp, se) in frames.items():
+        style = PAIR_STYLE[name]
+        dash_kw = {} if style["dashes"] is None else {"dashes": style["dashes"]}
+        empirical = ax_empirical.errorbar(
+            gc, emp, yerr=se, marker=style["marker"], color=MONO, markersize=5,
+            linewidth=2, markerfacecolor="white", markeredgewidth=1.2,
+            capsize=3, elinewidth=1, label=style["label"], **dash_kw)
+        fitted, = ax_fitted.plot(gc, pred, marker=style["marker"], color=MONO,
+                                 markersize=5, linewidth=2, label=style["label"],
+                                 **dash_kw)
+        handles[id(ax_empirical)].append(empirical)
+        handles[id(ax_fitted)].append(fitted)
+
+    values = np.concatenate(drawn_values)
+    # Broken to keep the LONGEST LINE short rather than to keep the line count low: a
+    # rotated ylabel's height on the page is its longest line, and each row is now barely
+    # over 3 in tall, where the single-axis panel had 4.6. "Empirical P(DNM) relative to
+    # its" on one line overran the row and was clipped at the figure edge.
+    quantity = ("relative to its\nGC-averaged value" if normalize
+                else "in the training set")
+    # BOTH ROWS TAKE THE SAME LIMITS, from every curve in both, so the two axes come out
+    # identical. That is what makes the rows comparable at all: the fitted curves span
+    # less than the empirical ones, and an axis fitted to each row separately would
+    # magnify the fitted row until a fit that misses by 26% looked like one that tracks.
+    #
+    # LINEAR, INCLUDING WHEN NORMALIZED. The normalized quantity is a positive ratio with
+    # its reference at 1, so a log axis is available and panel B's argument for one --
+    # that a 25% excess and a 25% deficit should read as equal departures -- transfers on
+    # its face. It is not worth taking here. Panel B's r = 1 is a substantive null, where
+    # this 1 is put there by the normalization itself: every curve is divided by its own
+    # GC-averaged value, so every curve crosses 1 by construction and there is no
+    # hypothesis a departure from it is being weighed against. What the panel is read for
+    # is the SHAPE of each curve and the GAP between the rows, and the numbers it is
+    # quoted for (2.45x rising then collapsing, 1.60x monotone, a fit 26% high and 29%
+    # low) come off the curves' own values rather than off the axis. The log's other
+    # claim, that it opens up the low-GC end where the curves sit inside 0.89-1.01, is
+    # worth even less: they are pinned there BY CONSTRUCTION, by a mean the GC bulk
+    # dominates, so magnifying that band magnifies the pinning and not a measurement.
+    lo, hi = float(np.nanmin(values)), float(np.nanmax(values))
+    for ax, kind, bottom in ((ax_empirical, "Empirical", False),
+                             (ax_fitted, "Fitted", True)):
+        if normalize:
+            ax.axhline(1.0, **REF_LINE_KW)
+        ax.set_ylim(lo - 0.04 * (hi - lo), hi + 0.04 * (hi - lo))
+        # One line for both populations, which is honest here only because their site-
+        # weighted mean GCs agree to ~0.01 (see _gc_mean_line): it marks where the
+        # training set sits, and every curve's divergence from the others is out in the
+        # tail beyond it. The caller says which population's mean it is.
+        _gc_mean_line(ax, gc_mean)
+        # "GC-averaged value", not "its own mean": the divisor is that curve's mean
+        # ACROSS GC bins, site-weighted, so the label has to say which average was taken
+        # out. The row's own word -- Empirical or Fitted -- leads the label, since with
+        # the pair split that is the one thing the symbols no longer carry.
+        _finish(ax, f"{kind} P(DNM)\n{quantity}\n(non-CpG sites)", xrange,
+                show_xlabel and bottom, handles=handles[id(ax)],
+                legend_handlelength=3.2)
