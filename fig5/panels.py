@@ -1017,3 +1017,47 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
     # the legend on the y tick labels.
     _finish(ax, "auPRC (normalized by\npositive-class fraction)", xrange, show_xlabel,
             legend_loc=legend_loc, legend_fontsize=LEGEND_FONTSIZE - 2)
+
+
+def panel_aupr_delta(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True) -> None:
+    """
+    Supporting Figure 8, panel C. The PAIRED gain of the retrained score over the published
+    one, per GC bin, with a bootstrap confidence interval. `deltas` is
+    data.pr_curve_deltas() output.
+
+    WHY THIS PANEL EXISTS WHEN PANEL B IS RIGHT THERE. Panel B invites the eye to compare
+    two curves that cross, wobble, and are drawn without uncertainty; the reader cannot
+    tell a real gap from a thin bin. This panel is that same comparison as ONE quantity
+    with an interval on it. The interval is what the panel is for, so the marker is
+    secondary and the bars are drawn heavy enough to read at figure scale.
+
+    y = 0 IS THE CLAIM'S NULL and is the only reference on the panel: an interval clear of
+    it in a bin says the two scores genuinely differ there. Bars are 95% percentile
+    intervals from the paired bootstrap -- see data.pr_curve_deltas for why pairing is
+    what makes them narrow, and why they are NOT the same thing as error bars on panel B's
+    two curves, which would describe the uncertainty of each level rather than of the gap.
+
+    THE TOP BIN IS WIDER THAN PANEL B's (0.55-0.80 against 0.55-0.60), because McHale et
+    al.'s window file is nearly empty above 0.60 and this panel would otherwise say nothing
+    about the tail -- which is where panel E's bias reduction is largest and so where the
+    figure's question actually lives. Its marker sits at the merged bin's centre, well to
+    the right of panel B's last point; the caption has to say so, or the two panels look
+    like they disagree about where the last measurement is.
+    """
+    x = deltas["mid"].to_numpy()
+    y = 100.0 * deltas["delta"].to_numpy()
+    lo = y - 100.0 * deltas["ci_lo"].to_numpy()
+    hi = 100.0 * deltas["ci_hi"].to_numpy() - y
+
+    ax.axhline(0.0, **REF_LINE_KW)
+    ax.errorbar(x, y, yerr=np.vstack([lo, hi]),
+                marker=SCORE_MARKERS["scored"], color=MONO, markerfacecolor=MONO,
+                markeredgewidth=1.2, markersize=6, linewidth=2, capsize=4, elinewidth=1.4)
+    # NO LEGEND: one series, and the ylabel already names it -- a legend here would
+    # restate the ylabel in smaller type across the top of the very bin the panel is about
+    # (the tail one, whose interval is the tallest thing on the axes). What the legend
+    # would have said that the ylabel does not -- that the bars are 95% percentile
+    # intervals from a paired bootstrap -- belongs in the caption, which can also say how
+    # many replicates.
+    _finish(ax, "auPRC gain of the retrained\nscore (%)", xrange, show_xlabel,
+            legend=False)

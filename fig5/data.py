@@ -812,6 +812,22 @@ def cpg_rate_by_methyl(cache_dir: str = CACHE_DIR) -> pl.DataFrame:
 # set under another name. So UNLIKE every other quantity here, this one does not build
 # without that file: pr_curves raises, and the notebook checks and skips.
 
+# The tail bins of LAX_GC_BINS merged into one, for the paired-difference panel. McHale et
+# al.'s window file is nearly empty above GC 0.60 -- after class balancing the three bins
+# there hold 1,086, 65 and 2 windows -- so drawing them separately says nothing and drawing
+# none of them throws the tail away. One (0.55, 0.80] bin is the honest use of it, and the
+# tail is where the whole question lives, since that is where panel E's bias reduction is
+# largest. The lower bins are LAX_GC_BINS's, unchanged, so the two panels' x axes line up
+# everywhere below 0.55.
+DELTA_GC_BINS = [(0.20, 0.30), (0.30, 0.40), (0.40, 0.50), (0.50, 0.55), (0.55, 0.80)]
+
+# A bin thinner than this is dropped from the difference panel. FAR below
+# LAX_MIN_BIN_WINDOWS, and legitimately so: that floor guards a per-bin precision-recall
+# CURVE, which is a staircase when windows are few, whereas this panel draws one number per
+# bin with a bootstrap interval that widens honestly as the bin thins. The interval is the
+# guard, so the floor only has to exclude bins where the bootstrap itself is degenerate.
+DELTA_MIN_BIN_WINDOWS = 500
+
 # The reference notebook's GC bins for the lax set, verbatim -- wide at the ends where
 # windows are scarce, narrow through the bulk where the performance trend actually turns.
 # NOT the N_BINS fixed-width edges the other panels share: after the class balancing below,
@@ -1076,3 +1092,114 @@ def pr_curves(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
               + ", ".join(f"({e['lo']:.2f},{e['hi']:.2f}]={e['aupr_norm']:.3f}"
                           for e in entries))
     return out
+
+
+def _aupr(y: np.ndarray, score: np.ndarray) -> float:
+    """Trapezoidal auc() over the precision-recall curve -- the same estimator
+    enhancer_pr_curves uses, so a delta computed here is a delta between the numbers that
+    panel plots."""
+    precision, recall, _ = precision_recall_curve(y, score)
+    return float(auc(recall, precision))
+
+
+def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
+                    neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
+                    refit_expected: str | None = None, seed: int = 0,
+                    gc_bins: list | None = None, min_n: int = DELTA_MIN_BIN_WINDOWS,
+                    n_bootstrap: int = 500, balance: bool = False) -> pl.DataFrame:
+    """
+    The PAIRED difference in performance between the two scores, per GC bin, with a
+    bootstrap confidence interval. This is the panel that decides whether the retrained
+    score is actually better anywhere, or whether the per-bin wobble in the auPRC curves is
+    noise.
+
+    THE STATISTIC IS A RELATIVE GAIN:
+
+        delta(g) = [auPRC_scored(g) - auPRC_published(g)] / auPRC_published(g)
+
+    and the normalizer r CANCELS from it, since both curves in panel B are the same auPRCs
+    divided by the same per-bin r. So this is the same comparison panel B invites the eye to
+    make, with the prevalence normalization taken out rather than applied twice, and it is
+    dimensionless -- "the retrained score finds x% more of the enhancers, at equal recall".
+
+    WHY PAIRED, AND WHY IT MATTERS SO MUCH HERE. The two scores are columns of ONE table:
+    identical windows, identical positives, identical GC bins (_lax_labelled_windows joins
+    both expected-count tables onto one window set and z-filters them jointly). Almost all
+    of the sampling variability in auPRC is variability in WHICH WINDOWS the truth set
+    happens to contain, and that is common to both scores, so it cancels in the difference.
+    Independent error bars on panel B's two curves would therefore be a much weaker -- and
+    misleading -- statement than this: they would show the uncertainty of each level, when
+    the question is about the gap. Each bootstrap replicate here resamples the bin's rows
+    once and scores BOTH models on that same resample, which is what preserves the pairing.
+
+    RESAMPLING IS STRATIFIED BY BIN, i.e. within each GC bin separately. The bins are fixed
+    strata defined by a covariate, not a random draw, so the inference wanted is conditional
+    on them: "given these windows at this GC, how sure are we of the gap?"
+
+    `balance=False` BY DEFAULT, WHICH IS THE OPPOSITE OF panel B, and deliberately.
+    _balance_positive_fraction exists to make bins comparable in LEVEL -- it is what makes
+    panel A's single dashed baseline valid for every curve on it. A within-bin,
+    between-score comparison needs none of that: both scores see the same rows and the same
+    prevalence, and r cancels from the statistic anyway. Meanwhile the balancing discards
+    about four fifths of the positives, and it bites hardest exactly at high GC where
+    positives are densest and the bins are already thin. Keeping them is a large gain in
+    power precisely where the question is. Pass balance=True to compute the difference on
+    panel B's own rows instead, which is the check that the two panels agree.
+
+    n_bootstrap=500 gives a percentile interval whose own Monte-Carlo error is small
+    against the widths involved; the cost is roughly n_bootstrap x one pass of
+    precision_recall_curve over every drawn bin, twice.
+
+    Returns one row per drawn bin: lo, hi, mid, n, n_pos, r, aupr_published, aupr_scored,
+    delta (the point estimate, from the observed data -- not the bootstrap mean), ci_lo,
+    ci_hi (2.5 and 97.5 percentiles), and p_gt0, the fraction of replicates with a positive
+    gap.
+    """
+    if truth_set != "lax":
+        raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
+    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+
+    df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
+    df = _assign_gc_bins(df, gc_bins)
+    if balance:
+        df = _balance_positive_fraction(df, seed)
+
+    rng = np.random.default_rng(seed)
+    rows = []
+    for b, (lo, hi) in enumerate(gc_bins):
+        sub = df.filter(pl.col("gc_bin") == b)
+        y = sub[TRUTH_TARGET].to_numpy()
+        if sub.height < min_n or y.sum() == 0 or y.sum() == sub.height:
+            print(f"  GC ({lo}, {hi}] dropped, n = {sub.height:,} "
+                  f"(floor {min_n:,}, positives {int(y.sum()):,})")
+            continue
+        s_pub = sub["z_published"].to_numpy()
+        s_sco = sub["z_scored"].to_numpy()
+        a_pub, a_sco = _aupr(y, s_pub), _aupr(y, s_sco)
+
+        boot = np.empty(n_bootstrap)
+        for k in range(n_bootstrap):
+            # ONE index draw, used for BOTH scores -- this line is the pairing.
+            idx = rng.integers(0, sub.height, sub.height)
+            yb = y[idx]
+            if yb.sum() == 0 or yb.sum() == yb.size:
+                boot[k] = np.nan
+                continue
+            boot[k] = _aupr(yb, s_sco[idx]) / _aupr(yb, s_pub[idx]) - 1.0
+        boot = boot[~np.isnan(boot)]
+
+        rows.append({
+            "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "n": sub.height,
+            "n_pos": int(y.sum()), "r": float(y.mean()),
+            "aupr_published": a_pub, "aupr_scored": a_sco,
+            "delta": a_sco / a_pub - 1.0,
+            "ci_lo": float(np.percentile(boot, 2.5)),
+            "ci_hi": float(np.percentile(boot, 97.5)),
+            "p_gt0": float((boot > 0).mean()),
+        })
+        r = rows[-1]
+        print(f"  GC ({lo:.2f}, {hi:.2f}]  n = {r['n']:>9,}  pos = {r['n_pos']:>8,}  "
+              f"delta = {100 * r['delta']:+6.2f}%  "
+              f"[{100 * r['ci_lo']:+6.2f}, {100 * r['ci_hi']:+6.2f}]  "
+              f"P(delta > 0) = {r['p_gt0']:.3f}")
+    return pl.DataFrame(rows)

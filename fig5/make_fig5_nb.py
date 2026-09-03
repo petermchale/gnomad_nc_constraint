@@ -1118,6 +1118,34 @@ requires. The caption should say so.
 |---|---|---|
 | **A** | Performance varies strongly with GC content, and does so for *both* scores | precision vs recall, one line per GC bin, over the pooled curve and the random-classifier baseline |
 | **B** | What the decontamination does to discovery | auPRC normalized by the positive-class fraction, vs GC content, one curve per score |
+| **C** | Whether any of B's gap is real | the **paired** gain of the retrained score over the published one, per GC bin, with a bootstrap 95% CI |
+
+**Panel C is where the claim is decided, and panel B cannot do its job.** B draws two
+curves that cross and wobble, without uncertainty, so a reader cannot separate a real gap
+from a thin bin — and the largest gap sits in the thinnest bin, which is exactly the
+pattern a chance finding makes. C reduces the comparison to one number per bin with an
+interval on it.
+
+Three things make that interval narrow enough to be worth drawing, and all three are
+choices rather than luck:
+
+* **It is paired.** The two scores are columns of one table — identical windows, identical
+  positives, identical bins. Almost all of the sampling variability in auPRC is variability
+  in *which windows the truth set happens to contain*, and that is common to both scores,
+  so it cancels in the difference. Each bootstrap replicate resamples a bin's rows once and
+  scores *both* models on that same resample. Independent error bars on B's two curves
+  would describe the uncertainty of each **level** when the question is about the **gap**,
+  and would make the result look far weaker than it is.
+* **It is unbalanced.** The class balancing exists to make bins comparable in level — it is
+  what makes A's single dashed baseline valid. A within-bin, between-score comparison needs
+  none of it, and $r$ cancels from the relative gain outright, while the balancing discards
+  about four fifths of the positives and bites hardest at high GC where positives are
+  densest and bins are thinnest. Keeping them is free power exactly where the question is.
+* **Its top bin is wider**, (0.55, 0.80] against B's (0.55, 0.60]. Their file is nearly
+  empty above GC 0.60 — after balancing the three bins there hold 1,086, 65 and 2 windows —
+  so lowering the floor alone buys one marginal bin and two useless ones. One merged tail
+  bin is the honest use of it. **The caption must say so**, or C's last point looks like it
+  disagrees with B's about where the measurement is.
 
 Both scores live on the same rows, so the per-GC-bin positive-class downsampling happens
 **once**, on the labelled table, rather than once per score as in the reference notebook
@@ -1152,29 +1180,42 @@ if curves_s8 is None:
 """)
 
 code(r"""
+# Panel C: the paired bootstrap. Its own cell because it is the one slow step in this
+# figure -- ~500 resamples x one precision-recall pass per drawn bin, twice -- and because
+# re-running it should not mean rebuilding A and B. A couple of minutes.
+deltas_s8 = D.pr_curve_deltas(truth_set="lax", seed=0, n_bootstrap=500) \
+    if NEUTRAL_WINDOWS_BED else None
+""")
+
+code(r"""
 # Guarded, so a run without NEUTRAL_WINDOWS_BED skips this figure rather than dying.
 if curves_s8 is not None:
     # A IS TWO AXES, B IS ONE. Panel A draws one score per axes -- three GC-binned PR curves
     # on top of each other in a single frame would be unreadable -- and the two share a y
     # axis, which is what makes them comparable: both run to 3x the positive fraction, and
     # after the class balancing that fraction is the same number in both.
-    # B is given the extra width: its two legend entries each carry a name and a number, and
-    # a third of the width is not enough for them beside a y-axis label that wraps to two
-    # lines. A's two axes lose nothing by being narrower -- they share a y axis and a legend
-    # that sits in already-empty space.
-    fig = plt.figure(figsize=(17.0, 5.2))
-    gs = fig.add_gridspec(1, 3, width_ratios=[1, 1, 1.15], wspace=0.30)
-    axA1 = fig.add_subplot(gs[0])
-    axA2 = fig.add_subplot(gs[1], sharey=axA1)
-    axB = fig.add_subplot(gs[2])
+    # TWO ROWS, NOT ONE. A needs two axes of its own, and B and C are a pair -- C is the
+    # inference on the gap B draws -- so they belong side by side beneath it, on the same
+    # GC axis and at the same width. Four panels in a row would make each too narrow for a
+    # two-line y label and a legend carrying names and numbers.
+    fig = plt.figure(figsize=(13.0, 10.0))
+    gs = fig.add_gridspec(2, 2, wspace=0.30, hspace=0.34)
+    axA1 = fig.add_subplot(gs[0, 0])
+    axA2 = fig.add_subplot(gs[0, 1], sharey=axA1)
+    axB = fig.add_subplot(gs[1, 0])
+    axC = fig.add_subplot(gs[1, 1])
 
     for ax, key in zip((axA1, axA2), D.PR_SCORES):
         panels.panel_pr_curves(ax, curves_s8, key, show_ylabel=ax is axA1)
     panels.panel_aupr_by_gc(axB, curves_s8)
+    if deltas_s8 is not None:
+        panels.panel_aupr_delta(axC, deltas_s8)
 
-    # Two calls, two x offsets: A's letter clears its ylabel, B's clears a two-line one.
+    # Three calls, three x offsets: each letter has to clear its own panel's ylabel, and
+    # A's is one line where B's and C's are two.
     panels.label_panels((axA1,), ("A",))
     panels.label_panels((axB,), ("B",), x=-0.16)
+    panels.label_panels((axC,), ("C",), x=-0.16)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
     written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, s8_name))
@@ -1198,9 +1239,21 @@ if curves_s8 is not None:
                   f"auPRC/r = {e['aupr_norm']:.3f}")
 
     pub, dec = curves_s8["published"]["bins"], curves_s8["scored"]["bins"]
-    print("\nretrained - published, per GC bin:")
+    print("\npanel B, retrained - published, per GC bin (no uncertainty -- see panel C):")
     for a, b in zip(pub, dec):
         print(f"  GC ({a['lo']:.2f}, {a['hi']:.2f}]  {b['aupr_norm'] - a['aupr_norm']:+.3f}")
+
+if deltas_s8 is not None:
+    print("\npanel C, paired gain of the retrained score, unbalanced, 95% bootstrap CI.")
+    print("A bin whose CI excludes 0 is a real difference; P is the bootstrap fraction")
+    print("above 0, so it reads as a one-sided posterior-style probability, not a p-value.")
+    for r in deltas_s8.iter_rows(named=True):
+        star = "  *" if (r["ci_lo"] > 0 or r["ci_hi"] < 0) else "   "
+        print(f"  GC ({r['lo']:.2f}, {r['hi']:.2f}]  n = {r['n']:>9,}  "
+              f"pos = {r['n_pos']:>8,}  r = {r['r']:.3f}  "
+              f"gain = {100 * r['delta']:+6.2f}%  "
+              f"[{100 * r['ci_lo']:+6.2f}, {100 * r['ci_hi']:+6.2f}]  "
+              f"P(>0) = {r['p_gt0']:.3f}{star}")
 """)
 
 

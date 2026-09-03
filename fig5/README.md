@@ -17,8 +17,14 @@ truth set, GeneHancer is licensed and not derivable from the public bucket, and
 classifying against some other annotation would be a different experiment wearing this
 figure's name. The cells check and skip.
 
-Its builder is `data.pr_curves(truth_set="lax")` and its panels are
-`panels.panel_pr_curves` / `panels.panel_aupr_by_gc`, alongside Supporting Figure 7's.
+Its builders are `data.pr_curves(truth_set="lax")` and `data.pr_curve_deltas()`, and its
+panels are `panels.panel_pr_curves` / `panels.panel_aupr_by_gc` / `panels.panel_aupr_delta`,
+alongside Supporting Figure 7's. **Panel C is where the claim is decided**: B's two curves
+cross and wobble without uncertainty, so C reduces the comparison to one paired number per
+GC bin with a bootstrap CI. It is paired (both scores on the same resampled rows, so the
+window-sampling variability cancels), unbalanced (the balancing is only needed for
+cross-bin level comparisons and costs four fifths of the positives), and its top bin is
+merged to (0.55, 0.80] because their file is nearly empty above GC 0.60.
 **"Lax" is McHale et al.'s own word and the axis these names are organized on**: a truth
 set says which windows count as constrained; the lax one is GeneHancer overlap (big, but
 not every enhancer window is under selection) and their **stringent** one — noncoding
