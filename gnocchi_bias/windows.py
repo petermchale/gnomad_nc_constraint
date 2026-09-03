@@ -182,11 +182,24 @@ def restrict_to_noncoding(df: pl.DataFrame,
 MCHALE_ENHANCER_COLUMN = "window_overlaps_enhancer"
 MCHALE_NEUTRAL_WINDOW_COUNT = 693_270
 
+# What that flag is called once it is inside this module's tables. The file's own header
+# is normalised away above; downstream code should read THIS name, so a change of vintage
+# in their file is absorbed here instead of at every use.
+MCHALE_ENHANCER_FLAG = "overlaps_enhancer"
 
-def load_mchale_neutral_element_ids(neutral_windows_bed: str) -> pl.Series:
+
+def load_mchale_window_labels(neutral_windows_bed: str) -> pl.DataFrame:
     """
-    The element_ids of McHale et al.'s putatively neutral window set, read from the file
-    their own analysis reads.
+    EVERY row of McHale et al.'s window file, as (element_id, overlaps_enhancer).
+
+    TWO CALLERS WANT OPPOSITE HALVES OF THE SAME COLUMN, which is why the file is read
+    here and filtered elsewhere. fig5 analyses their putatively neutral set, which is
+    this file with the flag False (load_mchale_neutral_element_ids, below). Supporting
+    Figure 8 evaluates a CLASSIFIER on the same windows, so it needs both halves -- the
+    flag is its target, and a classifier handed only the negative class has nothing to
+    classify (join_mchale_window_labels, below). One reader for both means the two
+    figures cannot end up disagreeing about which windows their file contains or how a
+    row of it maps to an element_id.
 
     WHAT THE FILE IS. `Supplementary_Data_2.features.constraint_scores.bed` under
     `{CONSTRAINT_TOOLS_DATA}/chen-et-al-2023-published-version/41586_2023_6045_MOESM4_ESM/`
@@ -199,15 +212,12 @@ def load_mchale_neutral_element_ids(neutral_windows_bed: str) -> pl.Series:
     source. Tab-separated with a header; coordinates are `chrom, start, end`, 0-based
     half-open, the same convention as Chen et al.'s `element_id`.
 
-    THE NEUTRAL SET IS THAT FILE FILTERED TO `window overlaps enhancer == False`, which
-    is 693,270 windows. That is the definition, verbatim, from
-    `papers/neutral_models_are_biased/9.regression/experiment.1.ipynb`
-    (`get_unconstrained_noncoding_chen_windows`), and it is the window set behind McHale
-    et al.'s Fig. 1. Taking the set from their file rather than rebuilding it here is the
-    point: the enhancer flag came from GeneHancer, which is licensed and not
-    redistributable, and their interval exclusions (hg38 assembly gaps, ENCODE exclude
-    regions, low-coverage regions) are not reproducible from the public bucket either.
-    One join settles all of it.
+    TAKING THE FLAG FROM THEIR FILE RATHER THAN REBUILDING IT IS THE POINT: it came from
+    GeneHancer, which is licensed and not redistributable, and their interval exclusions
+    (hg38 assembly gaps, ENCODE exclude regions, low-coverage regions) are not
+    reproducible from the public bucket either. One join settles all of it -- and settles
+    it identically for the window set fig5 analyses and for the labels Supporting Figure
+    8 classifies against.
 
     Not in this repo, and not fetchable: it lives on the constraint-tools HPC path.
     fig5/config.py holds the path; None there means the restriction is skipped.
@@ -225,19 +235,35 @@ def load_mchale_neutral_element_ids(neutral_windows_bed: str) -> pl.Series:
             f"(found {df.columns[:8]}...). This should be constraint-tools' "
             "Supplementary_Data_2.features.constraint_scores.bed.")
 
-    neutral = df.filter(~pl.col(MCHALE_ENHANCER_COLUMN).cast(pl.Boolean))
-    print(f"McHale et al. neutral windows: {df.height:,} rows in file -> "
-          f"{neutral.height:,} with {MCHALE_ENHANCER_COLUMN} == False")
+    out = df.select(
+        (pl.col("chrom").cast(pl.String) + "-"
+         + pl.col("start").cast(pl.Int64).cast(pl.String) + "-"
+         + pl.col("end").cast(pl.Int64).cast(pl.String)).alias("element_id"),
+        pl.col(MCHALE_ENHANCER_COLUMN).cast(pl.Boolean).alias(MCHALE_ENHANCER_FLAG))
+    n_enh = int(out[MCHALE_ENHANCER_FLAG].sum())
+    print(f"McHale et al. window file: {out.height:,} rows, {n_enh:,} "
+          f"({100 * n_enh / out.height:.1f}%) overlapping an enhancer")
+    return out
+
+
+def load_mchale_neutral_element_ids(neutral_windows_bed: str) -> pl.Series:
+    """
+    The element_ids of McHale et al.'s putatively neutral window set: their window file
+    (load_mchale_window_labels) filtered to `window overlaps enhancer == False`.
+
+    THAT IS THE DEFINITION, verbatim, from
+    `papers/neutral_models_are_biased/9.regression/experiment.1.ipynb`
+    (`get_unconstrained_noncoding_chen_windows`), and it is the window set behind McHale
+    et al.'s Fig. 1 -- 693,270 windows.
+    """
+    df = load_mchale_window_labels(neutral_windows_bed)
+    neutral = df.filter(~pl.col(MCHALE_ENHANCER_FLAG))
+    print(f"  -> {neutral.height:,} putatively neutral (enhancer flag False)")
     if neutral.height != MCHALE_NEUTRAL_WINDOW_COUNT:
         print(f"  NOTE: expected {MCHALE_NEUTRAL_WINDOW_COUNT:,} (their Fig. 1 window "
               "set). A different count means a different vintage of the file -- worth "
               "resolving before quoting either window count in the paper.")
-
-    return (neutral.select(
-        (pl.col("chrom").cast(pl.String) + "-"
-         + pl.col("start").cast(pl.Int64).cast(pl.String) + "-"
-         + pl.col("end").cast(pl.Int64).cast(pl.String)).alias("element_id"))
-        ["element_id"])
+    return neutral["element_id"]
 
 
 def restrict_to_mchale_neutral_windows(
@@ -305,6 +331,45 @@ def restrict_to_mchale_neutral_windows(
               "(Chen et al.'s constraint table, the step-1 expected table, the features "
               "table) -- almost all of them windows that failed Chen et al.'s window QC "
               "and so were never scored. Nothing here filtered them.")
+    return out
+
+
+def join_mchale_window_labels(df: pl.DataFrame,
+                              neutral_windows_bed: str) -> pl.DataFrame:
+    """
+    Restrict the window table to McHale et al.'s window file WHOLE -- enhancer-
+    overlapping windows included -- carrying their enhancer flag in as
+    `overlaps_enhancer` (MCHALE_ENHANCER_FLAG).
+
+    THIS IS restrict_to_mchale_neutral_windows WITHOUT THE `enhancer == False` STEP, and
+    that one difference is the entire relationship between fig5 and Supporting Figure 8.
+    fig5 measures whether Gnocchi's score is GC-biased, and measures it on putatively
+    neutral windows, because a window under selection has a low z for a reason that is
+    not bias. Supporting Figure 8 measures whether the score can FIND the windows under
+    selection, so it needs those windows present and labelled: their enhancer flag is the
+    positive class. Same file, same join, same coordinate convention, same everything
+    else in build_window_table -- one filter dropped.
+
+    The join is INNER for the same reason it is there: a window with no row in Chen et
+    al.'s constraint table, the step-1 expected table or the features table has no
+    `expected`, `observed` or GC content, so there is nothing to score it with.
+
+    LOUD ON FAILURE, like its sibling: a chr-prefix or coordinate-convention mismatch
+    produces a near-empty join, which otherwise reads as a very strict filter.
+    """
+    labels = load_mchale_window_labels(neutral_windows_bed)
+    out = df.join(labels, on="element_id", how="inner")
+    n_enh = int(out[MCHALE_ENHANCER_FLAG].sum())
+    print(f"McHale-window join (enhancer windows KEPT): {df.height:,} scored windows -> "
+          f"{out.height:,} labelled, {n_enh:,} positive "
+          f"({100 * n_enh / max(out.height, 1):.1f}%)")
+
+    if out.height < labels.height // 2:
+        raise ValueError(
+            f"only {out.height:,} of {labels.height:,} of their windows joined. That is "
+            "the signature of a coordinate or chromosome-naming mismatch, not a filter: "
+            f"windows look like {df['element_id'][0]!r}, the file's like "
+            f"{labels['element_id'][0]!r}.")
     return out
 
 
@@ -523,6 +588,7 @@ def bin_by_gc(df: pl.DataFrame, gc_col: str, n_bins: int, bin_method: str,
 def build_window_table(cache_dir: str, exclude_sex: bool = True,
                         noncoding: bool = True, apply_qc: bool = True,
                         neutral_windows_bed: str | None = None,
+                        keep_enhancer_windows: bool = False,
                         downsample_frac: float | None = None,
                         downsample_n: int | None = None,
                         random_seed: int = 0) -> pl.DataFrame:
@@ -559,6 +625,13 @@ def build_window_table(cache_dir: str, exclude_sex: bool = True,
 
     Both are legitimate analysis populations and the figure is meant to be run on each;
     see restrict_to_mchale_neutral_windows for what the file is and what the join buys.
+
+    `keep_enhancer_windows` IS THE SAME PIPELINE WITH ONE FILTER DROPPED. With it, their
+    file still supplies the definition, but the `enhancer == False` step is skipped and
+    the flag comes back as an `overlaps_enhancer` column instead: their non-exonic Chen
+    windows entire, labelled. That is what a classifier needs and what fig5 must not
+    have -- see join_mchale_window_labels. It requires the file, since the flag is
+    GeneHancer's and is not derivable from the bucket.
     """
     os.makedirs(cache_dir, exist_ok=True)
     local_paths = {k: download(v, cache_dir) for k, v in REMOTE_FILES.items()}
@@ -571,7 +644,15 @@ def build_window_table(cache_dir: str, exclude_sex: bool = True,
             df = restrict_to_noncoding(df)
         if apply_qc:
             df = df.filter(pl.col("pass_qc"))
-    df = restrict_to_mchale_neutral_windows(df, neutral_windows_bed)
+    if keep_enhancer_windows:
+        if neutral_windows_bed is None:
+            raise ValueError(
+                "keep_enhancer_windows=True needs neutral_windows_bed: the enhancer flag "
+                "comes from GeneHancer via McHale et al.'s window file and cannot be "
+                "rebuilt from the public bucket. See load_mchale_window_labels.")
+        df = join_mchale_window_labels(df, neutral_windows_bed)
+    else:
+        df = restrict_to_mchale_neutral_windows(df, neutral_windows_bed)
     df = maybe_downsample(df, downsample_frac, downsample_n, random_seed)
     df = add_gc_content_fraction(df)
     return df

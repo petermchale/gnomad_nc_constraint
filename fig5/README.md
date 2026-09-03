@@ -1,10 +1,40 @@
 # Fig. 5 — Gnocchi's GC bias comes from its regional adjustment, fit on the wrong population
 
 `fig5.ipynb` builds the figure and writes each panel to `output/fig5{A..E}.pdf` as a
-standalone vector file for assembly in Illustrator, plus one supporting figure,
+standalone vector file for assembly in Illustrator, plus two supporting figures.
+
 `output/supp_fig7.pdf` — **Supporting Figure 7** in the manuscript, whose four panels are
 cited there as 7A-7D (A alone on the left, B-D stacked on the right: A's abscissa is
-methylation level, not the GC content the other three share). Run it top to bottom.
+methylation level, not the GC content the other three share).
+
+`output/supp_fig8.pdf` — **Supporting Figure 8**, which asks what panel E's intervention
+buys or costs in *discovery*: McHale et al.'s Fig. 4A/B for published Gnocchi against the
+retrained one, on their GeneHancer enhancer-overlap truth set. It is this figure's own
+pipeline with one filter dropped (`keep_enhancer_windows=True`), so it is a statement
+about panel E rather than about a different window set. Unlike every other panel it does
+**not** build without `NEUTRAL_WINDOWS_BED` — the enhancer flag in that file *is* the
+truth set, GeneHancer is licensed and not derivable from the public bucket, and
+classifying against some other annotation would be a different experiment wearing this
+figure's name. The cells check and skip.
+
+Its builder is `data.pr_curves(truth_set="lax")` and its panels are
+`panels.panel_pr_curves` / `panels.panel_aupr_by_gc`, alongside Supporting Figure 7's.
+**"Lax" is McHale et al.'s own word and the axis these names are organized on**: a truth
+set says which windows count as constrained; the lax one is GeneHancer overlap (big, but
+not every enhancer window is under selection) and their **stringent** one — noncoding
+windows regulating essential genes, their Fig. 4C/D — is the planned second value of
+`truth_set`, not built yet. Constants belonging to a truth set carry its name
+(`LAX_GC_BINS`, `LAX_MIN_BIN_WINDOWS`); those that do not, do not (`PR_SCORES`,
+`TRUTH_TARGET`).
+
+**Read `data.py`'s section header before starting the stringent set.** Its three numbered
+items are the spec, taken from their notebook: it is a third hand-supplied file with a
+different target and coordinate column; **its intervals are not on Chen's 1 kb grid**, so
+the retrained score needs an interval overlap rather than a string-built `element_id`; and
+Fig. 4C/D are a bootstrap statistic over two feature bins, so they are new builders rather
+than another `truth_set` value through `pr_curves`.
+
+Run the notebook top to bottom.
 
 **Panel C is two rows** sharing a GC axis and built from one table: the composition of
 the training sites (how much of the training set is outside the scored population --
@@ -53,7 +83,8 @@ sites, `Pi` 0.025 -> 0.426, and a D that ran past panel B's 0.2-0.73 range.)
 fig5.ipynb          the figure: LaTeX derivation of each plotted quantity, then the panels
 config.py           the two hand-supplied inputs, and the refit provenance stamp
 data.py             one builder per plotted quantity, each cached as parquet in output/
-panels.py           the five panels as ax-accepting functions (no figure, no file I/O)
+panels.py           the panels as ax-accepting functions (no figure, no file I/O) --
+                    the five, plus both supporting figures'
 resave_ai.py        relink fig5.ai's panel PDFs, save it, re-export fig5.png -- via Illustrator
 refit.py            the intervention and its two controls (must run before the notebook)
 depletion_rank.py   loader for the Halldorsson depletion-rank window set (panel A, third curve)

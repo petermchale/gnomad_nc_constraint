@@ -27,6 +27,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 import polars as pl
+from sklearn.metrics import auc, precision_recall_curve
 
 # First-party. `config` is a sibling module, not a third-party package -- keep it
 # grouped with gnocchi_bias, and do not let an isort autofix hoist it above.
@@ -721,3 +722,349 @@ def cpg_rate_by_methyl(cache_dir: str = CACHE_DIR) -> pl.DataFrame:
           f"{span['po_ratio'].min():.1f}-{span['po_ratio'].max():.1f}x, "
           f"mu spans {span['mu_ratio'].min():.1f}-{span['mu_ratio'].max():.1f}x")
     return ct
+
+
+# --------------------------------------------------------- Supporting Figure 8
+
+# WHAT THIS SECTION IS FOR. Panel E says the retrained score is no longer GC-biased. It
+# cannot say whether the biased score was nevertheless the better DETECTOR: bias and
+# signal-to-noise act on discovery jointly (McHale et al.'s Fig. 3), and only one of the
+# two has been changed. Supporting Figure 8 is that test, built as their Fig. 4A/B -- a
+# classifier that calls a window constrained when its Gnocchi z exceeds a threshold, and
+# performance read off the precision-recall curve within each GC bin -- with TWO GNOCCHI
+# VARIANTS in place of their four constraint metrics.
+#
+# LAX AND STRINGENT, WHICH IS MCHALE ET AL.'S OWN VOCABULARY AND THE AXIS THESE NAMES ARE
+# ORGANIZED ON. A truth set says which windows are "constrained", and their paper uses two:
+#
+#   LAX        a window is constrained if it overlaps a GeneHancer enhancer. Large enough
+#              to resolve performance deep in the GC tails, and lax because not every
+#              enhancer-overlapping window is under strong selection -- GeneHancer covers
+#              18.4% of the noncoding genome while perhaps 4.51% is under human-specific
+#              selection. Their Fig. 4A/B. THIS IS WHAT IS IMPLEMENTED HERE.
+#   STRINGENT  noncoding windows conjectured to be under strong negative selection because
+#              they regulate essential genes, plus an equal number overlapping no enhancer
+#              at all. Small, so noisy in the tails, but a post-hoc validation of the lax
+#              set: overall performance rises on moving to it. Their Fig. 4C/D, from
+#              papers/neutral_models_are_biased/11.compare-lax-with-stringent-truth-set.ipynb.
+#              NOT BUILT YET -- and what that will take is written down below, because two
+#              things about it are not guessable from this section.
+#
+# WHAT BUILDING THE STRINGENT SET WILL ACTUALLY TAKE (read from that notebook, 2026-09-03).
+#
+#   1. A THIRD HAND-SUPPLIED FILE, not a relabelling of the lax windows:
+#      {CONSTRAINT_TOOLS_DATA}/stringent_truth_set/truth-set.gnocchi.lambda_s.depletion_rank.CDTS.bed
+#      4,933 rows, columns `chromosome, start, end, gnocchi, truly constrained, B,
+#      B_M1star.EUR, GC_content_1000bp, lambda_s,
+#      depletion_rank_constraint_score_complement,
+#      percentile_rank_of_observed_minus_expected_complement`. Note the target is
+#      `truly constrained`, and the coordinate column is `chromosome` where the lax file
+#      says `chrom` -- so it needs its own config entry and its own preflight check.
+#
+#   2. ITS INTERVALS ARE NOT ON CHEN'S 1 kb GRID, and this is the load-bearing problem for
+#      US specifically. The positives are enhancer intervals of arbitrary length and offset
+#      (chr1-2128961-2129161 is 200 bp; chr1-6240740-6241540 is 800 bp); only the negatives
+#      are 1 kb tiles. Every other truth set here is joined by building an element_id from
+#      chrom-start-end, and that cannot work: the retrained score exists per Chen 1 kb
+#      window, so mapping a stringent interval onto it needs an INTERVAL OVERLAP plus a
+#      rule for an interval spanning two tiles. Their file's own `gnocchi` column was
+#      presumably carried over by exactly such an intersection (cell 9 says so explicitly
+#      for lambda_s), so the first job is to establish what rule they used and reuse it --
+#      not to invent one, or the retrained and published scores would be mapped
+#      differently and the comparison would be meaningless.
+#
+#   3. FIG. 4C/D ARE A DIFFERENT STATISTIC FROM THIS SECTION'S, so they are new builders
+#      rather than another value threaded through pr_curves():
+#        - bootstrap: resample the truth set WITH replacement (sample(frac=1, replace=True)),
+#          cut into exactly TWO feature bins, then the same class balancing as here;
+#        - per replicate compute auPRCnorm = auc/r pooled, and
+#          delta = (auc[low bin] - auc[high bin]) / auc[pooled];
+#        - 1,000 replicates; report mean and sd of each. 4C is the auPRCnorm bar chart,
+#          4D the delta one.
+#        - bins are pairs, not a sweep: GC (0.20, 0.375) and (0.40, 0.70); BGS (0.5, 0.76)
+#          and (0.9, 1.0); gBGC (-0.3, 0.2) and (0.4, 1.2).
+#        - their bin floor there is 500, not LAX_MIN_BIN_WINDOWS, and a bin under it raises,
+#          which skips that truth set for that feature entirely.
+#        - the lax set is first .sample(n=len(stringent)) so the two are size-matched; that
+#          is what makes 4C a comparison of truth sets rather than of sample sizes.
+#
+# So the constants that are properties of a truth set carry its name (LAX_GC_BINS,
+# LAX_MIN_BIN_WINDOWS) and the ones that are not do not (PR_SCORES, TRUTH_TARGET);
+# pr_curves() takes `truth_set` and accepts only "lax" so far. Adding the stringent set
+# should mean adding names beside these, never renaming them. Do not reach for "enhancer"
+# in a name here: enhancer overlap is how the LAX set is defined, not what this section is.
+#
+# Reference implementation for the lax set, followed for the bins, the balancing, the
+# bin-size floor and the trapezoidal auc(recall, precision):
+# constraint-tools papers/neutral_models_are_biased/7.CDTS/main.2.ipynb.
+#
+# THE LAX TRUTH SET IS GENEHANCER AND THERE IS NO SUBSTITUTE FOR IT. `window overlaps
+# enhancer` in config.NEUTRAL_WINDOWS_BED -- licensed, not redistributable, not derivable
+# from the public bucket, and nothing in Chen et al.'s annotation table is the same truth
+# set under another name. So UNLIKE every other quantity here, this one does not build
+# without that file: pr_curves raises, and the notebook checks and skips.
+
+# The reference notebook's GC bins for the lax set, verbatim -- wide at the ends where
+# windows are scarce, narrow through the bulk where the performance trend actually turns.
+# NOT the N_BINS fixed-width edges the other panels share: after the class balancing below,
+# 20 equal bins would leave almost all of them under the window floor, and a
+# precision-recall curve needs far more windows per bin than a conditional mean rank does.
+# Reused rather than re-derived so the panel's x axis is comparable to McHale et al.'s
+# Fig. 4B. LAX_, because the stringent set is orders of magnitude smaller and will need its
+# own, coarser edges rather than these.
+LAX_GC_BINS = [(0.20, 0.30), (0.30, 0.40), (0.40, 0.50), (0.50, 0.55),
+               (0.55, 0.60), (0.60, 0.65), (0.65, 0.70), (0.70, 0.80)]
+
+# A GC bin thinner than this is dropped before any curve is drawn: the notebook's
+# threshold for the lax set, and it is doing real work at both ends of the axis, where a
+# precision-recall curve built on a few hundred windows is mostly staircase. LAX_ for the
+# same reason as the bins -- a truth set of a few thousand windows cannot clear 4,000 in
+# any bin, so the stringent set will need its own floor, not a re-tuning of this one.
+LAX_MIN_BIN_WINDOWS = 4_000
+
+# The two curves. NOT truth-set specific -- the same two scores are evaluated against
+# whichever truth set is in play, which is the whole point of having more than one.
+# key -> (expected-count column, panel title, legend word). Panel A gives
+# each score a whole axes and could afford the full name, but its two axes sit either side
+# of panel B's letter and the long one runs into it; the short word is also what panel B's
+# legend has room for, so the figure names each score once and identically. Both strings
+# travel in the curve dicts, which is what keeps panels.py from having to import this
+# module.
+PR_SCORES = {
+    "published": (W.PUBLISHED_EXPECTED_COL, "Gnocchi (published)", "published"),
+    "scored": ("expected_scored", "Gnocchi (decontaminated training set)",
+               "decontaminated"),
+}
+
+# The label column, whichever truth set produced it -- for the lax set it is
+# windows.MCHALE_ENHANCER_FLAG renamed. Every truth set writes this one column, so the
+# binning, the balancing and the curves never have to know which one they are working on,
+# and adding the stringent set adds a builder rather than a code path.
+TRUTH_TARGET = "constrained"
+
+
+def _lax_labelled_windows(cache_dir: str, neutral_windows_bed: str | None,
+                          refit_expected: str | None) -> pl.DataFrame:
+    """
+    The LAX truth set: one row per evaluated window -- element_id, GC_content (0-1),
+    `constrained` (does it overlap a GeneHancer enhancer), and one z column per entry of
+    PR_SCORES.
+
+    The stringent set gets its own builder beside this one, returning the same columns, so
+    everything downstream of here is shared.
+
+    IT IS window_table()'s PIPELINE WITH ONE FILTER DROPPED. The population comes from the
+    same windows.build_window_table() call, on the same config.NEUTRAL_WINDOWS_BED, with
+    `keep_enhancer_windows=True` -- so their file is still the definition, this repo's
+    noncoding/QC/autosome filters are still skipped, and the GC units and the join are
+    still theirs. The only difference is that the `enhancer == False` step does not run
+    and the flag comes back as a column instead. Panel E must NOT have those windows (a
+    window under selection has a low z for a reason that is not bias); this figure cannot
+    do without them (they are the positive class). Nothing else about the two populations
+    differs, which is what makes the figure a statement ABOUT panel E rather than about a
+    different window set.
+
+    Note which population is which: the `scored` refit is still FIT on the putatively
+    neutral windows alone -- that is the intervention -- and is EVALUATED here on neutral
+    AND enhancer windows. Fit on the negatives, scored on both, which is what a classifier
+    requires, and what the caption should say.
+
+    Both z columns are filtered JOINTLY to the pipeline's [-10, 10] (windows.
+    filter_z_in_range), so the two scores describe one identical set of windows and
+    neither is advantaged by its own filtering.
+    """
+    if not neutral_windows_bed:
+        raise ValueError(
+            "Supporting Figure 8 needs McHale et al.'s window file: it carries the "
+            "GeneHancer enhancer flag, which IS the truth set, and there is no substitute "
+            "for it in the public bucket. Set NEUTRAL_WINDOWS_BED in fig5/config.py -- it "
+            "is on the constraint-tools HPC path, which is where this figure is built.")
+
+    df = W.build_window_table(cache_dir, neutral_windows_bed=neutral_windows_bed,
+                              keep_enhancer_windows=True)
+    df = df.rename({W.MCHALE_ENHANCER_FLAG: TRUTH_TARGET})
+
+    expected_path = refit_expected or refit_path("expected", "scored")
+    print(f"decontaminated expected counts: {expected_path}")
+    df = df.join(
+        pl.read_csv(expected_path, separator="\t")
+          .select(["element_id", pl.col("expected").alias("expected_scored")]),
+        on="element_id", how="inner")
+
+    for label, (col, _, _) in PR_SCORES.items():
+        df = W.add_z_column(df, label, col)
+        if col == W.PUBLISHED_EXPECTED_COL:
+            W.check_z_against_published(df, label)
+    df = W.filter_z_in_range(df, list(PR_SCORES))
+
+    n_pos = int(df[TRUTH_TARGET].sum())
+    print(f"evaluated: {df.height:,} windows, {n_pos:,} positive "
+          f"({100 * n_pos / df.height:.1f}%)")
+    return df
+
+
+def _assign_gc_bins(df: pl.DataFrame, gc_bins: list) -> pl.DataFrame:
+    """Add `gc_bin` (index into gc_bins) and drop windows outside every bin. Intervals are
+    left-open and right-closed, matching the pandas.cut default the reference notebook
+    relies on."""
+    gc = df["GC_content"].to_numpy()
+    idx = np.full(gc.shape, -1, dtype=int)
+    for i, (lo, hi) in enumerate(gc_bins):
+        idx[(gc > lo) & (gc <= hi)] = i
+    return df.with_columns(pl.Series("gc_bin", idx)).filter(pl.col("gc_bin") >= 0)
+
+
+def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
+    """
+    Downsample the positive class within each GC bin so that every bin carries the SAME
+    positive fraction -- the reference notebook's `downsample`, reproduced.
+
+    WHY IT IS NECESSARY, AND IT IS NOT A NICETY. Precision is anchored to the positive
+    fraction -- a random classifier's precision IS that fraction -- and enhancer density
+    rises steeply with GC content. Over the bins this figure draws, the raw positive
+    fraction runs from about 0.06 in (0.20, 0.30] to about 0.45 in (0.55, 0.60], a
+    SEVENFOLD span (measured on a stand-in truth set of similar overall prevalence; the
+    real GeneHancer flag will differ in level, not in the fact of the gradient). Plot raw
+    precision against that and the GC-rich bins win by construction: the panel would be
+    measuring enhancer density and reporting it as performance, which is the opposite of
+    the figure's claim. Each bin is thinned to the smallest positive:negative ratio
+    present, negatives untouched, which pegs every bin to the same fraction and is what
+    makes the ONE dashed random-classifier line in panel A valid for every curve on it.
+
+    WHAT IT COSTS, AND WHAT IT DOES NOT. It discards roughly four fifths of the positives,
+    because the peg is set by the GC-poorest bin. It does NOT cost any drawn GC bin: the
+    two bins the LAX_MIN_BIN_WINDOWS floor drops are already below that floor before
+    any downsampling, so the balancing changes which windows are in a bin, never which
+    bins survive. Worth re-checking on the real truth set, since a different enhancer
+    annotation moves the peg.
+
+    ONCE, ON THE LABELLED TABLE, not once per score -- the two scores are columns of the
+    same rows. (The reference notebook balances per metric because its four metrics are
+    carried on four different window files and it has no choice.) One balancing means the
+    two curves in panel B are computed on an identical set of windows and an identical set
+    of positives, so a difference between them is the score and nothing else.
+
+    PANEL B'S /r IS NOT A SECOND GUARD ON THIS, once the balancing has run: r is then the
+    same number in every bin, so dividing by it is a constant rescale that cannot change
+    the panel's shape. Its job is to put the random classifier at exactly 1.0 so the axis
+    reads "times better than guessing". The notebook computes it per bin and so does
+    pr_curves, which is what would keep the bins comparable if the balancing were
+    ever skipped -- but only partly, since auPRC/r is not prevalence-invariant for a real
+    classifier the way it is for a random one. The downsampling is doing the work.
+    """
+    rng = np.random.default_rng(seed)
+    bins = sorted(df["gc_bin"].unique().to_list())
+    ratios = []
+    for b in bins:
+        sub = df.filter(pl.col("gc_bin") == b)
+        n_pos = int(sub[TRUTH_TARGET].sum())
+        n_neg = sub.height - n_pos
+        ratios.append(n_pos / n_neg if n_neg else np.inf)
+    target = float(min(ratios))
+
+    kept = []
+    for b in bins:
+        sub = df.filter(pl.col("gc_bin") == b)
+        neg = sub.filter(~pl.col(TRUTH_TARGET))
+        pos = sub.filter(pl.col(TRUTH_TARGET))
+        n_keep = int(target * neg.height)
+        if n_keep < pos.height:
+            pos = pos[np.sort(rng.choice(pos.height, size=n_keep, replace=False))]
+        kept.append(pl.concat([pos, neg]))
+    out = pl.concat(kept)
+    print(f"class balancing: positive fraction pegged to {target / (1 + target):.4f} in "
+          f"every GC bin; {df.height:,} -> {out.height:,} windows")
+    return out
+
+
+def _positive_fraction(df: pl.DataFrame) -> float:
+    """The random classifier's precision on `df` -- panel A's dashed line, and panel B's
+    normalizer. It is `r` in the baseline-classifier theory of McHale et al.'s Methods."""
+    return float(df[TRUTH_TARGET].mean())  # type: ignore[arg-type]
+
+
+def pr_curves(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
+              neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
+              refit_expected: str | None = None, seed: int = 0,
+              gc_bins: list | None = None, min_n: int | None = None) -> dict:
+    """
+    Everything Supporting Figure 8's two panels draw, against one truth set: labelled
+    table -> GC bins -> class balancing -> precision-recall curves, in one call.
+
+    `truth_set` is "lax" (GeneHancer enhancer overlap; McHale et al.'s Fig. 4A/B) and so
+    far only that. "stringent" -- their essential-gene set -- is the planned second value,
+    needing its own labelled-window builder beside _lax_labelled_windows, its own GC bins
+    and its own bin floor; `gc_bins` and `min_n` default to the named truth set's own
+    (LAX_*).
+
+    BUT DO NOT EXPECT THE STRINGENT SET TO ARRIVE ONLY THROUGH THIS FUNCTION. Their
+    Fig. 4C/D are a bootstrap statistic over two feature bins, not a per-bin PR sweep, and
+    at 4,933 windows a curve per bin would be hopeless anyway -- see item 3 of the section
+    header. This function is where the stringent set gets LABELLED and SCORED; the 4C/D
+    statistic is separate builders that will want the labelled table, not these curves.
+
+    ONE BUILDER, like every other entry point in this module, and the steps between are
+    private because none of them is separately quotable. It is also the expensive one --
+    it builds a SECOND window table, on a population panel E does not have -- so it should
+    run exactly once per truth set per notebook execution.
+
+    Returns, per score key:
+        display, short   the two names for the curve (panel title, legend word)
+        bins             list of {lo, hi, mid, n, recall, precision, aupr, aupr_norm}
+        all              the same, pooled across GC bins -- panel A's black curve
+        r                the positive fraction, identical across bins after balancing
+
+    auPRC is sklearn's trapezoidal auc() over (recall, precision) -- the reference
+    notebook's `auc(recall, precision)`, not `average_precision_score`. They differ
+    slightly, and matching the notebook is what makes these numbers comparable with McHale
+    et al.'s Fig. 4B rather than merely similar to it.
+
+    `aupr_norm` divides by the bin's own positive fraction, so 1.0 is the random classifier
+    and the axis reads "times better than guessing". After the balancing that divisor is
+    the same in every bin, so it is a constant rescale rather than a second prevalence
+    correction -- see _balance_positive_fraction, which is where the correction happens.
+    """
+    if truth_set != "lax":
+        raise ValueError(
+            f"truth_set={truth_set!r}: only 'lax' (GeneHancer enhancer overlap) is built. "
+            "The stringent set is McHale et al.'s Fig. 4C/D and needs its own labelled-"
+            "window builder here.")
+    gc_bins = LAX_GC_BINS if gc_bins is None else gc_bins
+    min_n = LAX_MIN_BIN_WINDOWS if min_n is None else min_n
+    df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
+    df = _assign_gc_bins(df, gc_bins)
+    df = _balance_positive_fraction(df, seed)
+    print(f"mean GC of the evaluated windows: {df['GC_content'].mean():.3f}")
+
+    out = {}
+    for key, (_, display, short) in PR_SCORES.items():
+        z = f"z_{key}"
+        entries = []
+        for b, (lo, hi) in enumerate(gc_bins):
+            sub = df.filter(pl.col("gc_bin") == b)
+            if sub.height < min_n:
+                print(f"  {display}: GC ({lo}, {hi}] dropped, n = {sub.height:,} "
+                      f"< {min_n:,}")
+                continue
+            precision, recall, _ = precision_recall_curve(
+                sub[TRUTH_TARGET].to_numpy(), sub[z].to_numpy())
+            r = _positive_fraction(sub)
+            entries.append({
+                "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "n": sub.height,
+                "recall": recall, "precision": precision,
+                "aupr": float(auc(recall, precision)),
+                "aupr_norm": float(auc(recall, precision)) / r,
+            })
+        precision, recall, _ = precision_recall_curve(
+            df[TRUTH_TARGET].to_numpy(), df[z].to_numpy())
+        r_all = _positive_fraction(df)
+        out[key] = {
+            "display": display, "short": short, "bins": entries, "r": r_all,
+            "all": {"recall": recall, "precision": precision,
+                    "aupr": float(auc(recall, precision)),
+                    "aupr_norm": float(auc(recall, precision)) / r_all},
+        }
+        print(f"  {display}: auPRC/r = {out[key]['all']['aupr_norm']:.3f} pooled; "
+              + ", ".join(f"({e['lo']:.2f},{e['hi']:.2f}]={e['aupr_norm']:.3f}"
+                          for e in entries))
+    return out

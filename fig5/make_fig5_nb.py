@@ -1077,6 +1077,131 @@ print(shown.select(["gc_pct", "n", "mean_methyl", "frac_hypomethylated", "p"]))
 """)
 
 md(r"""
+## Supporting figure (**Supporting Figure 8** in the manuscript) — what panel E buys, or costs, in *discovery*
+
+Panel E says the retrained score is no longer GC-biased. It cannot say whether the biased
+score was nevertheless the better **detector**: bias and signal-to-noise act on discovery
+jointly (McHale et al.'s Fig. 3), and only one of the two has been changed. This figure is
+that test, built as McHale et al.'s **Fig. 4A/B** — a classifier that calls a window
+constrained when its Gnocchi $z$ exceeds a threshold, a **lax** truth set (does the
+window overlap a GeneHancer enhancer), and performance read off the precision–recall curve
+*within each GC bin* — with **two Gnocchi variants in place of their four constraint
+metrics**.
+
+***Lax* is McHale et al.'s own word, and it anticipates its opposite.** Not every
+enhancer-overlapping window is under strong selection — GeneHancer covers 18.4% of the
+noncoding genome while perhaps 4.51% of it is under human-specific selection — so the lax
+set buys *size*, enough windows to resolve performance deep in the GC tails, at the cost
+of label confidence. Their **stringent** truth set (Fig. 4C/D: noncoding windows that
+regulate essential genes, against an equal number overlapping no enhancer at all) makes
+the opposite trade, and is **not built here yet**. `data.pr_curves` takes a `truth_set`
+argument and accepts only `"lax"` so far; the constants that belong to a truth set carry
+its name (`LAX_GC_BINS`, `LAX_MIN_BIN_WINDOWS`) and the ones that do not, do not
+(`PR_SCORES`, `TRUTH_TARGET`).
+
+**It is this figure's own pipeline with one filter dropped.** The window population comes
+from the same `windows.build_window_table()` call the panels above use, on the same
+`NEUTRAL_WINDOWS_BED`, with `keep_enhancer_windows=True`: their file is still the
+definition, the noncoding / QC / autosome filters are still skipped, and the $z$ formula,
+the joint $[-10,10]$ filter and the GC units are still the ones panels A and E use. The
+only change is that the `enhancer == False` step does not run, and the flag comes back as
+a column instead of a filter. Panel E must *not* have those windows — a window under
+selection has a low $z$ for a reason that is not bias — and this figure cannot do without
+them, because they are the positive class.
+
+So note which population is which: the `scored` refit is still **fit** on the putatively
+neutral windows alone (that is the intervention), and **evaluated** here on neutral *and*
+enhancer windows. Fit on the negatives, scored on both, which is what a classifier
+requires. The caption should say so.
+
+| | Shows | Quantity |
+|---|---|---|
+| **A** | Performance varies strongly with GC content, and does so for *both* scores | precision vs recall, one line per GC bin, over the pooled curve and the random-classifier baseline |
+| **B** | What the decontamination does to discovery | auPRC normalized by the positive-class fraction, vs GC content, one curve per score |
+
+Both scores live on the same rows, so the per-GC-bin positive-class downsampling happens
+**once**, on the labelled table, rather than once per score as in the reference notebook
+([`7.CDTS/main.2.ipynb`](https://github.com/quinlan-lab/constraint-tools/blob/main/papers/neutral_models_are_biased/7.CDTS/main.2.ipynb),
+which compares metrics carried on four *different* window files and so has no choice). A
+gap between the two curves in **B** is therefore the score and nothing else.
+
+**Unlike every other panel, this one does not build without `NEUTRAL_WINDOWS_BED`.** The
+truth set *is* the GeneHancer flag in that file, and GeneHancer is licensed and not
+redistributable, so there is no version of it derivable from the public bucket. The cells
+below check and skip rather than classify against some other annotation, which would be a
+different experiment wearing this figure's name.
+
+This is also the one place in the notebook that builds a **second** window table (a
+different population from panel E's), so it is the slowest cell here.
+""")
+
+code(r"""
+# One call: labelled table -> GC bins -> class balancing -> precision-recall curves.
+# pr_curves() reads config.NEUTRAL_WINDOWS_BED itself, for both the population and the
+# lax truth set's label -- one join supplies both, which is what keeps this figure's
+# windows identical to panel E's apart from the enhancer-overlapping half.
+curves_s8 = D.pr_curves(truth_set="lax", seed=0) if NEUTRAL_WINDOWS_BED else None
+if curves_s8 is None:
+    print("NEUTRAL_WINDOWS_BED is not set -- Supporting Figure 8 skipped.\n"
+          "The lax truth set is the GeneHancer enhancer flag in that file, which is "
+          "licensed and\nnot derivable from the public bucket, so there is nothing to "
+          "classify against.")
+""")
+
+code(r"""
+# Guarded, so a run without NEUTRAL_WINDOWS_BED skips this figure rather than dying.
+if curves_s8 is not None:
+    # A IS TWO AXES, B IS ONE. Panel A draws one score per axes -- three GC-binned PR curves
+    # on top of each other in a single frame would be unreadable -- and the two share a y
+    # axis, which is what makes them comparable: both run to 3x the positive fraction, and
+    # after the class balancing that fraction is the same number in both.
+    # B is given the extra width: its two legend entries each carry a name and a number, and
+    # a third of the width is not enough for them beside a y-axis label that wraps to two
+    # lines. A's two axes lose nothing by being narrower -- they share a y axis and a legend
+    # that sits in already-empty space.
+    fig = plt.figure(figsize=(17.0, 5.2))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1, 1, 1.15], wspace=0.30)
+    axA1 = fig.add_subplot(gs[0])
+    axA2 = fig.add_subplot(gs[1], sharey=axA1)
+    axB = fig.add_subplot(gs[2])
+
+    for ax, key in zip((axA1, axA2), D.PR_SCORES):
+        panels.panel_pr_curves(ax, curves_s8, key, show_ylabel=ax is axA1)
+    panels.panel_aupr_by_gc(axB, curves_s8)
+
+    # Two calls, two x offsets: A's letter clears its ylabel, B's clears a two-line one.
+    panels.label_panels((axA1,), ("A",))
+    panels.label_panels((axB,), ("B",), x=-0.16)
+
+    s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
+    written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, s8_name))
+    print(f"wrote {', '.join(os.path.basename(p) for p in written)}" if written
+          else f"{s8_name}: unchanged, left alone")
+""")
+
+code(r"""
+# Guarded for the same reason as the cell above.
+if curves_s8 is not None:
+    # Numbers for Supporting Figure 8's caption. Computed over the bins the panels actually
+    # draw -- pr_curves() has already dropped those below the window floor -- so a caption
+    # cannot quote a bin the reader cannot see.
+    print("truth set: `window overlaps enhancer` (GeneHancer) from "
+          f"{os.path.basename(NEUTRAL_WINDOWS_BED)}")
+    print(f"positive fraction after balancing: {curves_s8['published']['r']:.4f}")
+    for key, c in curves_s8.items():
+        print(f"\n{c['display']}: pooled auPRC/r = {c['all']['aupr_norm']:.3f}")
+        for e in c["bins"]:
+            print(f"  GC ({e['lo']:.2f}, {e['hi']:.2f}]  n = {e['n']:>9,}  "
+                  f"auPRC/r = {e['aupr_norm']:.3f}")
+
+    pub, dec = curves_s8["published"]["bins"], curves_s8["scored"]["bins"]
+    print("\nretrained - published, per GC bin:")
+    for a, b in zip(pub, dec):
+        print(f"  GC ({a['lo']:.2f}, {a['hi']:.2f}]  {b['aupr_norm'] - a['aupr_norm']:+.3f}")
+""")
+
+
+md(r"""
 ## Numbers for the caption
 
 Everything quoted in the caption should come from here, not from memory.
@@ -1207,5 +1332,8 @@ nb = {
 # immediately overwritten by a hardcoded absolute path from one machine.)
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fig5.ipynb")
 with open(out, "w") as fh:
-    json.dump(nb, fh, indent=1)
+    # ensure_ascii=False to match what nbconvert --inplace writes back after executing.
+    # Without it every em dash in the prose lands as \u2014 here and as itself there, so
+    # a regenerate-then-execute shows several hundred lines of diff that are not changes.
+    json.dump(nb, fh, indent=1, ensure_ascii=False)
 print("wrote", out, f"({len(CELLS)} cells)")

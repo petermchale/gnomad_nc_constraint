@@ -21,12 +21,18 @@ colour. Two exemptions, both deliberate:
   * PANEL B's applied pair, R_eff and its counterfactual, which share one colour and one
     marker and differ only in linestyle. They are the same quantity under two worlds and
     should read as a pair; the contrast between them IS that panel. See panel_r_eff.
+  * SUPPORTING FIGURE 8's precision-recall panel, whose curves are not categories at all
+    but one ORDERED variable, the GC bin. Its claim is that performance departs from the
+    pooled curve in OPPOSITE directions at the two ends of the GC axis, so a diverging
+    blue-to-red ramp is the reading of the panel rather than a way of enumerating lines --
+    and it is what McHale et al.'s published Fig. 4A does. See panel_pr_curves.
 
 The Supporting Figure follows the same rule. Its single-series rows are monochrome --
 one curve and no legend leaves a hue naming nothing -- and colour survives only in its
 hypomethylation row, where two curves share an x axis and have separate y axes, and the
 hue is what says which curve reads against which scale.
 """
+import matplotlib
 import matplotlib.ticker as mticker
 import numpy as np
 
@@ -894,3 +900,120 @@ def panel_dnm_probability_pairs(ax_empirical, ax_fitted, binned: dict, min_n: in
         _finish(ax, f"{kind} P(DNM)\n{quantity}\n(non-CpG sites)", xrange,
                 show_xlabel and bottom, handles=handles[id(ax)],
                 legend_handlelength=3.2)
+
+
+# ------------------------------------------------------- Supporting Figure 8
+
+# GC-poor to GC-rich, and the reference notebook's own choice
+# (papers/neutral_models_are_biased/7.CDTS/main.2.ipynb). A DIVERGING ramp, for the reason
+# in the module docstring's third exemption: the panel's content is a departure from the
+# pooled curve in two directions, which a sequential ramp cannot show.
+GC_CMAP = "coolwarm"
+
+# Panel E draws published Gnocchi as a filled square and the score retrained on the scored
+# population as a filled up triangle. Supporting Figure 8 compares the same two quantities
+# and takes the same two glyphs, so a reader moving between the figures does not have to
+# relearn which curve is which.
+SCORE_MARKERS = {"published": SERIES_MARKERS["step2"],
+                 "scored": SERIES_MARKERS["scored"]}
+
+
+def panel_pr_curves(ax, curves: dict, key: str, ylim_scale: float = 3.0,
+                    legend: bool = True, show_ylabel: bool = True) -> None:
+    """
+    Supporting Figure 8, panel A, for ONE score -- `curves` is data.pr_curves()
+    output. Precision against recall, one line per GC bin, over the pooled curve and the
+    random-classifier baseline.
+
+    ONE SCORE PER AXES. Two scores' worth of GC-binned PR curves in a single frame is six
+    lines in one colour ramp with no way to say which belongs to which; the figure draws
+    this panel twice instead, side by side, and shares the y axis between them.
+
+    y IS PRECISION AND ITS SCALE IS SET BY THE BASELINE, not by the data: the axis runs to
+    `ylim_scale` times the positive fraction, so "3" here means "three times better than
+    guessing" whatever the truth set's prevalence, and the dashed baseline sits exactly
+    one third of the way up. That is what lets the two axes be read against each other.
+
+    The pooled black curve is not a summary of the coloured ones -- it is the performance
+    a user of the score actually gets when they do not condition on GC content. The
+    panel's point is the spread of the coloured curves AROUND it.
+    """
+    c = curves[key]
+    entries, r = c["bins"], c["r"]
+    cmap = matplotlib.colormaps[GC_CMAP]
+
+    for i, e in enumerate(entries):
+        ax.plot(e["recall"], e["precision"], color=cmap(i / max(len(entries) - 1, 1)),
+                linewidth=2, label=f"GC in ({e['lo']:.2f}, {e['hi']:.2f}]")
+    ax.plot(c["all"]["recall"], c["all"]["precision"], color="black", linewidth=3,
+            label="all GC content")
+    ax.axhline(r, color="black", linestyle="--", linewidth=2, label="random classifier")
+
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, ylim_scale * r)
+    ax.set_xlabel("Recall", fontsize=AXIS_LABEL_FONTSIZE)
+    if show_ylabel:
+        ax.set_ylabel("Precision", fontsize=AXIS_LABEL_FONTSIZE)
+    # The SHORT name, not the display one: the two axes sit either side of panel B's
+    # letter, and "Gnocchi (decontaminated training set)" is wider than its own axes and
+    # runs into it. It is also the word panel B's legend uses, so the figure names each
+    # score once and identically.
+    ax.set_title(f"Gnocchi, {c['short']}", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    # Not _finish: that helper labels x as "GC content", which is every other panel's
+    # abscissa and not this one's -- here x is recall and GC is the colour ramp.
+    if legend:
+        ax.legend(fontsize=LEGEND_FONTSIZE - 2, loc="upper right", frameon=False)
+
+
+def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = True,
+                     legend_loc: str = "lower right") -> None:
+    """
+    Supporting Figure 8, panel B. Normalized auPRC against GC content, one curve per
+    score.
+
+    y = 1 is the random classifier, by construction of the normalization, and it is the
+    only horizontal line on the panel that means anything: a curve at 1.4 finds enhancers
+    40% more precisely than guessing, averaged over the recall axis of panel A.
+
+    THIS PANEL IS THE COMPARISON THE FIGURE EXISTS FOR. Panel E of Fig. 5 establishes that
+    retraining the regional adjustment on the scored population removes the score's GC
+    bias. What it cannot say is whether the biased score was nevertheless the better
+    detector -- bias and signal-to-noise act on discovery jointly -- so the two curves
+    here are the direct test: the gap between them at a given GC is what the retraining
+    buys or costs at that GC, on identical windows and an identical set of positives.
+
+    The legend sits BOTTOM RIGHT rather than in the usual top corner: both curves fall
+    monotonically from the left edge, so the top left is where the panel's content is and
+    the bottom right is empty by construction. The pooled value travels in the legend
+    label because it is the number a reader wants beside the curve -- the performance
+    someone gets from the score without conditioning on GC at all -- and it has no place
+    on the axes, which are conditional on GC everywhere.
+    """
+    for key, c in curves.items():
+        if not c["bins"]:
+            continue
+        ax.plot([e["mid"] for e in c["bins"]], [e["aupr_norm"] for e in c["bins"]],
+                marker=SCORE_MARKERS[key], color=MONO,
+                markerfacecolor="white" if key == "published" else MONO,
+                markeredgewidth=1.2, markersize=6, linewidth=2,
+                label=f"Gnocchi, {c['short']} (pooled {c['all']['aupr_norm']:.3f})")
+    ax.axhline(1.0, **REF_LINE_KW)
+
+    # Headroom BELOW the y = 1 reference, which autoscaling does not leave: every curve
+    # point sits above 1, so matplotlib puts the bottom spine within a hair of the dashed
+    # line and the legend then prints across it. The reference is what the whole y axis is
+    # read against and must not be crossed out by a label.
+    ys = [e["aupr_norm"] for cv in curves.values() for e in cv["bins"]]
+    lo, hi = min(min(ys), 1.0), max(ys)
+    ax.set_ylim(lo - 0.22 * (hi - lo), hi + 0.04 * (hi - lo))
+
+    # A size down: each label carries a name AND a number, and this panel is a third of
+    # the figure's width, where the default size overflows the axes to the left and lands
+    # the legend on the y tick labels.
+    _finish(ax, "auPRC (normalized by\npositive-class fraction)", xrange, show_xlabel,
+            legend_loc=legend_loc, legend_fontsize=LEGEND_FONTSIZE - 2)

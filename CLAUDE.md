@@ -281,6 +281,51 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    changed) and re-place the PDFs in `fig5.neutral.ai`. Panel D's placed PDF changes aspect
    ratio there (4.6 in tall -> 7.6, matching panel C), so its frame needs resizing rather
    than only relinking.
+   **Supporting Figure 8 was added to the notebook on 2026-09-02** (four new cells
+   spliced in before "Numbers for the caption"; every other cell kept its committed
+   outputs). It lives where Supporting Figure 7 does -- `data.pr_curves(truth_set="lax")`
+   in `fig5/data.py`, `panels.panel_pr_curves` / `panels.panel_aupr_by_gc` in
+   `fig5/panels.py` -- and has no module or entry point of its own. NAMES ARE ORGANIZED ON
+   LAX vs STRINGENT, McHale et al.'s own vocabulary for their two truth sets: the lax one
+   (GeneHancer overlap, their Fig. 4A/B) is what is built; the stringent one (noncoding
+   windows regulating essential genes, their Fig. 4C/D, from
+   `11.compare-lax-with-stringent-truth-set.ipynb`) is the planned second value of
+   `truth_set` and needs its own labelled-window builder, GC bins and bin floor.
+   Per-truth-set constants carry the name (`LAX_GC_BINS`, `LAX_MIN_BIN_WINDOWS`); shared
+   ones do not (`PR_SCORES`, `TRUTH_TARGET`). Do not put "enhancer" back into these names
+   -- that is how the LAX set is defined, not what the section is about.
+   **The stringent set's spec was read off their notebook on 2026-09-03 and written into
+   `fig5/data.py`'s section header** (three numbered items). Two things there are not
+   guessable and will govern the work: it is a THIRD hand-supplied file
+   (`{CONSTRAINT_TOOLS_DATA}/stringent_truth_set/truth-set.gnocchi.lambda_s.depletion_rank.CDTS.bed`,
+   4,933 rows, target column `truly constrained`, coordinate column `chromosome` not
+   `chrom`), and **its intervals are NOT on Chen's 1 kb grid** -- positives are enhancer
+   intervals of arbitrary length and offset (200 bp, 800 bp), only negatives are tiles --
+   so the retrained score cannot be joined by a string-built `element_id` and needs an
+   interval overlap plus a spanning rule, matching whatever rule their own `gnocchi`
+   column was carried over by. Their Fig. 4C/D are also a DIFFERENT statistic from
+   Supporting Fig. 8's (1,000 bootstrap resamples, exactly two feature bins, mean/sd of
+   auPRC/r and of the between-bin difference, lax set size-matched to the stringent one),
+   so they are new builders rather than another `truth_set` value through `pr_curves`.
+   One more number from that notebook, worth expecting rather than quoting: their lax
+   file has **1,003,227 rows**, so the enhancer-overlapping half is ~31% -- the real run's
+   truth-set join will be far smaller than the 1,843,559-row stand-in used offline.
+   Those four cells are UNEXECUTED and `output/supp_fig8.neutral.pdf`
+   does not exist yet -- the same HPC rebuild produces it, and it needs no extra refit
+   (it reads the `scored` one panel E already uses). It builds a SECOND window table, so
+   it is the slowest cell in the notebook.
+   **It has never been run against the real truth set**, which is the GeneHancer
+   `window overlaps enhancer` flag in `NEUTRAL_WINDOWS_BED` -- licensed, HPC-only, and
+   with no substitute in the public bucket, so unlike every other panel this one raises
+   rather than builds when that file is unset. Offline it has only been smoke-tested with
+   a synthesized stand-in BED carrying the real schema and a made-up flag, which
+   exercises the code path and says nothing about the answer. There are therefore NO
+   quotable numbers for this figure yet. The one thing the smoke tests did show
+   repeatedly, and which is worth expecting rather than quoting: the two curves nearly
+   coincide, with the retrained one slightly LOWER in every GC bin and the same downward
+   slope -- i.e. removing the score's GC bias need not remove the GC dependence of its
+   PERFORMANCE, consistent with McHale et al. attributing that dependence to
+   signal-to-noise rather than to bias.
 2. **The manuscript text is written**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
    and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
    drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.
