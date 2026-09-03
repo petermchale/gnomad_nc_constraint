@@ -266,7 +266,15 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
     Prints the published-vs-refit agreement in r_eff. Read it before trusting the
     CpG/non-CpG split: it is what licenses using the refit's per-context r at all.
     """
-    comp = cached(f"r_eff_components.{pop}.parquet",
+    # config.tagged, not a bare `pop`, and today that changes NOTHING: panel B is the only
+    # caller, it passes pop="full", and `full` is not WINDOW_DEPENDENT -- its refit never
+    # builds the window table, so its tables are identical under either window set and one
+    # cache correctly serves both. The tag matters only if this is ever called with
+    # "scored" or "sizematched", whose content DOES move with config.NEUTRAL_WINDOWS_BED.
+    # It would move silently: cached() short-circuits before the builder runs, so
+    # refit_path -- and therefore config.check -- is never reached on a cache hit. Naming
+    # the cache the way the refit it is built from is named closes that off in advance.
+    comp = cached(f"r_eff_components.{config.tagged(pop)}.parquet",
                   lambda: _r_eff_components(pop, cache_dir, refits_dir, memory_limit),
                   force)
     df = df_win.join(comp, on="element_id", how="inner")

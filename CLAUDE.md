@@ -312,8 +312,16 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    truth-set join will be far smaller than the 1,843,559-row stand-in used offline.
    Those four cells are UNEXECUTED and `output/supp_fig8.neutral.pdf`
    does not exist yet -- the same HPC rebuild produces it, and it needs no extra refit
-   (it reads the `scored` one panel E already uses). It builds a SECOND window table, so
-   it is the slowest cell in the notebook.
+   (it reads the `scored` one panel E already uses). It builds a SECOND window table, on
+   a population panel E does not have -- but that is CHEAP, and an earlier note here
+   calling it the notebook's slowest cell was wrong: measured on a warm cache, the whole
+   of Supporting Figure 8 is ~3.6 s (window table 1.8, refit join 0.4, z 0.2, balancing
+   0.2, PR curves 1.0), because `load_joined_table`'s duckdb scan is column-pruned and
+   takes 1.9 s over 1.9 GB of CSV. For scale, panel D reads three 115 MB prediction tables
+   at ~0.6 s each, and panels B/C and Supporting Fig. 7 rebuild in ~0 s from their parquet
+   caches. The rebuild's cost is Illustrator relinking and attention, not compute; the
+   only genuinely slow thing in this figure is `refit.py` (~6 min per population), and no
+   training population changed.
    **It has never been run against the real truth set**, which is the GeneHancer
    `window overlaps enhancer` flag in `NEUTRAL_WINDOWS_BED` -- licensed, HPC-only, and
    with no substitute in the public bucket, so unlike every other panel this one raises

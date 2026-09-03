@@ -65,8 +65,16 @@ WINDOW_DEPENDENT = ("scored", "sizematched")
 # outputs land BESIDE each other instead of overwriting: the refit tables, their
 # provenance entries, and the panel PDFs. Empty for the default set, so nothing that
 # exists today is renamed and fig5.ai's links keep resolving; the narrowed set's files
-# gain `.neutral`. The parquet caches in fig5/output/ do not need it -- they already
-# carry a fingerprint of the GC edges and the window set itself.
+# gain `.neutral`.
+#
+# The parquet caches in fig5/output/ do not need it, but for two DIFFERENT reasons, and
+# the distinction is worth keeping straight because only one of them is a guard.
+# dnm_rate_by_stratum's and cpg_methylation_by_gc's names carry a fingerprint of the GC
+# edges and the window population, which moves when this does (data._fingerprint).
+# r_eff_components carries neither, and does not need to: it is built for pop="full"
+# alone, which is not WINDOW_DEPENDENT, so its content does not move with the window set
+# at all. Its key still routes through tagged() so that a caller passing a
+# window-dependent population would get a distinct file rather than a silent reuse.
 WINDOW_SET_SUFFIX = "" if NEUTRAL_WINDOWS_BED is None else ".neutral"
 
 

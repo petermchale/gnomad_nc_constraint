@@ -1131,8 +1131,11 @@ redistributable, so there is no version of it derivable from the public bucket. 
 below check and skip rather than classify against some other annotation, which would be a
 different experiment wearing this figure's name.
 
-This is also the one place in the notebook that builds a **second** window table (a
-different population from panel E's), so it is the slowest cell here.
+This is the one place in the notebook that builds a **second** window table, on a
+different population from panel E's — but that is cheap, not the bottleneck it sounds
+like: the duckdb scan behind it is column-pruned, and the whole figure (window table,
+refit join, $z$, balancing, both panels' PR curves) times at **under four seconds** on a
+warm cache. Adding it costs the rebuild essentially nothing.
 """)
 
 code(r"""
