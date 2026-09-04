@@ -972,7 +972,7 @@ def panel_pr_curves(ax, curves: dict, key: str, ylim_scale: float = 3.0,
 
 
 def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = True,
-                     legend_loc: str = "lower right") -> None:
+                     legend_loc: str = "lower right", deltas=None) -> None:
     """
     Supporting Figure 8, panel B. Normalized auPRC against GC content, one curve per
     score.
@@ -988,6 +988,23 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
     here are the direct test: the gap between them at a given GC is what the retraining
     buys or costs at that GC, on identical windows and an identical set of positives.
 
+    `deltas` PUTS THE PAIRED INTERVAL ON THE RETRAINED CURVE, and it is drawn on ONE curve
+    rather than both for a reason that matters. Independent bars on the two curves would be
+    the wrong object twice over: they would describe the uncertainty of each LEVEL when the
+    question is about the GAP, and they would be far WIDER than the gap's own interval,
+    because the two scores are columns of one table and almost all of the sampling
+    variability -- which windows the truth set happens to contain -- is common to both and
+    cancels in the difference. Marginal bars would therefore hide the one real difference
+    here (-1.40% at GC 0.40-0.50) while still leaving the eye-catching top-bin gap
+    ambiguous. So the bar drawn on each retrained point is its 95% paired-bootstrap
+    interval RELATIVE TO PUBLISHED, mapped back into this panel's units: the published
+    value in that bin times (1 + the interval on the relative gain). A bar that excludes
+    the published marker is a real difference; one that spans it is not.
+
+    `deltas` must be data.pr_curve_deltas() run on THIS panel's bins and balancing --
+    gc_bins=LAX_GC_BINS, min_n=LAX_MIN_BIN_WINDOWS, balance=True -- or the interval belongs
+    to a different statistic than the markers. Bins are matched on their midpoint.
+
     The legend sits BOTTOM RIGHT rather than in the usual top corner: both curves fall
     monotonically from the left edge, so the top left is where the panel's content is and
     the bottom right is empty by construction. The pooled value travels in the legend
@@ -995,14 +1012,38 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
     someone gets from the score without conditioning on GC at all -- and it has no place
     on the axes, which are conditional on GC everywhere.
     """
+    # The relative gain is the same for auPRC and for auPRC/r, since within a bin both
+    # scores are divided by the same base rate -- so the interval maps into this panel's
+    # units by scaling the PUBLISHED level, with no renormalisation.
+    ci = {}
+    if deltas is not None:
+        pub = {round(e["mid"], 6): e["aupr_norm"] for e in curves["published"]["bins"]}
+        for row in deltas.iter_rows(named=True):
+            base = pub.get(round(row["mid"], 6))
+            if base is not None:
+                ci[round(row["mid"], 6)] = (base * (1 + row["ci_lo"]),
+                                            base * (1 + row["ci_hi"]))
+
     for key, c in curves.items():
         if not c["bins"]:
             continue
-        ax.plot([e["mid"] for e in c["bins"]], [e["aupr_norm"] for e in c["bins"]],
-                marker=SCORE_MARKERS[key], color=MONO,
-                markerfacecolor="white" if key == "published" else MONO,
-                markeredgewidth=1.2, markersize=6, linewidth=2,
-                label=f"Gnocchi, {c['short']} (pooled {c['all']['aupr_norm']:.3f})")
+        x = np.array([e["mid"] for e in c["bins"]])
+        y = np.array([e["aupr_norm"] for e in c["bins"]])
+        yerr = None
+        if key == "scored" and ci:
+            lo = np.array([y[i] - ci.get(round(v, 6), (y[i], y[i]))[0]
+                           for i, v in enumerate(x)])
+            hi = np.array([ci.get(round(v, 6), (y[i], y[i]))[1] - y[i]
+                           for i, v in enumerate(x)])
+            yerr = np.vstack([np.maximum(lo, 0), np.maximum(hi, 0)])
+        label = f"Gnocchi, {c['short']} (pooled {c['all']['aupr_norm']:.3f})"
+        if yerr is not None:
+            label += ", 95% CI vs published"
+        ax.errorbar(x, y, yerr=yerr,
+                    marker=SCORE_MARKERS[key], color=MONO,
+                    markerfacecolor="white" if key == "published" else MONO,
+                    markeredgewidth=1.2, markersize=6, linewidth=2,
+                    capsize=3, elinewidth=1.2, label=label)
     ax.axhline(1.0, **REF_LINE_KW)
 
     # Headroom BELOW the y = 1 reference, which autoscaling does not leave: every curve

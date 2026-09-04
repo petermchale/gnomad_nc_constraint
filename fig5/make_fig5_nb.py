@@ -1114,10 +1114,19 @@ neutral windows alone (that is the intervention), and **evaluated** here on neut
 enhancer windows. Fit on the negatives, scored on both, which is what a classifier
 requires. The caption should say so.
 
-| | Shows | Quantity |
-|---|---|---|
-| **A** | Performance falls steeply with GC, and does so for *both* scores | auPRC normalized by the positive-class fraction, vs GC content, one curve per score |
-| **B** | Whether any of A's gap is real | the **paired** gain of the retrained score over the published one, per GC bin, with a bootstrap 95% CI |
+**A single panel:** auPRC normalized by the positive-class fraction, against GC content,
+one curve per score — with the retrained curve carrying **its 95% paired-bootstrap interval
+relative to published**. A bar that excludes the published marker in that bin is a real
+difference; one that spans it is not.
+
+**Those bars are on one curve, and are not marginal error bars.** Independent intervals on
+the two curves would be the wrong object twice over: they would describe the uncertainty of
+each *level* when the question is about the *gap*, and they would be far **wider** than the
+gap's own interval, because the two scores are columns of one table and almost all of the
+sampling variability — which windows the truth set happens to contain — is common to both
+and cancels in the difference. Each bootstrap replicate therefore resamples a bin's rows
+once and scores *both* models on that resample; the resulting interval on the relative gain
+is mapped back into this panel's units by scaling the published level.
 
 The per-bin precision–recall curves themselves — McHale et al.'s Fig. 4A, one line per GC
 bin over a pooled curve and a random-classifier baseline — are computed and available
@@ -1130,30 +1139,27 @@ published's by mid-recall.
 **This figure is nearly blind to the bias, which is why there is a second one.** Both
 panels are *within-bin ranking* statistics, and a GC-dependent bias is very nearly a common shift
 applied to every window in a narrow bin — positives and negatives alike. A common shift
-cannot change a ranking, so it cancels, which is why A's two curves nearly coincide and B
-finds differences of order 1%. That is not a null result about the bias; it is a statement
+cannot change a ranking, so it cancels, which is why the two curves nearly coincide and the
+paired intervals put their differences at order 1%. That is not a null result about the bias; it is a statement
 that auPRC within a GC bin is the wrong instrument for detecting it. Two consequences worth
 stating in the caption:
 
-* The steep decline of auPRC with GC in **A** *survives debiasing intact*. Since bias is
+* The steep decline of auPRC with GC *survives debiasing intact*. Since bias is
   the one thing that changed, what remains must be **signal-to-noise** — which is what
   McHale et al. conjectured in their text, now measured rather than assumed.
 * To see the bias, hold the *threshold* fixed instead of the rank. Then the shift stops
   cancelling and decides how many windows in each GC bin are called at all. That is
   **Supporting Figure 9**.
 
-**Panel B is where this figure's claim is decided, and A cannot do its job.** A draws two
-curves that cross and wobble, without uncertainty, so a reader cannot separate a real gap
-from a thin bin — and A's most eye-catching feature, the gap in its top drawn bin (1.199
-against 1.298), is precisely the one that does **not** survive: B's merged tail bin reads
-−0.04% [−0.86, +0.90]. B reduces the comparison to one number per bin with an
-interval on it, and three choices make that interval narrow enough to be worth drawing:
-it is **paired** (the two scores are columns of one table, so each bootstrap replicate
-resamples a bin's rows once and scores *both* models on that resample, and the variability
-in which windows the truth set happens to contain cancels); it is **unbalanced** (the class
-balancing exists to make bins comparable in level, is unnecessary within a bin, and costs
-four fifths of the positives); and its **top bin is merged** to (0.55, 0.80], because their
-file is nearly empty above GC 0.60.
+**The bars are what stops the panel being misread.** Its most eye-catching feature is the
+gap in the top drawn bin — 1.199 against 1.298, a visible separation on 6,217 windows —
+and that is exactly the difference that does not survive. Without an interval a reader goes
+straight to it; with one, the panel says so itself.
+
+The interval is computed on **this panel's own bins and balancing**
+(`gc_bins=LAX_GC_BINS, min_n=LAX_MIN_BIN_WINDOWS, balance=True`), not on
+`pr_curve_deltas`' defaults, which merge the tail and drop the balancing for reasons that
+apply to a standalone difference panel and not to bars sitting on these markers.
 """)
 
 code(r"""
@@ -1173,8 +1179,13 @@ code(r"""
 # Panel C: the paired bootstrap. Its own cell because it is the one slow step in this
 # figure -- ~500 resamples x one precision-recall pass per drawn bin, twice -- and because
 # re-running it should not mean rebuilding A and B. A couple of minutes.
-deltas_s8 = D.pr_curve_deltas(truth_set="lax", seed=0, n_bootstrap=500) \
-    if NEUTRAL_WINDOWS_BED else None
+# ON PANEL A's OWN BINS AND BALANCING, because its output is drawn as A's error bars and
+# an interval computed on a different population would belong to a different statistic
+# than the markers it sits on. That is why gc_bins/min_n/balance are passed explicitly
+# here and defaulted everywhere else.
+deltas_s8 = D.pr_curve_deltas(truth_set="lax", seed=0, n_bootstrap=500,
+                              gc_bins=D.LAX_GC_BINS, min_n=D.LAX_MIN_BIN_WINDOWS,
+                              balance=True) if NEUTRAL_WINDOWS_BED else None
 """)
 
 code(r"""
@@ -1184,17 +1195,11 @@ if curves_s8 is not None:
     # curves that A summarises are deliberately not drawn -- see the markdown above --
     # which is one line to restore if the manuscript wants McHale et al.'s Fig. 4A beside
     # this: panels.panel_pr_curves(ax, curves_s8, key) once per score.
-    fig = plt.figure(figsize=(13.5, 5.0))
-    gs = fig.add_gridspec(1, 2, wspace=0.30)
-    axA = fig.add_subplot(gs[0, 0])
-    axB = fig.add_subplot(gs[0, 1])
-
-    panels.panel_aupr_by_gc(axA, curves_s8)
-    if deltas_s8 is not None:
-        panels.panel_aupr_delta(axB, deltas_s8)
-
-    for ax, lab in ((axA, "A"), (axB, "B")):
-        panels.label_panels((ax,), (lab,), x=-0.16)
+    # ONE PANEL. The paired interval that used to be a second panel is drawn here as the
+    # retrained curve's error bars -- see panel_aupr_by_gc for why they go on one curve and
+    # what they mean. A bar that excludes the published marker is a real difference.
+    fig, ax = plt.subplots(figsize=(7.2, 5.0))
+    panels.panel_aupr_by_gc(ax, curves_s8, deltas=deltas_s8)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
     written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, s8_name))

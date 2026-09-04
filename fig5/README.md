@@ -30,7 +30,14 @@ merged to (0.55, 0.80] because their file is nearly empty above GC 0.60.
 nearly blind to it.** That is the seam the two figures are split along: 8 is threshold-free
 (how the score ranks, integrated over all cutoffs, two panels), 9 is at a fixed operating
 point (what happens when you apply a cutoff, four panels, and the analyst-facing argument).
-Formerly one nine-panel figure. A, B
+Formerly one nine-panel figure.
+
+Supporting Figure 8 is a single panel: auPRC/`r` against GC for both scores, with the
+retrained curve carrying its **paired** bootstrap interval relative to published. Those
+bars are on one curve deliberately — independent intervals would describe the uncertainty
+of each *level* when the question is about the *gap*, and would be wider than the gap's own
+interval, since the two scores share almost all of their sampling variability. A bar that
+excludes the published marker is a real difference. A, B
 and C are within-bin *ranking* statistics, and a GC-dependent bias is very nearly a common
 shift on every window in a narrow bin — positives and negatives alike — so it cancels.
 That is why B's curves coincide, and it means the steep decline of auPRC with GC *survives
