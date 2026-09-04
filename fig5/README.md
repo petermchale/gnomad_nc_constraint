@@ -38,6 +38,14 @@ proxy; it is the most robust claim the figure makes. E (precision) is the analys
 number and will *not* be flattened by the correction, because the base rate itself climbs
 ~7.7× across these bins — hence the dashed base-rate reference, against which the gap, not
 the height, is what carries information.
+
+**D–F compare the two scores at a matched calling rate**, not at a common `z`. Retraining
+shifts the whole `z` distribution: at `z ≥ 4` published calls ~1.0% of windows and the
+retrained score ~0.13%, eight times fewer, so a common cutoff would credit the retrained
+score for being strict (higher precision) and penalise it for the same reason (lower
+recall). Published is held at 4 and the other takes the quantile calling the same
+fraction; each legend carries its own threshold. Panel D's swing is a within-score ratio
+and is unaffected either way.
 **"Lax" is McHale et al.'s own word and the axis these names are organized on**: a truth
 set says which windows count as constrained; the lax one is GeneHancer overlap (big, but
 not every enhancer window is under selection) and their **stringent** one — noncoding

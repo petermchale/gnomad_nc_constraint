@@ -1238,7 +1238,9 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       cache_dir: str = CACHE_DIR,
                       neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
                       refit_expected: str | None = None, gc_bins: list | None = None,
-                      min_n: int = DELTA_MIN_BIN_WINDOWS) -> pl.DataFrame:
+                      min_n: int = DELTA_MIN_BIN_WINDOWS,
+                      match_call_rate: bool = True,
+                      reference_score: str = "published") -> pl.DataFrame:
     """
     Precision, recall and calling rate at a FIXED Gnocchi threshold, per GC bin, for both
     scores. Panels D and E, and the numbers behind them.
@@ -1279,32 +1281,78 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     read a residual slope in precision as a residual bias: declining signal-to-noise with GC
     survives debiasing (that is panels B/C's finding) and shows up here too.
 
+    THE TWO SCORES ARE COMPARED AT A MATCHED CALLING RATE, NOT AT A COMMON NUMBER, and
+    without that these panels would be uninterpretable. Retraining moves the whole z
+    distribution, not only its GC dependence: at Gnocchi >= 4 the published score calls
+    about 1.00% of windows and the retrained one about 0.13%, EIGHT TIMES fewer, so the
+    same numeral is a far stricter cutoff for one than the other. Precision almost always
+    rises as a threshold moves further into the tail, so a naive comparison at z >= 4 would
+    credit the retrained score for being strict and penalise its recall for the same
+    reason -- neither of which is a statement about GC bias.
+
+    So `reference_score` is held at `threshold` and every other score gets the quantile of
+    its own z that calls the SAME fraction of windows. Each score's threshold is reported
+    in `threshold_used` and printed, and the panels put it in the legend. Panel D's
+    headline survives either way -- 80x against 2.3x is a ratio computed WITHIN each score,
+    so a common rescaling cannot touch it -- but E and F are only apples-to-apples this
+    way. `match_call_rate=False` recovers the naive common-threshold comparison, which is
+    worth looking at once to see the confound rather than to quote.
+
+    The matching is computed over the windows in the DRAWN bins, so the fraction being
+    matched is the one the panels actually cover.
+
     UNBALANCED, unlike panels A and B. The base rate an analyst faces is the real one; class
     balancing would answer a question nobody has. The prevalence reference line is what
     keeps the bins comparable instead.
 
     Intervals are Wilson, per curve -- see _wilson for why not a bootstrap here.
 
-    Returns one row per (GC bin, score): lo, hi, mid, score, n, n_pos, r, n_called,
-    call_rate, precision, precision_lo, precision_hi, recall, recall_lo, recall_hi, lift.
+    Returns one row per (GC bin, score): lo, hi, mid, score, threshold_used, n, n_pos, r,
+    n_called, call_rate, call_rate_lo, call_rate_hi, precision, precision_lo,
+    precision_hi, recall, recall_lo, recall_hi, lift.
     """
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
 
+    if reference_score not in PR_SCORES:
+        raise ValueError(f"reference_score={reference_score!r} is not one of {list(PR_SCORES)}")
+
     df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
     df = _assign_gc_bins(df, gc_bins)
 
-    rows = []
+    # Which bins get drawn, decided before the matching so the fraction being matched is
+    # the one the panels cover.
+    drawn = []
     for b, (lo, hi) in enumerate(gc_bins):
+        n = df.filter(pl.col("gc_bin") == b).height
+        if n < min_n:
+            print(f"  GC ({lo}, {hi}] dropped, n = {n:,} < {min_n:,}")
+        else:
+            drawn.append(b)
+    df = df.filter(pl.col("gc_bin").is_in(drawn))
+
+    thresholds = {k: threshold for k in PR_SCORES}
+    if match_call_rate:
+        ref = df[f"z_{reference_score}"].to_numpy()
+        target = float((ref >= threshold).mean())
+        for key in PR_SCORES:
+            if key == reference_score:
+                continue
+            thresholds[key] = float(np.quantile(df[f"z_{key}"].to_numpy(), 1.0 - target))
+        print(f"  matched calling rate: {100 * target:.3f}% of the {df.height:,} windows "
+              f"drawn, set by {reference_score} at z >= {threshold:g}")
+        for key, t in thresholds.items():
+            print(f"    {PR_SCORES[key][2]:<15} z >= {t:.3f}")
+
+    rows = []
+    for b in drawn:
+        lo, hi = gc_bins[b]
         sub = df.filter(pl.col("gc_bin") == b)
-        if sub.height < min_n:
-            print(f"  GC ({lo}, {hi}] dropped, n = {sub.height:,} < {min_n:,}")
-            continue
         y = sub[TRUTH_TARGET].to_numpy()
         n_pos = int(y.sum())
         for key, (_, display, short) in PR_SCORES.items():
-            called = sub[f"z_{key}"].to_numpy() >= threshold
+            called = sub[f"z_{key}"].to_numpy() >= thresholds[key]
             n_called = int(called.sum())
             tp = int((called & y).sum())
             prec_lo, prec_hi = _wilson(tp, n_called)
@@ -1314,6 +1362,7 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
             rows.append({
                 "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "score": key,
                 "display": display, "short": short,
+                "threshold_used": thresholds[key],
                 "n": sub.height, "n_pos": n_pos, "r": r,
                 "n_called": n_called, "call_rate": n_called / sub.height,
                 "call_rate_lo": call_lo, "call_rate_hi": call_hi,

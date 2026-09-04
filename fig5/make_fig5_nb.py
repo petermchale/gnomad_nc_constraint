@@ -1141,6 +1141,20 @@ worth stating in the caption:
 regions (Gnocchi ≥ 4)"), not a choice of ours, and they are computed **unbalanced** —
 the base rate an analyst faces is the real one.
 
+**The two scores are compared at a matched calling rate, not at a common number.**
+Retraining moves the whole $z$ distribution, not only its GC dependence: at $z\geq4$ the
+published score calls about 1.0% of windows and the retrained one about 0.13%, *eight
+times fewer*, so the same numeral is a far stricter cutoff for one than the other.
+Precision almost always rises as a threshold moves further into the tail, so a naive
+comparison at a common $z$ would credit the retrained score for being strict and penalise
+its recall for the same reason — neither of which is a statement about GC bias. So
+published is held at 4 and the retrained score takes the quantile of its own $z$ that
+calls the same fraction; each panel's legend carries its own threshold. **Panel D's
+headline survives either way**, since a swing across GC is a ratio computed *within* one
+score and a common rescaling cannot touch it — but E and F are only apples-to-apples this
+way. Setting `match_call_rate=False` recovers the naive comparison, which is worth looking
+at once to see the confound rather than to quote.
+
 **Panel D needs no truth set at all.** The fraction of windows clearing a fixed cutoff is a
 property of the score and of GC content; no labels enter. It is therefore the most robust
 claim in this figure — it depends on neither GeneHancer nor the laxness of an
@@ -1223,7 +1237,8 @@ code(r"""
 # Panels D-F: everything at a FIXED threshold. Cheap -- no bootstrap, Wilson intervals in
 # closed form, since these are plain proportions and the panels draw levels rather than a
 # paired difference.
-tm_s8 = D.threshold_metrics(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax") \
+tm_s8 = D.threshold_metrics(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
+                            match_call_rate=True) \
     if NEUTRAL_WINDOWS_BED else None
 """)
 
@@ -1313,13 +1328,16 @@ if deltas_s8 is not None:
               f"P(>0) = {r['p_gt0']:.3f}{star}")
 
 if tm_s8 is not None:
-    print(f"\npanels D-F, at Gnocchi >= {D.GNOCCHI_THRESHOLD:g} (Chen et al.'s own cutoff),")
-    print("unbalanced. call_rate uses NO labels, so it is the most robust number here.")
+    print(f"\npanels D-F. Published held at Gnocchi >= {D.GNOCCHI_THRESHOLD:g} (Chen")
+    print("et al.'s own cutoff); the retrained score takes the threshold calling the SAME")
+    print("fraction of windows, so precision and recall compare like with like. Unbalanced.")
+    print("call_rate uses NO labels, so it is the most robust number here.")
     for key in D.PR_SCORES:
         rows = tm_s8.filter(pl.col("score") == key).sort("mid")
         cr = rows["call_rate"].to_numpy()
-        print(f"\n  Gnocchi, {rows['short'][0]}:  calling rate spans "
-              f"{100 * cr.min():.2f}% - {100 * cr.max():.2f}%  ({cr.max() / cr.min():.0f}x)")
+        print(f"\n  Gnocchi, {rows['short'][0]} (z >= {rows['threshold_used'][0]:.3f}):  "
+              f"calling rate spans {100 * cr.min():.2f}% - {100 * cr.max():.2f}%  "
+              f"({cr.max() / cr.min():.0f}x across GC)")
         for r in rows.iter_rows(named=True):
             print(f"    GC ({r['lo']:.2f}, {r['hi']:.2f}]  called {r['n_called']:>7,} "
                   f"({100 * r['call_rate']:6.2f}%)  precision {r['precision']:.3f} "

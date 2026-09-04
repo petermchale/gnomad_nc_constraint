@@ -1109,11 +1109,16 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
         raise ValueError(
             f"metric must be 'call_rate', 'precision' or 'recall', not {metric!r}")
     logy = (metric == "call_rate") if logy is None else logy
-    # Precision rises from bottom left to top right and fills the upper left; the other two
-    # are read against a flat corrected curve low on the axes, where a top-left legend sits
-    # in empty space.
-    legend_loc = ("lower right" if metric == "precision" else "upper left") \
-        if legend_loc is None else legend_loc
+    # PRECISION IS THE ODD ONE OUT and needs both a different corner and a shorter
+    # legend. Its two curves run diagonally from bottom left to top right with a base-rate
+    # line beneath them, so no corner is free: upper left sits on the curves, and lower
+    # right -- the emptiest region -- is only wide enough if the entries are short. So the
+    # thresholds are dropped from ITS legend and carried by D and F, which are log panels
+    # whose published curve leaves the whole top-left empty. The caption says the two
+    # scores are matched on calling rate; the panel beside it shows the numbers.
+    legend_loc = (("lower right" if metric == "precision" else "upper left")
+                  if legend_loc is None else legend_loc)
+    with_threshold = metric != "precision"
 
     for key in ("published", "scored"):
         rows = _threshold_series(tm, key)
@@ -1123,11 +1128,20 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
         y = rows[metric].to_numpy()
         lo = y - rows[f"{metric}_lo"].to_numpy()
         hi = rows[f"{metric}_hi"].to_numpy() - y
+        # EACH SCORE'S OWN THRESHOLD GOES IN ITS LEGEND ENTRY, because they are not the
+        # same number: data.threshold_metrics matches the two on CALLING RATE rather than
+        # on z, so that precision and recall compare like with like (retraining moves the
+        # whole z distribution, so a common cutoff is ~8x stricter for the retrained score
+        # -- see that function). A reader who is not told will assume a common cutoff.
+        t = float(rows["threshold_used"][0])
+        label = f"Gnocchi, {rows['short'][0]}"
+        if with_threshold:
+            label += f"  ($z \\geq {t:.2f}$)"
         ax.errorbar(x, y, yerr=np.vstack([lo, hi]),
                     marker=SCORE_MARKERS[key], color=MONO,
                     markerfacecolor="white" if key == "published" else MONO,
                     markeredgewidth=1.2, markersize=6, linewidth=2, capsize=3,
-                    elinewidth=1.2, label=f"Gnocchi, {rows['short'][0]}")
+                    elinewidth=1.2, label=label)
 
     if metric == "precision" and show_prevalence:
         base = _threshold_series(tm, "published")
@@ -1140,11 +1154,20 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(
             lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
         ax.yaxis.set_minor_formatter(mticker.NullFormatter())
+        # Headroom for the legend. The legend sits upper LEFT and the published curve's
+        # top point is upper RIGHT, but the box spans most of the panel width, so without
+        # this the entry runs into that marker. A factor on a log axis, not a margin.
+        vals = [v for v in tm["call_rate" if metric == "call_rate" else metric].to_list()
+                if v and v > 0]
+        if vals:
+            ax.set_ylim(min(vals) / 1.6, max(vals) * 4.0)
+    # The threshold is NOT in the y label: the two curves use different ones (matched on
+    # calling rate), so a single number in the label would be wrong for one of them. Each
+    # legend entry carries its own instead.
     ylabel = {
-        "call_rate": f"Windows called (Gnocchi $\\geq$ {threshold:g})",
-        "precision": f"P(constrained | Gnocchi $\\geq$ {threshold:g})",
-        "recall": ("Fraction of constrained windows\n"
-                   f"with Gnocchi $\\geq$ {threshold:g}"),
+        "call_rate": "Windows called",
+        "precision": "P(constrained | called)",
+        "recall": "Fraction of constrained\nwindows called",
     }[metric]
     _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
