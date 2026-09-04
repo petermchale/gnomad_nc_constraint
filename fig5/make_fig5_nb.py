@@ -1077,89 +1077,47 @@ print(shown.select(["gc_pct", "n", "mean_methyl", "frac_hypomethylated", "p"]))
 """)
 
 md(r"""
-## Supporting Figure 8 — what panel E buys, or costs, in *discovery*
+## Supporting Figure 8 — what panel E's fix does to *discovery*
 
 Panel E says the retrained score is no longer GC-biased. It cannot say whether the biased
-score was nevertheless the better **detector**: bias and signal-to-noise act on discovery
-jointly (McHale et al.'s Fig. 3), and only one of the two has been changed. This figure is
-that test, built as McHale et al.'s **Fig. 4A/B** — a classifier that calls a window
-constrained when its Gnocchi $z$ exceeds a threshold, a **lax** truth set (does the window
-overlap a GeneHancer enhancer), and performance read off the precision–recall curve
-*within each GC bin* — with **two Gnocchi variants in place of their four constraint
-metrics**.
+score was nevertheless the better **detector**, since bias and signal-to-noise act on
+discovery jointly (McHale et al.'s Fig. 3) and only one of them changed. This figure is
+that test, built as their **Fig. 4A/B**: call a window constrained when Gnocchi $z$ exceeds
+a threshold, label it constrained if it overlaps a GeneHancer enhancer, and read
+performance off the precision–recall curve *within each GC bin* — with two Gnocchi variants
+in place of their four metrics.
 
-***Lax* is McHale et al.'s own word, and it anticipates its opposite.** Not every
-enhancer-overlapping window is under strong selection — GeneHancer covers 18.4% of the
-noncoding genome while perhaps 4.51% of it is under human-specific selection — so the lax
-set buys *size*, enough windows to resolve performance deep in the GC tails, at the cost of
-label confidence. Their **stringent** truth set (Fig. 4C/D: noncoding windows that regulate
-essential genes, against an equal number overlapping no enhancer at all) makes the opposite
-trade, and is **not built here yet**. `data.pr_curves` takes a `truth_set` argument and
-accepts only `"lax"` so far; the constants that belong to a truth set carry its name
-(`LAX_GC_BINS`, `LAX_MIN_BIN_WINDOWS`) and the ones that do not, do not (`PR_SCORES`,
-`TRUTH_TARGET`).
+***Lax* is their word, and it anticipates its opposite.** GeneHancer covers 18.4% of the
+noncoding genome while perhaps 4.51% is under human-specific selection, so the lax set buys
+size — enough windows to resolve the GC tails — at the cost of label confidence. Their
+**stringent** set (Fig. 4C/D) makes the opposite trade and is not built here;
+`data.pr_curves` takes `truth_set` and accepts only `"lax"`.
 
-**It is this notebook's own pipeline with one filter dropped.** The window population comes
-from the same `windows.build_window_table()` call the panels above use, on the same
-`NEUTRAL_WINDOWS_BED`, with `keep_enhancer_windows=True`: their file is still the
-definition, the noncoding / QC / autosome filters are still skipped, and the $z$ formula,
-the joint $[-10,10]$ filter and the GC units are still the ones panels A and E use. The
-only change is that the `enhancer == False` step does not run, and the flag comes back as a
-column instead of a filter. Panel E must *not* have those windows — a window under
-selection has a low $z$ for a reason that is not bias — and this figure cannot do without
-them, because they are the positive class.
+**The population is this notebook's own with one filter dropped.** Same
+`windows.build_window_table()` call, same `NEUTRAL_WINDOWS_BED`, same $z$ and $[-10,10]$
+filter — but `keep_enhancer_windows=True`, so the `enhancer == False` step does not run and
+the flag returns as a column. Panel E must not have those windows; a classifier cannot do
+without them. Note the asymmetry: the `scored` refit is **fit** on the neutral windows alone
+and **evaluated** here on both halves.
 
-So note which population is which: the `scored` refit is still **fit** on the putatively
-neutral windows alone (that is the intervention), and **evaluated** here on neutral *and*
-enhancer windows. Fit on the negatives, scored on both, which is what a classifier
-requires. The caption should say so.
+**The panel.** auPRC normalized by the positive-class fraction, against GC, one curve per
+score. The retrained curve carries its 95% **paired**-bootstrap interval *relative to
+published* — bars on one curve, not two, because independent intervals would describe the
+uncertainty of each *level* when the question is the *gap*, and would be wider than the
+gap's own interval: the two scores are columns of one table, so the variability in which
+windows the truth set happens to contain cancels. **A bar clear of the published marker is
+a real difference.** Without them the eye goes straight to the top bin's visible gap (1.199
+against 1.298) — which is exactly the one that does not survive.
 
-**A single panel:** auPRC normalized by the positive-class fraction, against GC content,
-one curve per score — with the retrained curve carrying **its 95% paired-bootstrap interval
-relative to published**. A bar that excludes the published marker in that bin is a real
-difference; one that spans it is not.
+**The result, and why there is a second figure.** The curves nearly coincide. That is not a
+null result about the bias; it is a statement that auPRC *within* a GC bin cannot see one,
+because a GC-dependent bias is nearly a common shift on every window in a narrow bin —
+positives and negatives alike — and a common shift cannot change a ranking. Two
+consequences:
 
-**Those bars are on one curve, and are not marginal error bars.** Independent intervals on
-the two curves would be the wrong object twice over: they would describe the uncertainty of
-each *level* when the question is about the *gap*, and they would be far **wider** than the
-gap's own interval, because the two scores are columns of one table and almost all of the
-sampling variability — which windows the truth set happens to contain — is common to both
-and cancels in the difference. Each bootstrap replicate therefore resamples a bin's rows
-once and scores *both* models on that resample; the resulting interval on the relative gain
-is mapped back into this panel's units by scaling the published level.
-
-The per-bin precision–recall curves themselves — McHale et al.'s Fig. 4A, one line per GC
-bin over a pooled curve and a random-classifier baseline — are computed and available
-(`panels.panel_pr_curves(ax, curves_s8, key)`) but not drawn: panel A is their summary, and
-two axes of twelve curves earn their space in their paper and not in this one. One feature
-of them is worth a caption sentence, because Supporting Figure 9 depends on it: **the two
-scores' curves cross**, the retrained one starting higher at low recall and converging with
-published's by mid-recall.
-
-**This figure is nearly blind to the bias, which is why there is a second one.** Both
-panels are *within-bin ranking* statistics, and a GC-dependent bias is very nearly a common shift
-applied to every window in a narrow bin — positives and negatives alike. A common shift
-cannot change a ranking, so it cancels, which is why the two curves nearly coincide and the
-paired intervals put their differences at order 1%. That is not a null result about the bias; it is a statement
-that auPRC within a GC bin is the wrong instrument for detecting it. Two consequences worth
-stating in the caption:
-
-* The steep decline of auPRC with GC *survives debiasing intact*. Since bias is
-  the one thing that changed, what remains must be **signal-to-noise** — which is what
-  McHale et al. conjectured in their text, now measured rather than assumed.
-* To see the bias, hold the *threshold* fixed instead of the rank. Then the shift stops
-  cancelling and decides how many windows in each GC bin are called at all. That is
-  **Supporting Figure 9**.
-
-**The bars are what stops the panel being misread.** Its most eye-catching feature is the
-gap in the top drawn bin — 1.199 against 1.298, a visible separation on 6,217 windows —
-and that is exactly the difference that does not survive. Without an interval a reader goes
-straight to it; with one, the panel says so itself.
-
-The interval is computed on **this panel's own bins and balancing**
-(`gc_bins=LAX_GC_BINS, min_n=LAX_MIN_BIN_WINDOWS, balance=True`), not on
-`pr_curve_deltas`' defaults, which merge the tail and drop the balancing for reasons that
-apply to a standalone difference panel and not to bars sitting on these markers.
+* the steep decline of auPRC with GC **survives debiasing intact**, so what remains is
+  **signal-to-noise** — McHale et al.'s conjecture, now measured rather than assumed;
+* to see the bias, fix the *threshold* instead of the rank. That is **Supporting Figure 9**.
 """)
 
 code(r"""
@@ -1208,87 +1166,66 @@ if curves_s8 is not None:
 """)
 
 md(r"""
-## Supporting Figure 9 — the bias at the threshold people actually use
+## Supporting Figure 9 — the bias at the threshold people use
 
-Supporting Figure 8 is a *ranking* measurement and therefore nearly blind to a GC-dependent
-shift, which cancels within a bin. Fix the **threshold** instead and the shift stops
-cancelling: it decides how many windows in each GC bin are called at all. That is what this
-figure measures, and it is the analyst-facing half of the argument.
-
-Everything here uses **Gnocchi $\geq 4$, which is Chen et al.'s own cutoff** ("constrained
-non-coding regions (Gnocchi ≥ 4)"), not a choice of ours, and is computed **unbalanced** —
-the base rate an analyst faces is the real one.
+Fix the threshold and the shift stops cancelling: it decides how many windows in each GC
+bin are called at all. Everything here is at **Gnocchi $\geq 4$** — Chen et al.'s own cutoff,
+not ours — and **unbalanced**, since the base rate an analyst faces is the real one.
 
 | | Shows | Quantity |
 |---|---|---|
-| **A** | The bias, at the cutoff people use | fraction of windows in each GC bin with Gnocchi $\geq 4$ |
-| **B** | Ranking, once that bias is taken out | lift per GC bin with the calling rate matched *within* each bin, the retrained curve carrying its 95% **paired** interval relative to published |
+| **A** | The bias, at the cutoff people use | fraction of windows called, per GC bin |
+| **B** | Ranking, with that bias taken out | lift per GC bin, calling rate matched *within* each bin, retrained curve carrying its 95% paired interval |
 
-**Recall is not drawn, and follows from A.** Since recall $=$ calling rate $\times$ lift and
-lift varies only 1.8$\times$ across these bins while the calling rate varies 80$\times$,
-recall tracks A almost exactly: published finds **15.07%** of the constrained windows in
-the GC-rich bin and **0.33%** in the GC-poor one, a 45.7$\times$ swing, against
-0.93–2.03% (2.18$\times$) for the retrained score. Those are the numbers to put in the
-caption. A lift-against-recall panel with iso-calling-rate contours — where a portable
-threshold puts every bin on one contour and a biased one fans across them — is a
-striking way to see the same fact, and is one line away
-(`panels.panel_lift_vs_recall(ax, tm_s8)`), but it is the same fact.
+**The two scores are matched on calling rate, not on a common number.** Retraining moves
+the whole $z$ distribution: at $z\geq4$ published calls ~1.0% of windows and the retrained
+score ~0.13%, eight times fewer, so the same numeral is a far stricter cutoff for one than
+the other. Published is held at 4 and the other takes the quantile calling the same
+fraction. **A's headline survives either way**, since a swing across GC is a ratio computed
+*within* one score.
 
-**The two scores are compared at a matched calling rate, not at a common number.**
-Retraining moves the whole $z$ distribution, not only its GC dependence: at $z\geq4$ the
-published score calls about 1.0% of windows and the retrained one about 0.13%, *eight times
-fewer*, so the same numeral is a far stricter cutoff for one than the other. Precision
-almost always rises as a threshold moves further into the tail, so a naive comparison at a
-common $z$ would credit the retrained score for being strict and penalise its recall for
-the same reason — neither of which is a statement about GC bias. So published is held at 4
-and the retrained score takes the quantile of its own $z$ that calls the same fraction.
-**Panel A's headline survives either way**, since a swing across GC is a ratio computed
-*within* one score and a common rescaling cannot touch it.
+**A needs no truth set.** The fraction clearing a fixed cutoff is a property of the score
+and of GC content; no labels enter. It rests on neither GeneHancer nor the laxness of an
+enhancer proxy, and is the number to quote without qualification: **80$\times$ across GC for
+published, 1.35$\times$ for the retrained score.**
 
-**Panel A needs no truth set at all.** The fraction of windows clearing a fixed cutoff is a
-property of the score and of GC content; no labels enter. It therefore rests on neither
-GeneHancer nor the laxness of an enhancer-overlap proxy, and it is the one number here to
-quote without qualification.
+**Recall is not drawn because it *is* A.** Since recall $=$ calling rate $\times$ lift, and
+across these bins lift varies only 1.8$\times$ while the calling rate varies 80$\times$,
+recall is the calling fraction to within a factor of two: published 0.33 → 15.07%
+(45.7$\times$) against a calling rate of 0.17 → 13.97%, the retrained score 0.93 → 2.03%
+(2.18$\times$) against 0.77 → 1.04%. Drawing both would report one measurement twice. The
+recall figures still belong in the caption, because *"finds 15% of the constrained windows
+at high GC and 0.33% at low"* is the analyst-legible form of the same fact.
 
-**Panel B removes the one confound A creates.** A *is* the statement that the two scores
-call very different fractions of each bin — 14% against 0.8% at the top — so any comparison
-of their precision or lift at a common global cutoff is made at two different operating
-points, and lift falls as a threshold loosens. B therefore matches the calling rate
-**within each bin** (`match_within_bin=True`), so both scores call 1% of every bin and
-neither is read at a different place on its own curve. Its error bars are **paired**, on
-the retrained curve only: independent intervals would describe the uncertainty of each
-*level* when the question is about the *gap*, and would be wider than the gap's own
-interval, since the two scores share almost all of their sampling variability. A bar that
-excludes the published marker is a real difference.
+**B removes the confound A creates.** A *is* the statement that the two scores call very
+different fractions of each bin, so comparing their lift at a common global cutoff compares
+two operating points — and lift falls as a threshold loosens. B matches the calling rate
+**within** each bin, so both call 1% of every bin. Its bars are paired and on the retrained
+curve only, for the reason given in Supporting Figure 8.
 
-*Lift is capped at $1/r$*, a ceiling that falls from 12.0 to 1.6 across these bins, so
-compare the two **scores** within a bin — which is what the paired bars do — rather than
-ranking bins against each other. `data.threshold_metrics` also reports skill
-$(\mathrm{precision}-r)/(1-r)$ and $\mathrm{LR}^{+}$ per bin, which are ceiling-free, for
-any sentence that has to be made across bins.
-
-**The gaps do not collapse under that matching — they strengthen.** The retrained score's lift is higher in all
-five bins and significantly so in four (+33.3% [+4.1, +80.0]; +4.0% [+0.4, +7.8]; +4.2%
-[+1.3, +7.7]; +10.8% [+3.2, +20.3]; +2.2% [−8.6, +13.6]). So this is **not** threshold
-placement: the retrained score genuinely ranks better inside every GC stratum, at the
-operating point the score is actually used at. Quote the middle bins — +4.2% on 4,076 calls
-and +10.8% on 534 — rather than the +33.3%, which clears zero but rests on 220 calls per
+**The gaps strengthen rather than collapse.** Lift is higher in all five bins and
+significantly so in four: +33.3% [+4.1, +80.0], +4.0% [+0.4, +7.8], +4.2% [+1.3, +7.7],
++10.8% [+3.2, +20.3], +2.2% [−8.6, +13.6]. So this is **not** threshold placement — the
+retrained score ranks better inside every GC stratum, at the operating point the score is
+actually used at. Quote the middle bins; the +33.3% clears zero but rests on 220 calls per
 arm and spans a factor of twenty.
 
-**That does not contradict Supporting Figure 8C, and the reason belongs in the caption.**
-auPRC integrates over the *whole* recall axis; lift at a 1% calling rate probes only the
-extreme top of the ranking. **The two scores' precision–recall curves cross** — the
-retrained one starts higher at low recall and converges with published's by mid-recall, in
-the per-bin curves behind Supporting Figure 8A — so the retrained score is better at the
-very top and marginally worse integrated over the bulk. Both measurements are correct; they weight the recall axis
-differently. **The practical consequence is that auPRC is the wrong summary for a
-constraint score**: nobody applies one at 60% recall, the top ~1% is the entire use case,
-and that is where the retrained score wins.
+**That does not contradict Supporting Figure 8.** auPRC integrates over the *whole* recall
+axis; lift at a 1% calling rate probes only the top of the ranking, and the two scores'
+precision–recall curves cross — the retrained one higher at low recall, converging by
+mid-recall. Both are right; they weight the recall axis differently. The consequence:
+**auPRC is the wrong summary for a constraint score**, since nobody applies one at 60%
+recall and the top ~1% is the entire use case.
 
-*B is a diagnostic in a second sense, and it is worth saying out loud.* Forcing published
-to call 1% of GC-rich sequence describes a score nobody uses — the whole point of panel A
-is that it calls 14% there. B answers what the score *contains*; A answers what happens
-when it is *used*.
+*B is a diagnostic in a second sense.* Forcing published to call 1% of GC-rich sequence
+describes a score nobody uses — A's whole point is that it calls 14% there. B says what the
+score *contains*; A says what happens when it is *used*.
+
+*Lift is capped at $1/r$*, a ceiling falling from 12.0 to 1.6 across these bins, so compare
+the two **scores** within a bin rather than ranking bins against each other.
+`data.threshold_metrics` reports ceiling-free skill and $\mathrm{LR}^{+}$ per bin for
+anything cross-bin, alongside precision, recall and the lift-against-recall view; none is
+drawn, and each is one call away.
 
 **What A and B establish, in one sentence:**
 
@@ -1296,25 +1233,9 @@ when it is *used*.
 > dependence of how much it finds. It leaves untouched the GC dependence of how much a hit
 > is worth — that is signal-to-noise, and it is a property of the data.
 
-To which B adds one clause: it also **raises** what a hit is worth, modestly and in
-every stratum, without flattening the GC dependence of that value. Lift at a matched 1%
-per-bin rate goes 1.80 → 2.40, 1.53 → 1.59, 1.28 → 1.34, 1.13 → 1.25 and 1.12 → 1.15 —
-uniformly up, and still declining across GC in both scores, because that decline is
-signal-to-noise and remains untouched.
-
-Every quantity in this figure sorts into one of those two clauses. **Made GC-independent:**
-the calling rate (80$\times$ → 1.35$\times$ across GC) and, as its consequence, recall
-(45.7$\times$ → 2.18$\times$). **Left GC-dependent:** precision (4.37$\times$ →
-3.30$\times$, dominated by the base rate, which climbs 7.70$\times$ and is nobody's to
-change), lift and skill.
-
-*Several quantities are computed and printed but not drawn*, to keep this figure to two
-panels: precision against GC with the bin's base rate as a reference — whose message is
-that precision rises with GC for *any* score and is therefore the wrong thing to read —
-recall, lift against recall with its iso-calling-rate contours, and skill. All are in the
-tables below, and each is one call away:
-`panels.panel_threshold_metric(ax, tm_s8, "precision" | "recall" | "skill")` and
-`panels.panel_lift_vs_recall(ax, tm_s8, y="lift" | "skill")`.
+B adds one clause: it also **raises** what a hit is worth, modestly and in every stratum
+(lift 1.80 → 2.40, 1.53 → 1.59, 1.28 → 1.34, 1.13 → 1.25, 1.12 → 1.15), without flattening
+that value's GC dependence.
 
 ---
 
@@ -1323,46 +1244,40 @@ tables below, and each is one call away:
 > **Debiasing is not mainly about detecting constraint better — that gain is real but
 > modest. It is about making the number mean the same thing everywhere.**
 
-Gnocchi is a $z$-score, and a $z$-score makes a specific promise: a given value means the
-same departure from neutral expectation wherever you are in the genome. That promise is
-what licenses attaching a threshold to it. Panel **9A** measures whether it holds, using no
-truth set at all — and it does not, by a factor of 80.
+Gnocchi is a $z$-score, and a $z$-score promises that a given value means the same departure
+from neutral expectation anywhere in the genome. That promise is what licenses attaching a
+threshold to it. Panel **9A** measures it, with no truth set, and it fails by a factor of 80.
 
-**What that costs, concretely.** Two patients, two *de novo* noncoding variants. One sits
-in a CpG-island promoter and scores Gnocchi 4.2; the other in an AT-rich distal enhancer
-and scores 3.8. The analyst prioritises the first and drops the second below threshold. But
-**14% of GC-rich windows clear 4, against 0.17% of AT-rich ones** — so the second variant
-is in far rarer company than the first, and is the more surprising observation. The ranking
-is backwards, and nothing in the score or its documentation says so. The same arithmetic
-explains where the calls pile up: **44% of all "constrained noncoding" calls fall in the 7%
-of the noncoding genome that is most GC-rich**, where lift is ~1.1 and a call is barely
-distinguishable from picking a GC-rich window at random.
+**Concretely.** Two patients, two *de novo* noncoding variants: one in a CpG-island promoter
+scoring Gnocchi 4.2, one in an AT-rich distal enhancer scoring 3.8. The analyst keeps the
+first and drops the second below threshold. But **14% of GC-rich windows clear 4 against
+0.17% of AT-rich ones**, so the second variant is in far rarer company and is the more
+surprising observation. The ranking is backwards, and nothing in the score says so. The same
+arithmetic puts **44% of all "constrained noncoding" calls in the 7% of the noncoding genome
+that is most GC-rich**, where lift is ~1.1 and a call is barely distinguishable from picking
+a GC-rich window at random.
 
-**What you would have to do instead, if you knew the bias.** Convert Gnocchi to a
-percentile *within GC stratum* — rank each window against others of similar GC and
-threshold on that. It is crude, it needs nothing but the published table plus GC content,
-and it recovers most of what panel 9A fixes. Anyone using published Gnocchi today should be
-doing this rather than applying one genome-wide cutoff.
+**The workaround, if you know the bias.** Convert Gnocchi to a percentile *within GC
+stratum*. It is crude, needs only the published table plus GC content, and recovers most of
+what A fixes — anyone using published Gnocchi today should be doing this rather than
+applying one genome-wide cutoff.
 
-**But that workaround has a precondition it cannot verify: you must know which covariates
-the score varies with, and know *all* of them.** Stratification only removes the biases you
-have already discovered. McHale et al. tested GC content, background selection and gBGC;
-Chen et al.'s regional model is fit on thirteen features across four length scales, and
-nobody has checked the score's neutral-window behaviour against most of them, nor against
-covariates outside that panel entirely. A stratified threshold is a patch applied per
-symptom, and the list of symptoms is open-ended.
+**But it has a precondition it cannot verify: you must know which covariates the score
+varies with, and know them all.** Stratification removes only the biases already discovered.
+McHale et al. tested GC content, BGS and gBGC; Chen et al.'s regional model is fit on
+thirteen features across four length scales, most never checked on neutral windows, and
+nothing rules out covariates outside that panel entirely. The patch is applied per symptom
+and the list of symptoms is open-ended.
 
-Retraining has no such precondition. The bias is not a property of GC — it is the
+Retraining has no such precondition, because the bias is not a property of GC: it is the
 consequence of fitting the regional adjustment on a training population unlike the one the
-score is applied to (panels **C** and **D** of Fig. 5). Removing the covariate shift
-removes what it induced, whatever features carried it, because the fix is at the mechanism
-rather than at each of its expressions. That is a stronger guarantee than any amount of
-post-hoc stratification, and it is the reason to prefer it even where the stratified patch
-would have worked.
+score is applied to (Fig. 5C–D). Removing the covariate shift removes what it induced,
+whatever feature carried it. That is a guarantee about the *mechanism* rather than a list of
+symptoms, and it is the reason to prefer it even where the patch would have worked.
 
-*It is a guarantee about the mechanism, not a measurement.* These figures verify the
-retrained score's GC behaviour only. Repeating panel 9A against BGS and gBGC — the other
-two features McHale et al. tested — is the obvious next check, and is not done here.
+*A guarantee about the mechanism is not a measurement.* These figures verify the retrained
+score's GC behaviour only; repeating 9A against BGS and gBGC is the obvious next check, and
+is not done here.
 """)
 
 code(r"""
