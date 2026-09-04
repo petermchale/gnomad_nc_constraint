@@ -1444,6 +1444,14 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                 # a cross-bin sentence can be written without the ceiling caveat.
                 "skill": ((tp / n_called) - r) / (1 - r)
                          if n_called and r < 1 else float("nan"),
+                # The skill interval is the PRECISION interval pushed through the same
+                # affine map. r is a property of the bin, not of the score, so within a bin
+                # skill is a linear function of precision and the transform is exact --
+                # no second bootstrap, and the bounds inherit Wilson's behaviour at small
+                # counts. (Across bins r does move, which is the whole reason skill exists;
+                # it just does not move inside one.)
+                "skill_lo": (prec_lo - r) / (1 - r) if n_called and r < 1 else float("nan"),
+                "skill_hi": (prec_hi - r) / (1 - r) if n_called and r < 1 else float("nan"),
                 "lr_pos": ((tp / n_pos) / ((n_called - tp) / (sub.height - n_pos)))
                           if n_pos and (n_called - tp) and sub.height > n_pos
                           else float("nan"),

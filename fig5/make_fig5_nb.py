@@ -1122,6 +1122,7 @@ requires. The caption should say so.
 | **D** | The bias, at the threshold people actually use | fraction of windows in each GC bin with Gnocchi $\geq 4$ |
 | **E** | What an analyst gets from a call | $P(\mathrm{constrained}\mid\mathrm{Gnocchi}\geq4)$ per GC bin, over the bin's base rate |
 | **F** | The bias as a *shape* | lift against recall, one point per GC bin, with iso-calling-rate contours |
+| **G** | The same, ceiling-free | skill $(\mathrm{precision}-r)/(1-r)$ against recall |
 
 **A–C are nearly blind to the bias, and D–F are where it appears.** A, B and C are
 *within-bin ranking* statistics, and a GC-dependent bias is very nearly a common shift
@@ -1180,9 +1181,17 @@ therefore a calling-rate difference, not a performance difference; the legitimat
 within-bin comparison is the vertical one, and `data.lift_deltas` puts an interval on it.
 
 Neither axis is prevalence-free across bins: lift is capped at $1/r$ and recall at $q/r$ —
-the same ceiling scaled by $q$ — so read each score's *shape* across bins rather than
-ranking bins against each other, and use the per-bin `skill` and `LR+` for anything
-cross-bin.
+the same ceiling scaled by $q$ — so in **F**, read each score's *shape* across bins rather
+than ranking bins against each other.
+
+**Panel G is F with that ceiling removed**, plotting skill $(\mathrm{precision}-r)/(1-r)$,
+which maps random to 0 and perfect to 1 in every bin. The trade is explicit: skill
+$=[r/(1-r)](\mathrm{lift}-1)$, so its relation to recall runs through the bin's own base
+rate and the iso-calling-rate contours are **no longer one universal family** — they are
+not drawn there, and the only reference is skill $=0$. So **F is the panel for reading the
+bias off the geometry, G the panel for comparing the two scores fairly at high GC**, where
+lift's ceiling of 1.6 compresses real differences into a few percent. The two disagree in
+emphasis and both are honest; the caption should say which question each answers.
 
 **Panel D needs no truth set at all.** The fraction of windows clearing a fixed cutoff is a
 property of the score and of GC content; no labels enter. It is therefore the most robust
@@ -1362,19 +1371,21 @@ if curves_s8 is not None:
     # inference on the gap B draws -- so they belong side by side beneath it, on the same
     # GC axis and at the same width. Four panels in a row would make each too narrow for a
     # two-line y label and a legend carrying names and numbers.
-    # SIX COLUMNS so the last row can hold THREE panels against the upper rows' two. A
-    # needs two axes of its own; B and C are a pair (C is the inference on the gap B
-    # draws); D, E and F are a triple read together at one threshold. A 2-2-3 figure is
-    # what that argument looks like, and a uniform grid cannot express it.
-    fig = plt.figure(figsize=(13.5, 15.0))
-    gs = fig.add_gridspec(3, 6, wspace=1.5, hspace=0.36)
-    axA1 = fig.add_subplot(gs[0, 0:3])
-    axA2 = fig.add_subplot(gs[0, 3:6], sharey=axA1)
-    axB = fig.add_subplot(gs[1, 0:3])
-    axC = fig.add_subplot(gs[1, 3:6])
-    axD = fig.add_subplot(gs[2, 0:2])
-    axE = fig.add_subplot(gs[2, 2:4])
-    axF = fig.add_subplot(gs[2, 4:6])
+    # FOUR ROWS OF TWO. The figure is four pairs: A's two scores, B with its inference C,
+    # the two threshold quantities D and E, and the two operating-point views F and G. A
+    # uniform grid says that, and it gives every panel half a width -- the 2-2-3 shape this
+    # replaced squeezed D, E and F into thirds, where a legend carrying a name and a
+    # threshold no longer fits.
+    fig = plt.figure(figsize=(13.5, 19.5))
+    gs = fig.add_gridspec(4, 2, wspace=0.30, hspace=0.34)
+    axA1 = fig.add_subplot(gs[0, 0])
+    axA2 = fig.add_subplot(gs[0, 1], sharey=axA1)
+    axB = fig.add_subplot(gs[1, 0])
+    axC = fig.add_subplot(gs[1, 1])
+    axD = fig.add_subplot(gs[2, 0])
+    axE = fig.add_subplot(gs[2, 1])
+    axF = fig.add_subplot(gs[3, 0])
+    axG = fig.add_subplot(gs[3, 1])
 
     for ax, key in zip((axA1, axA2), D.PR_SCORES):
         panels.panel_pr_curves(ax, curves_s8, key, show_ylabel=ax is axA1)
@@ -1389,15 +1400,20 @@ if curves_s8 is not None:
         # what makes its iso-calling-rate contours straight.
         panels.panel_threshold_metric(axD, tm_s8, "call_rate", D.GNOCCHI_THRESHOLD)
         panels.panel_threshold_metric(axE, tm_s8, "precision", D.GNOCCHI_THRESHOLD)
-        panels.panel_lift_vs_recall(axF, tm_s8, D.GNOCCHI_THRESHOLD)
+        # F and G are the same operating points on two y axes. F's lift keeps the
+        # iso-calling-rate geometry -- straight contours -- and is the panel for reading
+        # the bias off the shape. G's skill is ceiling-free, so it is the panel for
+        # comparing the two scores WITHIN a bin without 1/r compressing the high-GC
+        # differences to a few percent. Neither replaces the other.
+        panels.panel_lift_vs_recall(axF, tm_s8, D.GNOCCHI_THRESHOLD, y="lift")
+        panels.panel_lift_vs_recall(axG, tm_s8, D.GNOCCHI_THRESHOLD, y="skill")
 
     # Each letter clears its own panel's ylabel: A's is one line and its panel is wide,
     # B/C's are two lines, D-F are narrower still so their letters sit further out.
     panels.label_panels((axA1,), ("A",))
-    for ax, lab in ((axB, "B"), (axC, "C")):
+    for ax, lab in ((axB, "B"), (axC, "C"), (axD, "D"), (axE, "E"),
+                    (axF, "F"), (axG, "G")):
         panels.label_panels((ax,), (lab,), x=-0.16)
-    for ax, lab in ((axD, "D"), (axE, "E"), (axF, "F")):
-        panels.label_panels((ax,), (lab,), x=-0.34)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
     written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, s8_name))

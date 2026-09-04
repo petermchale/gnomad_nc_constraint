@@ -1195,7 +1195,8 @@ def _log_ticks(lo: float, hi: float) -> list:
 
 
 def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.1),
-                         show_xlabel: bool = True, legend_loc: str = "lower left") -> None:
+                         show_xlabel: bool = True, legend_loc: str = "lower left",
+                         y: str = "lift") -> None:
     """
     Supporting Figure 8, the operating-point panel: lift against recall, one point per GC
     bin, at a fixed threshold. `tm` is data.threshold_metrics() output.
@@ -1241,6 +1242,16 @@ def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.
     against each other; the per-bin `skill` and `LR+` in data.threshold_metrics are the
     ceiling-free quantities for that.
 
+    y="skill" DRAWS THE CEILING-FREE COMPANION, (precision - r)/(1 - r), against the same
+    recall axis. What is gained is that the y axis can be read ACROSS bins: lift is capped
+    at 1/r, which falls from 12.0 to 1.6 over these bins and compresses the high-GC
+    differences into a few percent, whereas skill maps random to 0 and perfect to 1
+    everywhere. What is LOST is the geometry: skill = [r/(1-r)](lift - 1), so its relation
+    to recall runs through the bin's own base rate and the iso-calling-rate contours are no
+    longer one universal family -- each bin would need its own. They are therefore not
+    drawn in this mode, and the only reference is skill = 0, the random classifier. Use
+    y="lift" to read the calling rate off the geometry and y="skill" to compare bins.
+
     GC IS THE TRACED PARAMETER AND TAKES PANEL A's COLOUR RAMP, blue for GC-poor through
     red for GC-rich. It is an ordered variable, which is the same exemption to this
     module's monochrome rule that panel A gets, and using one ramp for one variable across
@@ -1257,20 +1268,28 @@ def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.
     bins = sorted(set(tm["mid"].to_list()))
     colour = {m: cmap(i / max(len(bins) - 1, 1)) for i, m in enumerate(bins)}
 
+    if y not in ("lift", "skill"):
+        raise ValueError(f"y must be 'lift' or 'skill', not {y!r}")
+    logy = y == "lift"
+
     xs = [v for v in tm["recall"].to_list() if v and v > 0]
-    ys = [v for v in tm["lift"].to_list() if v and v > 0]
+    ys = [v for v in tm[y].to_list() if v is not None and np.isfinite(v)]
     lo_x, hi_x = min(xs) / 2.2, max(xs) * 2.2
-    lo_y, hi_y = min(ys) / 1.3, max(ys) * 1.5
+    lo_y, hi_y = ((min(ys) / 1.3, max(ys) * 1.5) if logy else
+                  (min(0.0, min(ys)) - 0.06 * max(ys), max(ys) * 1.28))
 
     # LIMITS BEFORE GUIDES. The contours run over orders of magnitude; left to autoscale
     # they set the y range and squash every marker into a band. Fixing the limits to the
     # DATA and letting the guides clip is what keeps this a plot of the points.
     ax.set_xscale("log")
-    ax.set_yscale("log")
+    if logy:
+        ax.set_yscale("log")
     ax.set_xlim(lo_x, hi_x)
     ax.set_ylim(lo_y, hi_y)
 
-    for c in guides:
+    if not logy:
+        ax.axhline(0.0, **REF_LINE_KW)      # skill = 0 is the random classifier
+    for c in (guides if logy else ()):
         ax.plot([lo_x, hi_x], [lo_x / c, hi_x / c], color="0.82", linewidth=0.9, zorder=0)
         # Label where the contour leaves the top of the axes, or the right edge if it
         # never gets there. Horizontal: the axes are ~2 decades wide and ~1 tall, so a
@@ -1290,11 +1309,15 @@ def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.
         rows = tm.filter(tm["score"] == key).sort("mid")
         if not rows.height:
             continue
-        x, y = rows["recall"].to_numpy(), rows["lift"].to_numpy()
+        xv, yv = rows["recall"].to_numpy(), rows[y].to_numpy()
         # The connecting line orders the points by GC; it is not a series in its own right
         # and must not compete with the coloured markers.
-        ax.plot(x, y, color=MONO, linewidth=1.4, zorder=2)
-        for xi, yi, mid in zip(x, y, rows["mid"].to_list()):
+        ax.plot(xv, yv, color=MONO, linewidth=1.4, zorder=2)
+        if f"{y}_lo" in rows.columns:
+            ax.errorbar(xv, yv, yerr=np.vstack([yv - rows[f"{y}_lo"].to_numpy(),
+                                                rows[f"{y}_hi"].to_numpy() - yv]),
+                        fmt="none", ecolor=MONO, elinewidth=1.0, capsize=3, zorder=1)
+        for xi, yi, mid in zip(xv, yv, rows["mid"].to_list()):
             ax.plot([xi], [yi], marker=SCORE_MARKERS[key], markersize=8,
                     markerfacecolor="white" if key == "published" else colour[mid],
                     markeredgecolor=colour[mid] if key == "published" else MONO,
@@ -1316,16 +1339,20 @@ def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.
     # keep a log axis at all -- they are straight lines only in log-log -- so the ticks
     # have to be supplied rather than the scale changed.
     ax.set_xticks(_log_ticks(lo_x, hi_x))
-    ax.set_yticks(_log_ticks(lo_y, hi_y))
     ax.xaxis.set_major_formatter(mticker.FuncFormatter(
         lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
-    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:g}"))
-    for axis in (ax.xaxis, ax.yaxis):
-        axis.set_minor_locator(mticker.NullLocator())
-        axis.set_minor_formatter(mticker.NullFormatter())
+    ax.xaxis.set_minor_locator(mticker.NullLocator())
+    ax.xaxis.set_minor_formatter(mticker.NullFormatter())
+    if logy:
+        ax.set_yticks(_log_ticks(lo_y, hi_y))
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:g}"))
+        ax.yaxis.set_minor_locator(mticker.NullLocator())
+        ax.yaxis.set_minor_formatter(mticker.NullFormatter())
     if show_xlabel:
         ax.set_xlabel("Recall", fontsize=AXIS_LABEL_FONTSIZE)
-    ax.set_ylabel("Lift (precision / base rate)", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.set_ylabel("Lift (precision / base rate)" if logy else
+                  "Skill  (precision $-$ $r$) / (1 $-$ $r$)",
+                  fontsize=AXIS_LABEL_FONTSIZE)
     ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
     ax.grid(True, **GRID_KW)
     ax.set_axisbelow(True)
