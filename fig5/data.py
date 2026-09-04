@@ -1308,6 +1308,35 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
     return df, drawn, thresholds, target
 
 
+def _bin_thresholds(sub: pl.DataFrame, keys, target: float) -> dict:
+    """
+    Per-BIN thresholds: within this bin, each score's own quantile at 1 - target, so every
+    score calls the same fraction OF THIS BIN.
+
+    WHY THIS EXISTS, AND WHAT IT FIXES. The global matching in _threshold_setup equalises
+    the fraction of the WHOLE population each score calls; it does not equalise the
+    fraction of each BIN. That is not a defect of the matching -- the per-bin difference IS
+    the bias, and panel D is precisely a picture of it -- but it means every per-bin
+    comparison of precision, lift or skill between the two scores is made at two DIFFERENT
+    operating points. In the top GC bin published calls 13.97% of windows and the retrained
+    score 0.82%, a 17-fold difference, and skill falls as a threshold loosens, so published
+    would show the lower skill there even if the two scores ranked windows identically.
+
+    AND PANEL C SAYS THEY VERY NEARLY DO. auPRC integrates over all thresholds, so panel C
+    is this same within-bin comparison with the operating point removed, and it finds
+    differences of order 1% with the one significant bin NEGATIVE. Two measurements of the
+    same thing that disagree by an order of magnitude have to be reconciled; matching
+    within the bin is the way to find out which one is the artefact.
+
+    Use it as a DIAGNOSTIC, not as the figure. Forcing published to call 1% of GC-rich
+    sequence describes a score nobody is using -- the whole point of panel D is that it
+    calls 14% there. What this answers is narrower and worth knowing: of the per-bin gaps
+    in E-G, how much is ranking and how much is threshold placement.
+    """
+    return {k: float(np.quantile(sub[_score_column(k)].to_numpy(), 1.0 - target))
+            for k in keys}
+
+
 def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                       cache_dir: str = CACHE_DIR,
                       neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
@@ -1315,7 +1344,8 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       min_n: int = DELTA_MIN_BIN_WINDOWS,
                       match_call_rate: bool = True,
                       reference_score: str = "published",
-                      include_gc_baseline: bool = True) -> pl.DataFrame:
+                      include_gc_baseline: bool = True,
+                      match_within_bin: bool = False) -> pl.DataFrame:
     """
     Precision, recall and calling rate at a FIXED Gnocchi threshold, per GC bin, for both
     scores. Panels D and E, and the numbers behind them.
@@ -1394,10 +1424,17 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
         match_call_rate, reference_score, include_gc_baseline)
 
+    if match_within_bin:
+        print(f"  MATCHING WITHIN EACH BIN at {100 * target:.3f}%: every score calls that "
+              "fraction of every bin, so per-bin comparisons are at one operating point. "
+              "Diagnostic -- see _bin_thresholds.")
+
     rows = []
     for b in drawn:
         lo, hi = gc_bins[b]
         sub = df.filter(pl.col("gc_bin") == b)
+        if match_within_bin:
+            thresholds = _bin_thresholds(sub, list(thresholds), target)
         y = sub[TRUTH_TARGET].to_numpy()
         n_pos = int(y.sum())
         for key in thresholds:
@@ -1470,7 +1507,8 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                 refit_expected: str | None = None, gc_bins: list | None = None,
                 min_n: int = DELTA_MIN_BIN_WINDOWS, match_call_rate: bool = True,
                 reference_score: str = "published", n_bootstrap: int = 500,
-                seed: int = 0, call_rate: float | None = None) -> pl.DataFrame:
+                seed: int = 0, call_rate: float | None = None,
+                match_within_bin: bool = False) -> pl.DataFrame:
     """
     The PAIRED difference in lift between the two scores, per GC bin, with a bootstrap
     confidence interval. Panel E's comparison given the standing panel C's has.
@@ -1524,9 +1562,11 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
-    df, drawn, thresholds, _ = _threshold_setup(
+    df, drawn, thresholds, target = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
         match_call_rate, reference_score, call_rate=call_rate)
+    if match_within_bin:
+        print(f"  MATCHING WITHIN EACH BIN at {100 * target:.3f}% -- see _bin_thresholds")
 
     other = [k for k in PR_SCORES if k != reference_score]
     if len(other) != 1:
@@ -1547,7 +1587,9 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
             k = int(mask.sum())
             return (yy[mask].sum() / k) if k else np.nan
 
-        cr, co = zr >= thresholds[reference_score], zo >= thresholds[other]
+        thr = _bin_thresholds(sub, [reference_score, other], target) if match_within_bin \
+            else thresholds
+        cr, co = zr >= thr[reference_score], zo >= thr[other]
         p_ref, p_oth = _prec(cr, y), _prec(co, y)
 
         boot = np.empty(n_bootstrap)

@@ -1193,6 +1193,26 @@ bias off the geometry, G the panel for comparing the two scores fairly at high G
 lift's ceiling of 1.6 compresses real differences into a few percent. The two disagree in
 emphasis and both are honest; the caption should say which question each answers.
 
+**One confound the figure's own matching cannot remove, and the diagnostic that settles
+it.** The calling rates are matched *globally*, which is what makes the pooled comparison
+fair — but it leaves the *per-bin* rates 17$\times$ apart in the top GC bin (13.97% against
+0.82%), and that difference IS the bias. So every per-bin comparison of precision, lift or
+skill in E–G is made at two different operating points, and skill falls as a threshold
+loosens: published would show the lower skill there *even if the two scores ranked windows
+identically*.
+
+And **panel C says they very nearly do**. auPRC integrates over all thresholds, so C is
+this same within-bin comparison with the operating point removed, and it finds differences
+of order 1% with the one significant bin *negative*. Two measurements of the same thing
+that disagree by an order of magnitude have to be reconciled, so the cell below repeats
+E–G's comparison with the calling rate matched **within each bin**
+(`match_within_bin=True`). If the per-bin gaps collapse toward C's ±1%, then what E–G show
+is **threshold placement**, not ranking — and the caption must say so rather than claiming
+the retrained score is more skilful.
+
+It is a diagnostic and not the figure: forcing published to call 1% of GC-rich sequence
+describes a score nobody uses, since the whole point of panel D is that it calls 14% there.
+
 **What D–G establish, in one sentence:**
 
 > Debiasing removes the GC dependence of how often Gnocchi fires, and with it the GC
@@ -1375,6 +1395,19 @@ code(r"""
 # ALONGSIDE the anchored z >= 4 result, never instead of it.
 sweep_s8 = D.lift_delta_sweep(call_rates=(0.01, 0.03, 0.10), truth_set="lax",
                               n_bootstrap=500, seed=0) if NEUTRAL_WINDOWS_BED else None
+""")
+
+code(r"""
+# DIAGNOSTIC, not a panel: the same comparison with the calling rate matched WITHIN each
+# GC bin instead of globally, which is the one confound the figure's own matching cannot
+# remove. It decides how E-G get captioned -- see the markdown above and
+# data._bin_thresholds. Prints only; seconds.
+withinbin_s8 = D.threshold_metrics(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
+                                   include_gc_baseline=False, match_within_bin=True) \
+    if NEUTRAL_WINDOWS_BED else None
+lifts_wb_s8 = D.lift_deltas(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
+                            n_bootstrap=500, seed=0, match_within_bin=True) \
+    if NEUTRAL_WINDOWS_BED else None
 """)
 
 code(r"""
