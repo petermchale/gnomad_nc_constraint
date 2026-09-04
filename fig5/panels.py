@@ -1122,7 +1122,7 @@ def _threshold_series(tm, key: str):
 def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float = 4.0,
                            xrange=(0.2, 0.8), show_xlabel: bool = True,
                            show_prevalence: bool = True, logy: bool | None = None,
-                           legend_loc: str | None = None) -> None:
+                           legend_loc: str | None = None, deltas=None) -> None:
     """
     Supporting Figure 8, panels D-F. One of three quantities at a FIXED Gnocchi threshold,
     per GC bin, one curve per score, with Wilson intervals. `tm` is
@@ -1136,6 +1136,20 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
                           across the GC range and a linear axis would show only the top bin.
       metric="precision"  P(constrained | called) -- the analyst's number.
       metric="recall"     P(called | constrained) -- what fraction is caught.
+      metric="lift"       precision / base rate, the ceiling-limited quality measure.
+      metric="skill"      (precision - r)/(1 - r), its ceiling-free companion.
+
+    `deltas` REPLACES THE MARGINAL INTERVALS WITH THE PAIRED ONE, drawn on the retrained
+    curve alone. The Wilson bars this function draws by default are correct for what the
+    panel otherwise shows -- two LEVELS, each with its own binomial error -- but they are
+    the wrong object as soon as the question is whether the two curves DIFFER, and they are
+    far wider than the difference's own interval, since the two scores are columns of one
+    table and the variability in which windows the bin happens to contain cancels between
+    them. So when `deltas` (a data.lift_deltas() table on the same bins) is supplied, the
+    published curve loses its bars and each retrained marker gains its 95% paired interval
+    RELATIVE TO PUBLISHED, mapped into the panel's units by scaling the published level.
+    A bar that excludes the published marker is a real difference; one that spans it is
+    not. Same device, same reasoning, as panel_aupr_by_gc's.
 
     WHY THIS PANEL IS NOT A RESTATEMENT OF B. B and C hold the threshold free and ask how
     well each score RANKS windows within a GC bin, which a GC-dependent shift barely
@@ -1171,14 +1185,32 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
                   if legend_loc is None else legend_loc)
     with_threshold = metric != "precision"
 
+    ci = {}
+    if deltas is not None:
+        base = {round(r["mid"], 6): r[metric]
+                for r in _threshold_series(tm, "published").iter_rows(named=True)}
+        for row in deltas.iter_rows(named=True):
+            b = base.get(round(row["mid"], 6))
+            if b is not None:
+                ci[round(row["mid"], 6)] = (b * (1 + row["ci_lo"]), b * (1 + row["ci_hi"]))
+
     for key in ("published", "scored"):
         rows = _threshold_series(tm, key)
         if not rows.height:
             continue
         x = rows["mid"].to_numpy()
         y = rows[metric].to_numpy()
-        lo = y - rows[f"{metric}_lo"].to_numpy()
-        hi = rows[f"{metric}_hi"].to_numpy() - y
+        if deltas is not None:
+            if key == "published":
+                lo = hi = np.zeros_like(y)          # the reference carries no bars
+            else:
+                lo = np.array([max(y[i] - ci.get(round(v, 6), (y[i], y[i]))[0], 0.0)
+                               for i, v in enumerate(x)])
+                hi = np.array([max(ci.get(round(v, 6), (y[i], y[i]))[1] - y[i], 0.0)
+                               for i, v in enumerate(x)])
+        else:
+            lo = y - rows[f"{metric}_lo"].to_numpy()
+            hi = rows[f"{metric}_hi"].to_numpy() - y
         # EACH SCORE'S OWN THRESHOLD GOES IN ITS LEGEND ENTRY, because they are not the
         # same number: data.threshold_metrics matches the two on CALLING RATE rather than
         # on z, so that precision and recall compare like with like (retraining moves the
@@ -1191,6 +1223,8 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
         # panel whose one free corner is already tight. The caption carries it.
         ts = rows["threshold_used"].unique().to_list()
         label = f"Gnocchi, {rows['short'][0]}"
+        if deltas is not None and key == "scored":
+            label += ", 95% CI vs published"
         if with_threshold:
             label += (f"  ($z \\geq {float(ts[0]):.2f}$)" if len(ts) == 1
                       else "")

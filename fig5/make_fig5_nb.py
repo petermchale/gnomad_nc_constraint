@@ -1222,9 +1222,17 @@ the base rate an analyst faces is the real one.
 | | Shows | Quantity |
 |---|---|---|
 | **A** | The bias, at the cutoff people use | fraction of windows in each GC bin with Gnocchi $\geq 4$ |
-| **B** | The same, as a *shape* | lift against recall, one point per GC bin, with iso-calling-rate contours |
-| **C** | Ranking, at one operating point | lift per GC bin with the calling rate matched *within* each bin |
-| **D** | Whether C's gap is real | the paired lift gain, per GC bin, with a bootstrap 95% CI |
+| **B** | Ranking, once that bias is taken out | lift per GC bin with the calling rate matched *within* each bin, the retrained curve carrying its 95% **paired** interval relative to published |
+
+**Recall is not drawn, and follows from A.** Since recall $=$ calling rate $\times$ lift and
+lift varies only 1.8$\times$ across these bins while the calling rate varies 80$\times$,
+recall tracks A almost exactly: published finds **15.07%** of the constrained windows in
+the GC-rich bin and **0.33%** in the GC-poor one, a 45.7$\times$ swing, against
+0.93–2.03% (2.18$\times$) for the retrained score. Those are the numbers to put in the
+caption. A lift-against-recall panel with iso-calling-rate contours — where a portable
+threshold puts every bin on one contour and a biased one fans across them — is a
+striking way to see the same fact, and is one line away
+(`panels.panel_lift_vs_recall(ax, tm_s8)`), but it is the same fact.
 
 **The two scores are compared at a matched calling rate, not at a common number.**
 Retraining moves the whole $z$ distribution, not only its GC dependence: at $z\geq4$ the
@@ -1242,38 +1250,24 @@ property of the score and of GC content; no labels enter. It therefore rests on 
 GeneHancer nor the laxness of an enhancer-overlap proxy, and it is the one number here to
 quote without qualification.
 
-**Panel B is A, precision and recall at once**, via an exact identity: recall $=$ calling
-rate $\times$ lift. A point's position fixes all three — recall on $x$, lift on $y$, the
-calling rate their ratio — and on log–log axes that ratio becomes a difference, making
-**iso-calling-rate contours parallel lines of slope 1**, drawn as the light guides. A score
-whose threshold means the same thing everywhere calls the same fraction of windows in every
-GC bin, so all its points lie on **one** contour; a GC-biased score's points fan **across**
-them. Published spans about two orders of magnitude of contours and the retrained score
-collapses onto one, and no summary statistic is doing any work in that comparison — it is
-the geometry. **Crossing contours is bias; travelling along one is signal-to-noise.**
+**Panel B removes the one confound A creates.** A *is* the statement that the two scores
+call very different fractions of each bin — 14% against 0.8% at the top — so any comparison
+of their precision or lift at a common global cutoff is made at two different operating
+points, and lift falls as a threshold loosens. B therefore matches the calling rate
+**within each bin** (`match_within_bin=True`), so both scores call 1% of every bin and
+neither is read at a different place on its own curve. Its error bars are **paired**, on
+the retrained curve only: independent intervals would describe the uncertainty of each
+*level* when the question is about the *gap*, and would be wider than the gap's own
+interval, since the two scores share almost all of their sampling variability. A bar that
+excludes the published marker is a real difference.
 
-*Its $y$ axis is already the corrected recall.* Recall does not need the base-rate
-correction precision got, because its null is different: a random classifier's precision
-*is* the base rate, but its recall is the *calling rate*. So recall's normaliser is $q$, not
-$r$ — and $\text{recall}/q = \text{lift}$ identically. Base-rate-corrected precision and
-calling-rate-corrected recall are one number. Raw recall stays on $x$ precisely because the
-gap between it and lift *is* the calling rate, which is the bias.
+*Lift is capped at $1/r$*, a ceiling that falls from 12.0 to 1.6 across these bins, so
+compare the two **scores** within a bin — which is what the paired bars do — rather than
+ranking bins against each other. `data.threshold_metrics` also reports skill
+$(\mathrm{precision}-r)/(1-r)$ and $\mathrm{LR}^{+}$ per bin, which are ceiling-free, for
+any sentence that has to be made across bins.
 
-*Compare the two scores vertically in B, not horizontally.* The calling rates are matched
-globally, not per bin, so within a bin the two scores still call very different fractions —
-14% against 0.8% in the top GC bin. Horizontal distance between a square and a triangle is
-a calling-rate difference, not a performance difference. Neither axis is prevalence-free
-across bins either: lift is capped at $1/r$ and recall at $q/r$, so read each score's
-*shape* across bins rather than ranking bins against each other.
-
-**Panels C and D remove the one confound B cannot.** Global matching leaves the *per-bin*
-rates 17$\times$ apart in the top GC bin, and that difference *is* the bias — so every
-per-bin comparison of lift in B is made at two different operating points, and skill falls
-as a threshold loosens. C and D therefore match the calling rate **within each bin**
-(`match_within_bin=True`), so both scores call 1% of every bin and neither is read at a
-different place on its own curve.
-
-**The gaps do not collapse — they strengthen.** The retrained score's lift is higher in all
+**The gaps do not collapse under that matching — they strengthen.** The retrained score's lift is higher in all
 five bins and significantly so in four (+33.3% [+4.1, +80.0]; +4.0% [+0.4, +7.8]; +4.2%
 [+1.3, +7.7]; +10.8% [+3.2, +20.3]; +2.2% [−8.6, +13.6]). So this is **not** threshold
 placement: the retrained score genuinely ranks better inside every GC stratum, at the
@@ -1291,18 +1285,18 @@ differently. **The practical consequence is that auPRC is the wrong summary for 
 constraint score**: nobody applies one at 60% recall, the top ~1% is the entire use case,
 and that is where the retrained score wins.
 
-*C and D are a diagnostic in a second sense, and it is worth saying out loud.* Forcing
-published to call 1% of GC-rich sequence describes a score nobody uses — the whole point of
-panel A is that it calls 14% there. C and D answer what the score *contains*; A and B
-answer what happens when it is *used*.
+*B is a diagnostic in a second sense, and it is worth saying out loud.* Forcing published
+to call 1% of GC-rich sequence describes a score nobody uses — the whole point of panel A
+is that it calls 14% there. B answers what the score *contains*; A answers what happens
+when it is *used*.
 
-**What A–D establish, in one sentence:**
+**What A and B establish, in one sentence:**
 
 > Debiasing removes the GC dependence of how often Gnocchi fires, and with it the GC
 > dependence of how much it finds. It leaves untouched the GC dependence of how much a hit
 > is worth — that is signal-to-noise, and it is a property of the data.
 
-To which C and D add one clause: it also **raises** what a hit is worth, modestly and in
+To which B adds one clause: it also **raises** what a hit is worth, modestly and in
 every stratum, without flattening the GC dependence of that value. Lift at a matched 1%
 per-bin rate goes 1.80 → 2.40, 1.53 → 1.59, 1.28 → 1.34, 1.13 → 1.25 and 1.12 → 1.15 —
 uniformly up, and still declining across GC in both scores, because that decline is
@@ -1314,12 +1308,13 @@ the calling rate (80$\times$ → 1.35$\times$ across GC) and, as its consequence
 3.30$\times$, dominated by the base rate, which climbs 7.70$\times$ and is nobody's to
 change), lift and skill.
 
-*Two quantities are computed and printed but not drawn*, to keep this figure to four
+*Several quantities are computed and printed but not drawn*, to keep this figure to two
 panels: precision against GC with the bin's base rate as a reference — whose message is
-that precision rises with GC for *any* score and is therefore the wrong thing to read — and
-skill $(\mathrm{precision}-r)/(1-r)$ against recall, the ceiling-free companion to B. Both
-are in the tables below, and `panels.panel_threshold_metric(ax, tm_s8, "precision")` and
-`panels.panel_lift_vs_recall(ax, tm_s8, y="skill")` draw them.
+that precision rises with GC for *any* score and is therefore the wrong thing to read —
+recall, lift against recall with its iso-calling-rate contours, and skill. All are in the
+tables below, and each is one call away:
+`panels.panel_threshold_metric(ax, tm_s8, "precision" | "recall" | "skill")` and
+`panels.panel_lift_vs_recall(ax, tm_s8, y="lift" | "skill")`.
 
 ---
 
@@ -1423,27 +1418,23 @@ lifts_wb_s8 = D.lift_deltas(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
 
 code(r"""
 if tm_s8 is not None:
-    # FOUR PANELS IN A 2x2. A and B are the bias as people meet it -- one cutoff, applied
-    # everywhere; C and D are the same two scores with the operating point equalised, which
-    # is what isolates ranking from threshold placement. Two pairs, one row each.
-    fig = plt.figure(figsize=(13.5, 10.0))
-    gs = fig.add_gridspec(2, 2, wspace=0.30, hspace=0.34)
+    # TWO PANELS: the bias as people meet it (A, one cutoff applied everywhere), and the
+    # same two scores with the operating point equalised (B), which is what isolates
+    # ranking from threshold placement. The paired interval that was a fourth panel is now
+    # B's error bars -- see panel_threshold_metric.
+    fig = plt.figure(figsize=(13.5, 5.0))
+    gs = fig.add_gridspec(1, 2, wspace=0.30)
     axA = fig.add_subplot(gs[0, 0])
     axB = fig.add_subplot(gs[0, 1])
-    axC = fig.add_subplot(gs[1, 0])
-    axD = fig.add_subplot(gs[1, 1])
 
     # A is log-y: published Gnocchi's calling rate spans nearly two orders of magnitude
     # across GC, and on a linear axis every bin but the last would sit on the floor.
     panels.panel_threshold_metric(axA, tm_s8, "call_rate", D.GNOCCHI_THRESHOLD)
-    panels.panel_lift_vs_recall(axB, tm_s8, D.GNOCCHI_THRESHOLD, y="lift")
     if withinbin_s8 is not None:
-        panels.panel_threshold_metric(axC, withinbin_s8, "lift", D.GNOCCHI_THRESHOLD)
-    if lifts_wb_s8 is not None:
-        panels.panel_aupr_delta(axD, lifts_wb_s8,
-                                ylabel="Lift gain of the retrained\nscore, matched per bin (%)")
+        panels.panel_threshold_metric(axB, withinbin_s8, "lift", D.GNOCCHI_THRESHOLD,
+                                      deltas=lifts_wb_s8)
 
-    for ax, lab in ((axA, "A"), (axB, "B"), (axC, "C"), (axD, "D")):
+    for ax, lab in ((axA, "A"), (axB, "B")):
         panels.label_panels((ax,), (lab,), x=-0.16)
 
     s9_name = f"supp_fig9{config.WINDOW_SET_SUFFIX}"
