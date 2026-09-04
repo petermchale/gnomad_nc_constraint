@@ -33,6 +33,7 @@ hypomethylation row, where two curves share an x axis and have separate y axes, 
 hue is what says which curve reads against which scale.
 """
 import matplotlib
+import matplotlib.lines as mlines
 import matplotlib.ticker as mticker
 import numpy as np
 
@@ -1171,3 +1172,146 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
     }[metric]
     _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
+
+
+def _log_ticks(lo: float, hi: float) -> list:
+    """
+    Tick values for a log axis spanning well under a decade, where the default locator puts
+    one label on the whole axis. A 1-1.5-2-3-5-7 sequence per decade, kept to the range.
+    """
+    # Density chosen from the span: the dense sequence is right for a fraction of a
+    # decade and unreadable over two, where the labels collide into a smear.
+    span = hi / lo
+    mults = (1, 3) if span > 50 else (1, 2, 5) if span > 8 else (1, 1.5, 2, 3, 5, 7)
+    out = []
+    k = int(np.floor(np.log10(lo)))
+    while 10.0 ** k <= hi * 10:
+        for m in mults:
+            v = m * 10.0 ** k
+            if lo <= v <= hi:
+                out.append(v)
+        k += 1
+    return out
+
+
+def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.1),
+                         show_xlabel: bool = True, legend_loc: str = "lower left") -> None:
+    """
+    Supporting Figure 8, the operating-point panel: lift against recall, one point per GC
+    bin, at a fixed threshold. `tm` is data.threshold_metrics() output.
+
+    IT IS PANELS D, E AND F AT ONCE, because of an exact identity:
+
+        recall = calling rate x lift
+
+    (recall = TP/P, calling rate = N_called/N, lift = (TP/N_called)/(P/N); multiply the
+    last two and the call counts cancel). So a point's position fixes all three: recall on
+    x, lift on y, and the calling rate is the ratio. ON LOG-LOG AXES that ratio becomes a
+    difference, so ISO-CALLING-RATE CONTOURS ARE PARALLEL LINES OF SLOPE 1 -- drawn here as
+    the light guides, the same device as iso-F1 curves on a precision-recall plot.
+
+    AND THAT IS WHY THE PANEL SHOWS THE BIAS AS A SHAPE. A score whose threshold means the
+    same thing everywhere calls the same fraction of windows in every GC bin, so all of its
+    points lie on ONE contour and the panel shows a single line segment sliding along it.
+    A GC-biased score's calling rate moves with GC, so its points fan ACROSS contours. The
+    published score spans about two orders of magnitude of them; the retrained score
+    collapses onto one. No summary statistic is doing any work in that comparison -- it is
+    the geometry.
+
+    WHAT EACH AXIS COSTS THE READER. Neither is prevalence-free: lift is capped at 1/r,
+    which falls with GC (see data.lift_deltas), and recall conditions on the positives so
+    it is at least not scaled by the base rate. The panel is therefore for comparing the
+    two SCORES bin by bin, and for reading each score's SHAPE across bins -- not for
+    ranking bins against each other.
+
+    GC IS THE TRACED PARAMETER AND TAKES PANEL A's COLOUR RAMP, blue for GC-poor through
+    red for GC-rich. It is an ordered variable, which is the same exemption to this
+    module's monochrome rule that panel A gets, and using one ramp for one variable across
+    the figure is what lets a reader carry the mapping between them. Score identity stays
+    with the marker: open square published, filled triangle retrained, as everywhere else.
+    """
+    # Only the two scores this panel draws set its limits. threshold_metrics also carries
+    # the GC-content baseline rows, whose within-bin lift dips below 1 and would stretch
+    # the axes around a series that is never plotted here.
+    drawn_scores = ("published", "scored")
+    tm = tm.filter(tm["score"].is_in(drawn_scores))
+
+    cmap = matplotlib.colormaps[GC_CMAP]
+    bins = sorted(set(tm["mid"].to_list()))
+    colour = {m: cmap(i / max(len(bins) - 1, 1)) for i, m in enumerate(bins)}
+
+    xs = [v for v in tm["recall"].to_list() if v and v > 0]
+    ys = [v for v in tm["lift"].to_list() if v and v > 0]
+    lo_x, hi_x = min(xs) / 2.2, max(xs) * 2.2
+    lo_y, hi_y = min(ys) / 1.3, max(ys) * 1.5
+
+    # LIMITS BEFORE GUIDES. The contours run over orders of magnitude; left to autoscale
+    # they set the y range and squash every marker into a band. Fixing the limits to the
+    # DATA and letting the guides clip is what keeps this a plot of the points.
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlim(lo_x, hi_x)
+    ax.set_ylim(lo_y, hi_y)
+
+    for c in guides:
+        ax.plot([lo_x, hi_x], [lo_x / c, hi_x / c], color="0.82", linewidth=0.9, zorder=0)
+        # Label where the contour leaves the top of the axes, or the right edge if it
+        # never gets there. Horizontal: the axes are ~2 decades wide and ~1 tall, so a
+        # slope-1 line is not at 45 degrees on the page and a rotated label would lie.
+        x_top = hi_y * c
+        if lo_x <= x_top <= hi_x:
+            ax.annotate(f"{100 * c:g}% called", xy=(x_top, hi_y), xytext=(2, -2),
+                        textcoords="offset points", fontsize=LEGEND_FONTSIZE - 3,
+                        color="0.5", ha="left", va="top")
+        elif lo_y <= hi_x / c <= hi_y:
+            ax.annotate(f"{100 * c:g}% called", xy=(hi_x, hi_x / c), xytext=(-2, 2),
+                        textcoords="offset points", fontsize=LEGEND_FONTSIZE - 3,
+                        color="0.5", ha="right", va="bottom")
+
+    handles = []
+    for key in drawn_scores:
+        rows = tm.filter(tm["score"] == key).sort("mid")
+        if not rows.height:
+            continue
+        x, y = rows["recall"].to_numpy(), rows["lift"].to_numpy()
+        # The connecting line orders the points by GC; it is not a series in its own right
+        # and must not compete with the coloured markers.
+        ax.plot(x, y, color=MONO, linewidth=1.4, zorder=2)
+        for xi, yi, mid in zip(x, y, rows["mid"].to_list()):
+            ax.plot([xi], [yi], marker=SCORE_MARKERS[key], markersize=8,
+                    markerfacecolor="white" if key == "published" else colour[mid],
+                    markeredgecolor=colour[mid] if key == "published" else MONO,
+                    markeredgewidth=1.6, zorder=3, linestyle="none")
+        # A proxy carrying the MARKER, since the two curves share one line style and a
+        # plain line handle would name them identically.
+        handles.append(mlines.Line2D([], [], color=MONO, linewidth=1.4,
+                                     marker=SCORE_MARKERS[key], markersize=8,
+                                     markerfacecolor="white" if key == "published" else MONO,
+                                     markeredgecolor=MONO, markeredgewidth=1.6,
+                                     # SHORT names here, unlike D-F. This panel's free
+                                     # space is one corner and the full names do not fit
+                                     # in it; the y label already says the subject is
+                                     # Gnocchi, and D carries the full names beside it.
+                                     label=rows["short"][0]))
+
+    # EXPLICIT TICKS. Lift spans well under a decade here, so the default log locator
+    # labels a single value and the axis reads as unscaled. The contours are the reason to
+    # keep a log axis at all -- they are straight lines only in log-log -- so the ticks
+    # have to be supplied rather than the scale changed.
+    ax.set_xticks(_log_ticks(lo_x, hi_x))
+    ax.set_yticks(_log_ticks(lo_y, hi_y))
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(
+        lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    for axis in (ax.xaxis, ax.yaxis):
+        axis.set_minor_locator(mticker.NullLocator())
+        axis.set_minor_formatter(mticker.NullFormatter())
+    if show_xlabel:
+        ax.set_xlabel("Recall", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.set_ylabel("Lift (precision / base rate)", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
+    ax.grid(True, **GRID_KW)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.legend(handles=handles, fontsize=LEGEND_FONTSIZE - 2, loc=legend_loc, frameon=False)

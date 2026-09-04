@@ -1121,7 +1121,7 @@ requires. The caption should say so.
 | **C** | Whether any of B's gap is real | the **paired** gain of the retrained score over the published one, per GC bin, with a bootstrap 95% CI |
 | **D** | The bias, at the threshold people actually use | fraction of windows in each GC bin with Gnocchi $\geq 4$ |
 | **E** | What an analyst gets from a call | $P(\mathrm{constrained}\mid\mathrm{Gnocchi}\geq4)$ per GC bin, over the bin's base rate |
-| **F** | What a fixed threshold catches | fraction of constrained windows in the bin with Gnocchi $\geq 4$ |
+| **F** | The bias as a *shape* | lift against recall, one point per GC bin, with iso-calling-rate contours |
 
 **A–C are nearly blind to the bias, and D–F are where it appears.** A, B and C are
 *within-bin ranking* statistics, and a GC-dependent bias is very nearly a common shift
@@ -1154,6 +1154,21 @@ headline survives either way**, since a swing across GC is a ratio computed *wit
 score and a common rescaling cannot touch it — but E and F are only apples-to-apples this
 way. Setting `match_call_rate=False` recovers the naive comparison, which is worth looking
 at once to see the confound rather than to quote.
+
+**Panel F is D, E and recall at once**, via an exact identity: recall $=$ calling rate
+$\times$ lift. So a point's position fixes all three — recall on $x$, lift on $y$, the
+calling rate their ratio — and on log–log axes that ratio becomes a difference, making
+**iso-calling-rate contours parallel lines of slope 1**, drawn as the light guides. A score
+whose threshold means the same thing everywhere calls the same fraction of windows in every
+GC bin, so all its points lie on **one** contour; a GC-biased score's points fan **across**
+them. Published spans about two orders of magnitude of contours and the retrained score
+collapses onto one, and no summary statistic is doing any work in that comparison — it is
+the geometry. It replaces the previous recall-versus-GC panel, whose content is now this
+panel's $x$ axis.
+
+Read it for comparing the two *scores* bin by bin and for each score's *shape* across bins,
+not for ranking bins against each other: neither axis is prevalence-free, and lift is
+capped at $1/r$.
 
 **Panel D needs no truth set at all.** The fraction of windows clearing a fixed cutoff is a
 property of the score and of GC content; no labels enter. It is therefore the most robust
@@ -1353,13 +1368,14 @@ if curves_s8 is not None:
     if deltas_s8 is not None:
         panels.panel_aupr_delta(axC, deltas_s8)
     if tm_s8 is not None:
-        # D and F share a log y axis: published Gnocchi's calling rate and recall each span
-        # nearly two orders of magnitude across GC, and on a linear axis every bin but the
-        # last would sit on the floor. E stays linear -- it is a probability read against a
-        # base rate drawn beside it, and a log axis would distort that comparison.
+        # D is log-y: published Gnocchi's calling rate spans nearly two orders of
+        # magnitude across GC, and on a linear axis every bin but the last would sit on the
+        # floor. E stays linear -- it is a probability read against a base rate drawn beside
+        # it, and a log axis would distort that comparison. F is log-log because that is
+        # what makes its iso-calling-rate contours straight.
         panels.panel_threshold_metric(axD, tm_s8, "call_rate", D.GNOCCHI_THRESHOLD)
         panels.panel_threshold_metric(axE, tm_s8, "precision", D.GNOCCHI_THRESHOLD)
-        panels.panel_threshold_metric(axF, tm_s8, "recall", D.GNOCCHI_THRESHOLD, logy=True)
+        panels.panel_lift_vs_recall(axF, tm_s8, D.GNOCCHI_THRESHOLD)
 
     # Each letter clears its own panel's ylabel: A's is one line and its panel is wide,
     # B/C's are two lines, D-F are narrower still so their letters sit further out.
