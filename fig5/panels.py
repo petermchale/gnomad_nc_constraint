@@ -1218,11 +1218,28 @@ def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.
     collapses onto one. No summary statistic is doing any work in that comparison -- it is
     the geometry.
 
-    WHAT EACH AXIS COSTS THE READER. Neither is prevalence-free: lift is capped at 1/r,
-    which falls with GC (see data.lift_deltas), and recall conditions on the positives so
-    it is at least not scaled by the base rate. The panel is therefore for comparing the
-    two SCORES bin by bin, and for reading each score's SHAPE across bins -- not for
-    ranking bins against each other.
+    THE Y AXIS IS ALREADY THE CORRECTED RECALL, which is worth saying because the obvious
+    question about this panel is whether recall needs the base-rate correction precision
+    got. It does not, and the reason is that its null is different: a random classifier's
+    precision IS the base rate, but its recall is the CALLING RATE, whatever the base rate
+    is. So recall's normaliser is q, not r -- and recall/q = lift, identically, by the
+    same cancellation as above. Base-rate-corrected precision and calling-rate-corrected
+    recall are one number. Raw recall stays on x precisely because the gap between it and
+    lift is the calling rate, which is the bias; correcting x would plot lift against lift.
+
+    COMPARE THE TWO SCORES VERTICALLY, NOT HORIZONTALLY. The calling rates are matched
+    GLOBALLY, not per bin, so within a bin the two scores still call very different
+    fractions -- 14% against 0.8% in the top GC bin on the real run. Horizontal distance
+    between a square and a triangle in one bin is therefore a CALLING-RATE difference and
+    not a performance difference: published's 15.1% recall against the retrained score's
+    0.9% there is almost entirely that, both sitting at lift ~1.1. The legitimate within-bin
+    comparison is the vertical one, and data.lift_deltas is what puts an interval on it.
+
+    NEITHER AXIS IS PREVALENCE-FREE ACROSS BINS. Lift is capped at 1/r, and recall at a
+    calling rate q is capped at q/r -- 12% where r = 0.083 but 1.6% where r = 0.639, the
+    same ceiling scaled by q. So read each score's SHAPE across bins, and do not rank bins
+    against each other; the per-bin `skill` and `LR+` in data.threshold_metrics are the
+    ceiling-free quantities for that.
 
     GC IS THE TRACED PARAMETER AND TAKES PANEL A's COLOUR RAMP, blue for GC-poor through
     red for GC-rich. It is an ordered variable, which is the same exemption to this

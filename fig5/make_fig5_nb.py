@@ -1166,9 +1166,23 @@ collapses onto one, and no summary statistic is doing any work in that compariso
 the geometry. It replaces the previous recall-versus-GC panel, whose content is now this
 panel's $x$ axis.
 
-Read it for comparing the two *scores* bin by bin and for each score's *shape* across bins,
-not for ranking bins against each other: neither axis is prevalence-free, and lift is
-capped at $1/r$.
+**Its $y$ axis is already the corrected recall.** Recall does not need the base-rate
+correction precision got, because its null is different: a random classifier's precision
+*is* the base rate, but its recall is the *calling rate*. So recall's normaliser is $q$,
+not $r$ — and $\text{recall}/q = \text{lift}$ identically, by the same cancellation. Base-rate-corrected
+precision and calling-rate-corrected recall are one number. Raw recall stays on $x$
+precisely because the gap between it and lift *is* the calling rate, which is the bias.
+
+**Compare the two scores vertically, not horizontally.** The calling rates are matched
+globally, not per bin, so within a bin the two scores still call very different fractions —
+14% against 0.8% in the top GC bin. Horizontal distance between a square and a triangle is
+therefore a calling-rate difference, not a performance difference; the legitimate
+within-bin comparison is the vertical one, and `data.lift_deltas` puts an interval on it.
+
+Neither axis is prevalence-free across bins: lift is capped at $1/r$ and recall at $q/r$ —
+the same ceiling scaled by $q$ — so read each score's *shape* across bins rather than
+ranking bins against each other, and use the per-bin `skill` and `LR+` for anything
+cross-bin.
 
 **Panel D needs no truth set at all.** The fraction of windows clearing a fixed cutoff is a
 property of the score and of GC content; no labels enter. It is therefore the most robust
