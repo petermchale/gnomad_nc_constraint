@@ -1164,7 +1164,20 @@ enhancer-overlap proxy — and it is the one to quote.
 Precision at a fixed threshold rises with GC for *any* score, because the base rate itself
 climbs about 7.7$\times$ across these bins; that is why the panel draws the base rate as
 its reference, and why the gap between a curve and the dashed line beneath it — not the
-curve's height — is what carries information.
+curve's height — is what carries information. That gap is the **lift**,
+$P(Y{=}1\mid\text{called})/P(Y{=}1)$ — standard in classification evaluation, and called
+*fold-enrichment* in genomics — and by Bayes it is also recall/calling-rate, which is the
+identity tying D, E and F together.
+
+**Lift is comparable between the two scores within a bin, but not between bins.**
+Precision cannot exceed 1, so lift cannot exceed $1/r$ — a ceiling that falls from 12.0 in
+(0.20, 0.30] to 1.57 in (0.55, 0.80]. A lift declining across GC is therefore partly the
+ceiling coming down, not only the score getting worse; a cross-bin statement needs the
+positive likelihood ratio $P(\text{call}\mid Y{=}1)/P(\text{call}\mid Y{=}0)$, or the skill
+score $(\text{precision}-r)/(1-r)$ which maps random to 0 and perfect to 1. Within a bin
+both scores face the same $r$ and the same ceiling, which is where `data.lift_deltas`
+compares them — with a **paired** bootstrap, for the reason panel C uses one. There the
+base rate cancels outright, so the lift ratio *is* the precision ratio.
 
 **Panel C is where the claim is decided, and panel B cannot do its job.** B draws two
 curves that cross and wobble, without uncertainty, so a reader cannot separate a real gap
@@ -1240,6 +1253,16 @@ code(r"""
 tm_s8 = D.threshold_metrics(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
                             match_call_rate=True) \
     if NEUTRAL_WINDOWS_BED else None
+""")
+
+code(r"""
+# The paired bootstrap on panel E's comparison, so it has the standing panel C's does.
+# Same matched thresholds (both go through data._threshold_setup), so the interval is for
+# the statistic the panel plots. Its intervals are WIDE wherever the calls are few: a
+# precision at a fixed threshold rests only on the called windows, a few hundred in the
+# lowest GC bin against the tens of thousands behind panel C.
+lifts_s8 = D.lift_deltas(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
+                         n_bootstrap=500, seed=0) if NEUTRAL_WINDOWS_BED else None
 """)
 
 code(r"""
@@ -1337,13 +1360,28 @@ if tm_s8 is not None:
         cr = rows["call_rate"].to_numpy()
         print(f"\n  Gnocchi, {rows['short'][0]} (z >= {rows['threshold_used'][0]:.3f}):  "
               f"calling rate spans {100 * cr.min():.2f}% - {100 * cr.max():.2f}%  "
-              f"({cr.max() / cr.min():.0f}x across GC)")
+              f"({cr.max() / cr.min():.2f}x across GC)")
         for r in rows.iter_rows(named=True):
             print(f"    GC ({r['lo']:.2f}, {r['hi']:.2f}]  called {r['n_called']:>7,} "
                   f"({100 * r['call_rate']:6.2f}%)  precision {r['precision']:.3f} "
                   f"[{r['precision_lo']:.3f}, {r['precision_hi']:.3f}]  "
                   f"base rate {r['r']:.3f}  lift {r['lift']:.2f}  "
                   f"recall {100 * r['recall']:6.2f}%")
+
+if lifts_s8 is not None:
+    print("\npanel E's comparison, paired bootstrap on the LIFT RATIO (= the precision")
+    print("ratio: the base rate cancels, since both scores see the same rows). A bin whose")
+    print("CI excludes 0 is a real difference. `ceiling` is 1/base-rate, the largest lift")
+    print("attainable in that bin -- lift is comparable BETWEEN scores here, not between")
+    print("bins, because the ceiling moves with the base rate.")
+    for r in lifts_s8.iter_rows(named=True):
+        star = "  *" if (r["ci_lo"] > 0 or r["ci_hi"] < 0) else "   "
+        print(f"  GC ({r['lo']:.2f}, {r['hi']:.2f}]  "
+              f"calls {r['n_called_published']:>6,} / {r['n_called_scored']:>6,}  "
+              f"lift {r['lift_published']:.2f} -> {r['lift_scored']:.2f} "
+              f"(ceiling {r['ceiling']:.1f})  gain {100 * r['delta']:+6.1f}% "
+              f"[{100 * r['ci_lo']:+6.1f}, {100 * r['ci_hi']:+6.1f}]  "
+              f"P(>0) = {r['p_gt0']:.3f}{star}")
 """)
 
 

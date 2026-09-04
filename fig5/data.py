@@ -1234,6 +1234,48 @@ def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
     return (max(0.0, centre - half), min(1.0, centre + half))
 
 
+def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str | None,
+                     refit_expected: str | None, gc_bins: list, min_n: int,
+                     match_call_rate: bool, reference_score: str):
+    """
+    The labelled table, the drawn bins, and each score's threshold -- shared by
+    threshold_metrics and lift_deltas so the two cannot disagree about which windows are
+    called. Extracted rather than duplicated because the matching is the subtle part: get
+    it different between the panel and its confidence interval and the interval is for a
+    different statistic than the one plotted.
+    """
+    if reference_score not in PR_SCORES:
+        raise ValueError(f"reference_score={reference_score!r} is not one of {list(PR_SCORES)}")
+
+    df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
+    df = _assign_gc_bins(df, gc_bins)
+
+    # Which bins get drawn, decided before the matching so the fraction being matched is
+    # the one the panels cover.
+    drawn = []
+    for b, (lo, hi) in enumerate(gc_bins):
+        n = df.filter(pl.col("gc_bin") == b).height
+        if n < min_n:
+            print(f"  GC ({lo}, {hi}] dropped, n = {n:,} < {min_n:,}")
+        else:
+            drawn.append(b)
+    df = df.filter(pl.col("gc_bin").is_in(drawn))
+
+    thresholds = {k: threshold for k in PR_SCORES}
+    if match_call_rate:
+        ref = df[f"z_{reference_score}"].to_numpy()
+        target = float((ref >= threshold).mean())
+        for key in PR_SCORES:
+            if key == reference_score:
+                continue
+            thresholds[key] = float(np.quantile(df[f"z_{key}"].to_numpy(), 1.0 - target))
+        print(f"  matched calling rate: {100 * target:.3f}% of the {df.height:,} windows "
+              f"drawn, set by {reference_score} at z >= {threshold:g}")
+        for key, t in thresholds.items():
+            print(f"    {PR_SCORES[key][2]:<15} z >= {t:.3f}")
+    return df, drawn, thresholds
+
+
 def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                       cache_dir: str = CACHE_DIR,
                       neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
@@ -1315,35 +1357,9 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
 
-    if reference_score not in PR_SCORES:
-        raise ValueError(f"reference_score={reference_score!r} is not one of {list(PR_SCORES)}")
-
-    df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
-    df = _assign_gc_bins(df, gc_bins)
-
-    # Which bins get drawn, decided before the matching so the fraction being matched is
-    # the one the panels cover.
-    drawn = []
-    for b, (lo, hi) in enumerate(gc_bins):
-        n = df.filter(pl.col("gc_bin") == b).height
-        if n < min_n:
-            print(f"  GC ({lo}, {hi}] dropped, n = {n:,} < {min_n:,}")
-        else:
-            drawn.append(b)
-    df = df.filter(pl.col("gc_bin").is_in(drawn))
-
-    thresholds = {k: threshold for k in PR_SCORES}
-    if match_call_rate:
-        ref = df[f"z_{reference_score}"].to_numpy()
-        target = float((ref >= threshold).mean())
-        for key in PR_SCORES:
-            if key == reference_score:
-                continue
-            thresholds[key] = float(np.quantile(df[f"z_{key}"].to_numpy(), 1.0 - target))
-        print(f"  matched calling rate: {100 * target:.3f}% of the {df.height:,} windows "
-              f"drawn, set by {reference_score} at z >= {threshold:g}")
-        for key, t in thresholds.items():
-            print(f"    {PR_SCORES[key][2]:<15} z >= {t:.3f}")
+    df, drawn, thresholds = _threshold_setup(
+        threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
+        match_call_rate, reference_score)
 
     rows = []
     for b in drawn:
@@ -1377,4 +1393,118 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                   f"({100 * e['call_rate']:5.2f}% of windows)  "
                   f"precision {e['precision']:.3f} [{prec_lo:.3f}, {prec_hi:.3f}]  "
                   f"base rate {r:.3f}  lift {e['lift']:.2f}  recall {e['recall']:.4f}")
+    return pl.DataFrame(rows)
+
+
+def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
+                cache_dir: str = CACHE_DIR,
+                neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
+                refit_expected: str | None = None, gc_bins: list | None = None,
+                min_n: int = DELTA_MIN_BIN_WINDOWS, match_call_rate: bool = True,
+                reference_score: str = "published", n_bootstrap: int = 500,
+                seed: int = 0) -> pl.DataFrame:
+    """
+    The PAIRED difference in lift between the two scores, per GC bin, with a bootstrap
+    confidence interval. Panel E's comparison given the standing panel C's has.
+
+    LIFT, AND WHY IT IS THE RIGHT CONTROL WITHIN A BIN.
+
+        lift = P(Y=1 | called) / P(Y=1) = precision / base rate
+
+    the factor by which a call beats picking a window of that bin at random. Standard in
+    association-rule mining and classification evaluation; genomics usually calls the same
+    quantity fold-enrichment. By Bayes it is also recall / calling-rate, which is the
+    identity tying panels D, E and F together. It is exactly the control the base rate
+    demands: enhancer prevalence climbs about 7.7x across these bins, so raw precision
+    rises with GC for ANY score and cannot be compared bin to bin without dividing it out.
+
+    LIFT IS NOT COMPARABLE ACROSS BINS EITHER, and the reason is worth stating because it
+    is easy to miss. Precision cannot exceed 1, so lift cannot exceed 1/r -- a CEILING that
+    moves with the base rate: 12.0 in (0.20, 0.30] where r = 0.083, but only 1.57 in
+    (0.55, 0.80] where r = 0.639. So a lift falling from 2.6 to 1.1 across GC is partly the
+    ceiling coming down, not only the score getting worse. For a genuinely prevalence-free
+    cross-bin statement use the positive likelihood ratio P(call|Y=1)/P(call|Y=0), or the
+    skill score (precision - r)/(1 - r) which maps random to 0 and perfect to 1. WITHIN a
+    bin none of this bites: both scores face the same r and the same ceiling, which is why
+    this function compares them there and nowhere else.
+
+    THE BASE RATE CANCELS FROM THE RATIO, so this is simpler than it looks:
+
+        lift_scored / lift_published = precision_scored / precision_published
+
+    because both scores are evaluated on the same rows and r is a property of the bin, not
+    of the score. It cancels inside every bootstrap replicate too -- a resample changes r,
+    but identically for both -- so the interval below is equally an interval on the
+    precision ratio. The statistic reported is that ratio minus one, a relative gain, to
+    match panel C's.
+
+    PAIRED, for the reason in pr_curve_deltas: one index vector per replicate, both scores
+    scored on it, so the variability in WHICH windows the bin happens to contain cancels.
+    Independent Wilson intervals on the two precision curves -- which is what panels D-F
+    draw, correctly, since those show levels -- would badly understate the evidence about
+    the difference.
+
+    THE THRESHOLDS ARE HELD FIXED across replicates rather than re-matched inside each one.
+    They are quantiles of ~10^6 windows, so their own sampling error is negligible beside
+    the per-bin counts; and re-matching within a bin would be wrong anyway, since the
+    matching is defined over the whole drawn population, not per bin.
+
+    Returns one row per drawn bin: lo, hi, mid, n, n_pos, r, ceiling (1/r), n_called_*,
+    lift_published, lift_scored, delta (the ratio minus one, from the observed data),
+    ci_lo, ci_hi, p_gt0.
+    """
+    if truth_set != "lax":
+        raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
+    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+    df, drawn, thresholds = _threshold_setup(
+        threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
+        match_call_rate, reference_score)
+
+    other = [k for k in PR_SCORES if k != reference_score]
+    if len(other) != 1:
+        raise ValueError("lift_deltas compares exactly two scores")
+    other = other[0]
+
+    rng = np.random.default_rng(seed)
+    rows = []
+    for b in drawn:
+        lo, hi = gc_bins[b]
+        sub = df.filter(pl.col("gc_bin") == b)
+        y = sub[TRUTH_TARGET].to_numpy()
+        zr = sub[f"z_{reference_score}"].to_numpy()
+        zo = sub[f"z_{other}"].to_numpy()
+        r = float(y.mean())
+
+        def _prec(mask, yy):
+            k = int(mask.sum())
+            return (yy[mask].sum() / k) if k else np.nan
+
+        cr, co = zr >= thresholds[reference_score], zo >= thresholds[other]
+        p_ref, p_oth = _prec(cr, y), _prec(co, y)
+
+        boot = np.empty(n_bootstrap)
+        for k in range(n_bootstrap):
+            idx = rng.integers(0, sub.height, sub.height)   # one draw, both scores
+            yb = y[idx]
+            a, c = _prec(cr[idx], yb), _prec(co[idx], yb)
+            boot[k] = (c / a - 1.0) if (a and np.isfinite(a) and np.isfinite(c)) else np.nan
+        boot = boot[np.isfinite(boot)]
+
+        rows.append({
+            "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "n": sub.height,
+            "n_pos": int(y.sum()), "r": r, "ceiling": 1.0 / r if r else np.nan,
+            "n_called_published": int(cr.sum()), "n_called_scored": int(co.sum()),
+            "lift_published": p_ref / r, "lift_scored": p_oth / r,
+            "delta": p_oth / p_ref - 1.0,
+            "ci_lo": float(np.percentile(boot, 2.5)),
+            "ci_hi": float(np.percentile(boot, 97.5)),
+            "p_gt0": float((boot > 0).mean()),
+        })
+        e = rows[-1]
+        star = " *" if (e["ci_lo"] > 0 or e["ci_hi"] < 0) else "  "
+        print(f"  GC ({lo:.2f}, {hi:.2f}]  lift {e['lift_published']:.2f} -> "
+              f"{e['lift_scored']:.2f}  (ceiling {e['ceiling']:.1f})  "
+              f"gain {100 * e['delta']:+6.1f}%  "
+              f"[{100 * e['ci_lo']:+6.1f}, {100 * e['ci_hi']:+6.1f}]  "
+              f"P(>0) = {e['p_gt0']:.3f}{star}")
     return pl.DataFrame(rows)
