@@ -1249,7 +1249,8 @@ def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
 def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str | None,
                      refit_expected: str | None, gc_bins: list, min_n: int,
                      match_call_rate: bool, reference_score: str,
-                     include_gc_baseline: bool = False):
+                     include_gc_baseline: bool = False,
+                     call_rate: float | None = None):
     """
     The labelled table, the drawn bins, and each score's threshold -- shared by
     threshold_metrics and lift_deltas so the two cannot disagree about which windows are
@@ -1275,6 +1276,18 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
     df = df.filter(pl.col("gc_bin").is_in(drawn))
 
     keys = list(PR_SCORES) + ([GC_BASELINE] if include_gc_baseline else [])
+    # `call_rate` sets the REFERENCE score's threshold by quantile instead of taking the
+    # absolute z. Loosening the cutoff is the cheapest way to buy precision in every
+    # threshold statistic here -- the intervals close as sqrt(calls) while lift itself is
+    # nearly flat in the calling rate (1.67 -> 1.56 over 1% -> 10% in the GC-poorest bin,
+    # against a CI half-width falling 17.2% -> 4.2%). It measures a DIFFERENT quantity
+    # though: "the top q of the genome by Gnocchi" is not "Gnocchi >= 4", and only the
+    # latter is Chen et al.'s own cutoff and therefore the score as people apply it. So
+    # this is for a sweep reported ALONGSIDE the anchored result, never instead of it.
+    if call_rate is not None:
+        threshold = float(np.quantile(df[f"z_{reference_score}"].to_numpy(), 1.0 - call_rate))
+        print(f"  calling rate {100 * call_rate:.2f}% sets {reference_score} at "
+              f"z >= {threshold:.3f}")
     thresholds = {k: threshold for k in keys}
     target = float("nan")
     if match_call_rate or include_gc_baseline:
@@ -1449,7 +1462,7 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                 refit_expected: str | None = None, gc_bins: list | None = None,
                 min_n: int = DELTA_MIN_BIN_WINDOWS, match_call_rate: bool = True,
                 reference_score: str = "published", n_bootstrap: int = 500,
-                seed: int = 0) -> pl.DataFrame:
+                seed: int = 0, call_rate: float | None = None) -> pl.DataFrame:
     """
     The PAIRED difference in lift between the two scores, per GC bin, with a bootstrap
     confidence interval. Panel E's comparison given the standing panel C's has.
@@ -1505,7 +1518,7 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
     df, drawn, thresholds, _ = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
-        match_call_rate, reference_score)
+        match_call_rate, reference_score, call_rate=call_rate)
 
     other = [k for k in PR_SCORES if k != reference_score]
     if len(other) != 1:
@@ -1539,6 +1552,7 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
 
         rows.append({
             "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "n": sub.height,
+            "call_rate": call_rate if call_rate is not None else float("nan"),
             "n_pos": int(y.sum()), "r": r, "ceiling": 1.0 / r if r else np.nan,
             "n_called_published": int(cr.sum()), "n_called_scored": int(co.sum()),
             "lift_published": p_ref / r, "lift_scored": p_oth / r,
@@ -1629,3 +1643,48 @@ def budget_comparison(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
               f"precision {e['precision']:.3f}  recall {100 * e['recall']:5.2f}%  "
               f"lift {e['lift']:.2f}")
     return pl.DataFrame(rows)
+
+
+def lift_delta_sweep(call_rates=(0.01, 0.03, 0.10), truth_set: str = "lax",
+                     cache_dir: str = CACHE_DIR,
+                     neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
+                     refit_expected: str | None = None, gc_bins: list | None = None,
+                     min_n: int = DELTA_MIN_BIN_WINDOWS,
+                     reference_score: str = "published", n_bootstrap: int = 300,
+                     seed: int = 0) -> pl.DataFrame:
+    """
+    lift_deltas repeated across calling rates, so the per-bin comparison is reported as a
+    function of how much of the genome is called rather than at one arbitrary point.
+
+    WHY SWEEP AT ALL. The threshold statistics are noise-limited by the number of CALLED
+    windows, which at Chen et al.'s z >= 4 is a few dozen in the GC-poorest bin. Loosening
+    the cutoff closes the intervals as sqrt(calls) -- and, measured on the offline stand-in,
+    costs almost nothing in effect size, because lift is remarkably flat in the calling
+    rate (1.67 -> 1.56 in (0.20, 0.30] over 1% -> 10%, against a CI half-width falling
+    17.2% -> 4.2%). A four-fold tightening for a seven percent erosion is a trade worth
+    making, and a sweep says whether a result is a knife-edge or holds along the whole
+    range.
+
+    IT IS A COMPLEMENT TO THE ANCHORED RESULT, NOT A REPLACEMENT. "The top q of the genome
+    by Gnocchi" is not "Gnocchi >= 4", and only the latter is the cutoff Chen et al. use
+    and therefore the score as people apply it. Panels D-F stay anchored; this is the
+    robustness check beside them.
+
+    IT ALSO MAKES A CONTINUUM VISIBLE that is otherwise implicit in this figure. As q rises
+    the statistic integrates over more of the ranking and converges toward what auPRC
+    already measures -- which is panel C, whose intervals are ~0.2% wide. So panel C is the
+    powerful-but-uninterpretable end of one axis and z >= 4 the interpretable-but-noisy
+    end; the sweep is the path between them.
+
+    Returns lift_deltas' columns with `call_rate` filled in, stacked over the rates.
+    """
+    frames = []
+    for q in call_rates:
+        print(f"\ncalling rate {100 * q:.2f}%")
+        frames.append(lift_deltas(
+            truth_set=truth_set, cache_dir=cache_dir,
+            neutral_windows_bed=neutral_windows_bed, refit_expected=refit_expected,
+            gc_bins=gc_bins, min_n=min_n, match_call_rate=True,
+            reference_score=reference_score, n_bootstrap=n_bootstrap, seed=seed,
+            call_rate=q))
+    return pl.concat(frames)

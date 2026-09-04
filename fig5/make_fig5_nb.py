@@ -1201,6 +1201,22 @@ ceiling caveat; neither is plotted. Within a bin both scores face the same $r$ a
 ceiling, which is where `data.lift_deltas` compares them — with a **paired** bootstrap, for the reason panel C uses one. There the
 base rate cancels outright, so the lift ratio *is* the precision ratio.
 
+**Its intervals are wide wherever the calls are few**, because a precision at a fixed
+threshold rests only on the *called* windows — a few dozen in the GC-poorest bin, against
+the tens of thousands behind panel C. Hence `data.lift_delta_sweep`, which repeats the
+comparison across calling rates. The intervals close as $\sqrt{\text{calls}}$ while lift is
+nearly flat in the calling rate: measured on the stand-in, 1.67 → 1.56 in (0.20, 0.30]
+over 1% → 10%, against a CI half-width falling 17.2% → 4.2% — a four-fold tightening for a
+seven percent erosion. At 1% no bin's interval excluded zero; at 10% three did. A single
+anchored point can therefore be a knife-edge, and the sweep is what shows whether it is.
+
+It also makes a continuum in this figure explicit. As the calling rate rises the statistic
+integrates over more of the ranking and converges toward what auPRC already measures —
+panel C, whose intervals are ~0.2% wide. **Panel C is the powerful-but-uninterpretable end
+of that axis and $z\geq4$ the interpretable-but-noisy end**, and neither is the right one
+on its own: "the top 10% of the genome by Gnocchi" is not "Gnocchi $\geq$ 4", and only the
+latter is the cutoff Chen et al. use and therefore the score as people apply it.
+
 **Panel C is where the claim is decided, and panel B cannot do its job.** B draws two
 curves that cross and wobble, without uncertainty, so a reader cannot separate a real gap
 from a thin bin — and the largest gap sits in the thinnest bin, which is exactly the
@@ -1293,6 +1309,17 @@ code(r"""
 # prints as it computes.
 budget_s8 = D.budget_comparison(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax") \
     if NEUTRAL_WINDOWS_BED else None
+""")
+
+code(r"""
+# The same paired comparison across CALLING RATES. The threshold statistics are
+# noise-limited by the number of CALLED windows -- a few dozen in the GC-poorest bin at
+# z >= 4 -- and loosening the cutoff closes the intervals as sqrt(calls) while costing
+# almost nothing in effect size, because lift is nearly flat in the calling rate. This says
+# whether a result holds along the range or only at one point. ~10 s per rate. Reported
+# ALONGSIDE the anchored z >= 4 result, never instead of it.
+sweep_s8 = D.lift_delta_sweep(call_rates=(0.01, 0.03, 0.10), truth_set="lax",
+                              n_bootstrap=500, seed=0) if NEUTRAL_WINDOWS_BED else None
 """)
 
 code(r"""
