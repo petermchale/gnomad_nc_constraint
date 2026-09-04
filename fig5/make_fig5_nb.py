@@ -1149,13 +1149,11 @@ deltas_s8 = D.pr_curve_deltas(truth_set="lax", seed=0, n_bootstrap=500,
 code(r"""
 # Guarded, so a run without NEUTRAL_WINDOWS_BED skips these figures rather than dying.
 if curves_s8 is not None:
-    # TWO PANELS: the level and the inference on its gap. The per-bin precision-recall
-    # curves that A summarises are deliberately not drawn -- see the markdown above --
-    # which is one line to restore if the manuscript wants McHale et al.'s Fig. 4A beside
-    # this: panels.panel_pr_curves(ax, curves_s8, key) once per score.
-    # ONE PANEL. The paired interval that used to be a second panel is drawn here as the
-    # retrained curve's error bars -- see panel_aupr_by_gc for why they go on one curve and
-    # what they mean. A bar that excludes the published marker is a real difference.
+    # ONE PANEL. The paired interval that was a second panel is drawn here as the retrained
+    # curve's error bars -- see panel_aupr_by_gc for why they go on one curve and what they
+    # mean. A bar that excludes the published marker is a real difference. The per-bin
+    # precision-recall curves this summarises are not drawn either; panels.panel_pr_curves
+    # is what draws them, once per score, if the manuscript wants McHale et al.'s Fig. 4A.
     fig, ax = plt.subplots(figsize=(7.2, 5.0))
     panels.panel_aupr_by_gc(ax, curves_s8, deltas=deltas_s8)
 
@@ -1224,8 +1222,11 @@ score *contains*; A says what happens when it is *used*.
 *Lift is capped at $1/r$*, a ceiling falling from 12.0 to 1.6 across these bins, so compare
 the two **scores** within a bin rather than ranking bins against each other.
 `data.threshold_metrics` reports ceiling-free skill and $\mathrm{LR}^{+}$ per bin for
-anything cross-bin, alongside precision, recall and the lift-against-recall view; none is
-drawn, and each is one call away.
+anything cross-bin, alongside precision and recall. None of those is drawn, and each is one
+call away: `panels.panel_threshold_metric(ax, tm_s8, "precision" | "recall" | "skill")`, and
+`panels.panel_lift_vs_recall(ax, tm_s8, y="lift" | "skill")` for the lift-against-recall
+view, whose iso-calling-rate contours put a portable threshold's bins on one line and a
+biased score's across many.
 
 **What A and B establish, in one sentence:**
 

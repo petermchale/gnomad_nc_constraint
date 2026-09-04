@@ -27,6 +27,18 @@ colour. Two exemptions, both deliberate:
     blue-to-red ramp is the reading of the panel rather than a way of enumerating lines --
     and it is what McHale et al.'s published Fig. 4A does. See panel_pr_curves.
 
+WHAT IS DRAWN AND WHAT IS KEPT. Supporting Figures 8 and 9 were cut from nine panels to
+three, and four working panel functions are now called by nothing: panel_pr_curves (McHale
+et al.'s Fig. 4A, the per-bin precision-recall curves), panel_lift_vs_recall (lift or skill
+against recall, with iso-calling-rate contours), panel_aupr_delta (a paired gain per GC bin
+with a bootstrap interval, whose two callers were folded into curve error bars), and
+panel_threshold_metric's "precision", "recall" and "skill" modes. They are kept rather than
+deleted because each was cut for composition rather than correctness -- the quantities are
+still computed and printed on every run -- and because which panels a manuscript wants has
+already changed several times. The notebook prose names the call for each, so none is
+orphaned; _log_ticks and _threshold_series exist only for panel_lift_vs_recall and go if it
+does. Delete the lot if the figures settle.
+
 The Supporting Figure follows the same rule. Its single-series rows are monochrome --
 one curve and no legend leaves a hue naming nothing -- and colour survives only in its
 hypomethylation row, where two curves share an x axis and have separate y axes, and the
