@@ -1061,3 +1061,90 @@ def panel_aupr_delta(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True) ->
     # many replicates.
     _finish(ax, "auPRC gain of the retrained\nscore (%)", xrange, show_xlabel,
             legend=False)
+
+
+# The two scores' curves in panels D and E, which unlike panel C draw LEVELS rather than a
+# difference and so need to be told apart from each other. Same square/triangle and same
+# open/filled convention as panel B, so a reader learns the pair once for the whole figure.
+def _threshold_series(tm, key: str):
+    rows = tm.filter(tm["score"] == key).sort("mid")
+    return rows
+
+
+def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float = 4.0,
+                           xrange=(0.2, 0.8), show_xlabel: bool = True,
+                           show_prevalence: bool = True, logy: bool | None = None,
+                           legend_loc: str | None = None) -> None:
+    """
+    Supporting Figure 8, panels D-F. One of three quantities at a FIXED Gnocchi threshold,
+    per GC bin, one curve per score, with Wilson intervals. `tm` is
+    data.threshold_metrics() output.
+
+      metric="call_rate"  the fraction of windows in the bin that clear the threshold.
+                          THE PANEL TO QUOTE: it uses no labels at all, so it rests on
+                          neither GeneHancer nor the laxness of an enhancer proxy -- it is
+                          a property of the score and of GC content. Drawn on a log y axis,
+                          because published Gnocchi's spans nearly two orders of magnitude
+                          across the GC range and a linear axis would show only the top bin.
+      metric="precision"  P(constrained | called) -- the analyst's number.
+      metric="recall"     P(called | constrained) -- what fraction is caught.
+
+    WHY THIS PANEL IS NOT A RESTATEMENT OF B. B and C hold the threshold free and ask how
+    well each score RANKS windows within a GC bin, which a GC-dependent shift barely
+    affects. Here the threshold is fixed at the value Chen et al. themselves use to call a
+    window constrained, so the shift decides how many windows in each bin are called at
+    all -- and the analyst's question, "my window scores above 4, how likely is it
+    constrained", is precisely this panel's y-axis.
+
+    THE DASHED CURVE IS THE BIN'S BASE RATE, not a random-classifier line borrowed from
+    panel A, and drawing it is what stops the panel being misread. Enhancer prevalence
+    climbs about 7.7x across these bins, so precision at a fixed threshold rises with GC
+    for ANY score, bias or no bias; what matters is the gap between a curve and the dashed
+    line beneath it. A reader who takes a rising precision curve as evidence of good
+    performance at high GC has read the base rate, not the score. (On the recall panel
+    there is no such reference -- recall conditions on the positives, so the base rate has
+    already been divided out -- and show_prevalence is ignored.)
+    """
+    if metric not in ("call_rate", "precision", "recall"):
+        raise ValueError(
+            f"metric must be 'call_rate', 'precision' or 'recall', not {metric!r}")
+    logy = (metric == "call_rate") if logy is None else logy
+    # Precision rises from bottom left to top right and fills the upper left; the other two
+    # are read against a flat corrected curve low on the axes, where a top-left legend sits
+    # in empty space.
+    legend_loc = ("lower right" if metric == "precision" else "upper left") \
+        if legend_loc is None else legend_loc
+
+    for key in ("published", "scored"):
+        rows = _threshold_series(tm, key)
+        if not rows.height:
+            continue
+        x = rows["mid"].to_numpy()
+        y = rows[metric].to_numpy()
+        lo = y - rows[f"{metric}_lo"].to_numpy()
+        hi = rows[f"{metric}_hi"].to_numpy() - y
+        ax.errorbar(x, y, yerr=np.vstack([lo, hi]),
+                    marker=SCORE_MARKERS[key], color=MONO,
+                    markerfacecolor="white" if key == "published" else MONO,
+                    markeredgewidth=1.2, markersize=6, linewidth=2, capsize=3,
+                    elinewidth=1.2, label=f"Gnocchi, {rows['short'][0]}")
+
+    if metric == "precision" and show_prevalence:
+        base = _threshold_series(tm, "published")
+        ax.plot(base["mid"].to_numpy(), base["r"].to_numpy(),
+                linestyle="--", color="0.45", linewidth=1.4,
+                label="base rate in the bin")
+
+    if logy:
+        ax.set_yscale("log")
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(
+            lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
+        ax.yaxis.set_minor_formatter(mticker.NullFormatter())
+    ylabel = {
+        "call_rate": f"Windows called (Gnocchi $\\geq$ {threshold:g})",
+        "precision": f"P(constrained | Gnocchi $\\geq$ {threshold:g})",
+        "recall": ("Fraction of constrained windows\n"
+                   f"with Gnocchi $\\geq$ {threshold:g}"),
+    }[metric]
+    _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
+            legend_fontsize=LEGEND_FONTSIZE - 2)

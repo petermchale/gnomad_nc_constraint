@@ -1203,3 +1203,129 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
               f"[{100 * r['ci_lo']:+6.2f}, {100 * r['ci_hi']:+6.2f}]  "
               f"P(delta > 0) = {r['p_gt0']:.3f}")
     return pl.DataFrame(rows)
+
+
+# ------------------------------------- Supporting Figure 8, panels D and E
+
+# Chen et al.'s OWN cutoff for calling a window constrained, not a choice of ours: the
+# paper says "constrained non-coding regions (Gnocchi >= 4)" and counts "19,471 constrained
+# windows (Gnocchi >= 4)". Using it is what makes panels D and E a statement about the
+# score as people actually apply it.
+GNOCCHI_THRESHOLD = 4.0
+
+
+def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
+    """
+    Wilson score interval for a binomial proportion.
+
+    NOT a bootstrap, and not for want of one. Precision and recall at a fixed threshold are
+    plain proportions, so their sampling error has a closed form; and unlike panel C this
+    panel plots two LEVELS rather than their difference, so there is no pairing to exploit
+    -- an interval on each curve is exactly the right object. Wilson rather than the normal
+    approximation because the counts get small in the thin GC bins and at a threshold only
+    ~1% of windows clear, which is where Wald intervals run outside [0, 1].
+    """
+    if n == 0:
+        return (float("nan"), float("nan"))
+    p = k / n
+    d = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / d
+    half = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
+def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
+                      cache_dir: str = CACHE_DIR,
+                      neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
+                      refit_expected: str | None = None, gc_bins: list | None = None,
+                      min_n: int = DELTA_MIN_BIN_WINDOWS) -> pl.DataFrame:
+    """
+    Precision, recall and calling rate at a FIXED Gnocchi threshold, per GC bin, for both
+    scores. Panels D and E, and the numbers behind them.
+
+    WHY A FIXED THRESHOLD CHANGES WHAT IS MEASURED, and why this is the panel where the
+    bias finally shows. Panels A-C are within-bin RANKING statistics: a bias that is a
+    function of GC is very nearly a common shift applied to every window in a narrow bin,
+    positives and negatives alike, and a common shift cannot change a within-bin ranking.
+    So A-C are almost blind to the very thing Fig. 5 is about, which is why their two
+    scores nearly coincide. Fix the threshold instead and the shift stops cancelling: it
+    decides how many windows in each GC bin are CALLED at all.
+
+    THE ANALYST'S QUESTION IS PRECISION AT A FIXED THRESHOLD. Someone handed a window with
+    Gnocchi >= 4 wants P(constrained | called), and if that probability depends on the
+    window's GC content then the threshold means different things in different parts of the
+    genome and the score cannot be used as a single genome-wide cutoff. That is a stronger
+    practical claim than anything in panels A-C, and it is the one a bias correction should
+    be able to deliver.
+
+    THREE QUANTITIES, BECAUSE PRECISION ALONE CONFOUNDS TWO EFFECTS THE FIGURE MUST KEEP
+    APART. Per bin g and score:
+
+        call_rate(g)  = P(z >= t | g)                 -- pure exposure to the bias,
+                                                        and it needs NO truth set
+        precision(g)  = P(constrained | z >= t, g)    -- the analyst's number
+        recall(g)     = P(z >= t | constrained, g)    -- what fraction is caught
+        lift(g)       = precision(g) / r(g)           -- precision over the bin's base rate
+
+    call_rate is where the bias lives undiluted: with no GC bias the fraction of windows
+    clearing a fixed cutoff should not track GC. It is also the ONE quantity here that does
+    not involve the labels at all -- it is a property of the score and of GC content -- so
+    it is the most robust claim this figure can make, resting on neither GeneHancer nor the
+    laxness of an enhancer-overlap proxy. Quote it accordingly. precision does NOT have to be flat even
+    for a perfect score -- the base rate r(g) climbs about 7.7x across these bins in the lax
+    truth set, and a bin with more enhancers yields higher precision at any threshold -- so
+    the panel draws r(g) as its reference and `lift` is the base-rate-free version. Expect
+    the correction to flatten call_rate strongly, precision and recall less so, and do not
+    read a residual slope in precision as a residual bias: declining signal-to-noise with GC
+    survives debiasing (that is panels B/C's finding) and shows up here too.
+
+    UNBALANCED, unlike panels A and B. The base rate an analyst faces is the real one; class
+    balancing would answer a question nobody has. The prevalence reference line is what
+    keeps the bins comparable instead.
+
+    Intervals are Wilson, per curve -- see _wilson for why not a bootstrap here.
+
+    Returns one row per (GC bin, score): lo, hi, mid, score, n, n_pos, r, n_called,
+    call_rate, precision, precision_lo, precision_hi, recall, recall_lo, recall_hi, lift.
+    """
+    if truth_set != "lax":
+        raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
+    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+
+    df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
+    df = _assign_gc_bins(df, gc_bins)
+
+    rows = []
+    for b, (lo, hi) in enumerate(gc_bins):
+        sub = df.filter(pl.col("gc_bin") == b)
+        if sub.height < min_n:
+            print(f"  GC ({lo}, {hi}] dropped, n = {sub.height:,} < {min_n:,}")
+            continue
+        y = sub[TRUTH_TARGET].to_numpy()
+        n_pos = int(y.sum())
+        for key, (_, display, short) in PR_SCORES.items():
+            called = sub[f"z_{key}"].to_numpy() >= threshold
+            n_called = int(called.sum())
+            tp = int((called & y).sum())
+            prec_lo, prec_hi = _wilson(tp, n_called)
+            rec_lo, rec_hi = _wilson(tp, n_pos)
+            call_lo, call_hi = _wilson(n_called, sub.height)
+            r = n_pos / sub.height
+            rows.append({
+                "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "score": key,
+                "display": display, "short": short,
+                "n": sub.height, "n_pos": n_pos, "r": r,
+                "n_called": n_called, "call_rate": n_called / sub.height,
+                "call_rate_lo": call_lo, "call_rate_hi": call_hi,
+                "precision": tp / n_called if n_called else float("nan"),
+                "precision_lo": prec_lo, "precision_hi": prec_hi,
+                "recall": tp / n_pos if n_pos else float("nan"),
+                "recall_lo": rec_lo, "recall_hi": rec_hi,
+                "lift": (tp / n_called) / r if n_called and r else float("nan"),
+            })
+            e = rows[-1]
+            print(f"  GC ({lo:.2f}, {hi:.2f}]  {short:<15} called {n_called:>7,} "
+                  f"({100 * e['call_rate']:5.2f}% of windows)  "
+                  f"precision {e['precision']:.3f} [{prec_lo:.3f}, {prec_hi:.3f}]  "
+                  f"base rate {r:.3f}  lift {e['lift']:.2f}  recall {e['recall']:.4f}")
+    return pl.DataFrame(rows)

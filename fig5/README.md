@@ -25,6 +25,19 @@ GC bin with a bootstrap CI. It is paired (both scores on the same resampled rows
 window-sampling variability cancels), unbalanced (the balancing is only needed for
 cross-bin level comparisons and costs four fifths of the positives), and its top bin is
 merged to (0.55, 0.80] because their file is nearly empty above GC 0.60.
+
+**Panels D–F are where the bias actually appears, and A–C are nearly blind to it.** A, B
+and C are within-bin *ranking* statistics, and a GC-dependent bias is very nearly a common
+shift on every window in a narrow bin — positives and negatives alike — so it cancels.
+That is why B's curves coincide, and it means the steep decline of auPRC with GC *survives
+debiasing*: what remains is signal-to-noise, which is what McHale et al. conjectured in
+their text. Fix the threshold instead (`data.threshold_metrics`, at Chen et al.'s own
+Gnocchi ≥ 4) and the shift stops cancelling. **D — the fraction of windows called — uses
+no labels at all**, so it rests on neither GeneHancer nor the laxness of an enhancer
+proxy; it is the most robust claim the figure makes. E (precision) is the analyst's
+number and will *not* be flattened by the correction, because the base rate itself climbs
+~7.7× across these bins — hence the dashed base-rate reference, against which the gap, not
+the height, is what carries information.
 **"Lax" is McHale et al.'s own word and the axis these names are organized on**: a truth
 set says which windows count as constrained; the lax one is GeneHancer overlap (big, but
 not every enhancer window is under selection) and their **stringent** one — noncoding

@@ -1119,6 +1119,38 @@ requires. The caption should say so.
 | **A** | Performance varies strongly with GC content, and does so for *both* scores | precision vs recall, one line per GC bin, over the pooled curve and the random-classifier baseline |
 | **B** | What the decontamination does to discovery | auPRC normalized by the positive-class fraction, vs GC content, one curve per score |
 | **C** | Whether any of B's gap is real | the **paired** gain of the retrained score over the published one, per GC bin, with a bootstrap 95% CI |
+| **D** | The bias, at the threshold people actually use | fraction of windows in each GC bin with Gnocchi $\geq 4$ |
+| **E** | What an analyst gets from a call | $P(\mathrm{constrained}\mid\mathrm{Gnocchi}\geq4)$ per GC bin, over the bin's base rate |
+| **F** | What a fixed threshold catches | fraction of constrained windows in the bin with Gnocchi $\geq 4$ |
+
+**A–C are nearly blind to the bias, and D–F are where it appears.** A, B and C are
+*within-bin ranking* statistics, and a GC-dependent bias is very nearly a common shift
+applied to every window in a narrow bin — positives and negatives alike. A common shift
+cannot change a ranking, so it cancels, which is why B's two curves nearly coincide and C
+finds differences of order 1%. That is not a null result about the bias; it is a statement
+that auPRC within a GC bin is the wrong instrument for detecting it. Two consequences
+worth stating in the caption:
+
+* The steep decline of auPRC with GC in **B** *survives debiasing intact*. Since bias is
+  the one thing that changed, what remains must be **signal-to-noise** — which is what
+  McHale et al. conjectured in their text, now measured rather than assumed.
+* To see the bias, hold the *threshold* fixed instead of the rank. Then the shift stops
+  cancelling and decides how many windows in each GC bin are called at all.
+
+**D–F use Gnocchi $\geq 4$, which is Chen et al.'s own cutoff** ("constrained non-coding
+regions (Gnocchi ≥ 4)"), not a choice of ours, and they are computed **unbalanced** —
+the base rate an analyst faces is the real one.
+
+**Panel D needs no truth set at all.** The fraction of windows clearing a fixed cutoff is a
+property of the score and of GC content; no labels enter. It is therefore the most robust
+claim in this figure — it depends on neither GeneHancer nor the laxness of an
+enhancer-overlap proxy — and it is the one to quote.
+
+**Panel E will not be flattened by the correction, and should not be expected to be.**
+Precision at a fixed threshold rises with GC for *any* score, because the base rate itself
+climbs about 7.7$\times$ across these bins; that is why the panel draws the base rate as
+its reference, and why the gap between a curve and the dashed line beneath it — not the
+curve's height — is what carries information.
 
 **Panel C is where the claim is decided, and panel B cannot do its job.** B draws two
 curves that cross and wobble, without uncertainty, so a reader cannot separate a real gap
@@ -1188,6 +1220,14 @@ deltas_s8 = D.pr_curve_deltas(truth_set="lax", seed=0, n_bootstrap=500) \
 """)
 
 code(r"""
+# Panels D-F: everything at a FIXED threshold. Cheap -- no bootstrap, Wilson intervals in
+# closed form, since these are plain proportions and the panels draw levels rather than a
+# paired difference.
+tm_s8 = D.threshold_metrics(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax") \
+    if NEUTRAL_WINDOWS_BED else None
+""")
+
+code(r"""
 # Guarded, so a run without NEUTRAL_WINDOWS_BED skips this figure rather than dying.
 if curves_s8 is not None:
     # A IS TWO AXES, B IS ONE. Panel A draws one score per axes -- three GC-binned PR curves
@@ -1198,24 +1238,41 @@ if curves_s8 is not None:
     # inference on the gap B draws -- so they belong side by side beneath it, on the same
     # GC axis and at the same width. Four panels in a row would make each too narrow for a
     # two-line y label and a legend carrying names and numbers.
-    fig = plt.figure(figsize=(13.0, 10.0))
-    gs = fig.add_gridspec(2, 2, wspace=0.30, hspace=0.34)
-    axA1 = fig.add_subplot(gs[0, 0])
-    axA2 = fig.add_subplot(gs[0, 1], sharey=axA1)
-    axB = fig.add_subplot(gs[1, 0])
-    axC = fig.add_subplot(gs[1, 1])
+    # SIX COLUMNS so the last row can hold THREE panels against the upper rows' two. A
+    # needs two axes of its own; B and C are a pair (C is the inference on the gap B
+    # draws); D, E and F are a triple read together at one threshold. A 2-2-3 figure is
+    # what that argument looks like, and a uniform grid cannot express it.
+    fig = plt.figure(figsize=(13.5, 15.0))
+    gs = fig.add_gridspec(3, 6, wspace=1.5, hspace=0.36)
+    axA1 = fig.add_subplot(gs[0, 0:3])
+    axA2 = fig.add_subplot(gs[0, 3:6], sharey=axA1)
+    axB = fig.add_subplot(gs[1, 0:3])
+    axC = fig.add_subplot(gs[1, 3:6])
+    axD = fig.add_subplot(gs[2, 0:2])
+    axE = fig.add_subplot(gs[2, 2:4])
+    axF = fig.add_subplot(gs[2, 4:6])
 
     for ax, key in zip((axA1, axA2), D.PR_SCORES):
         panels.panel_pr_curves(ax, curves_s8, key, show_ylabel=ax is axA1)
     panels.panel_aupr_by_gc(axB, curves_s8)
     if deltas_s8 is not None:
         panels.panel_aupr_delta(axC, deltas_s8)
+    if tm_s8 is not None:
+        # D and F share a log y axis: published Gnocchi's calling rate and recall each span
+        # nearly two orders of magnitude across GC, and on a linear axis every bin but the
+        # last would sit on the floor. E stays linear -- it is a probability read against a
+        # base rate drawn beside it, and a log axis would distort that comparison.
+        panels.panel_threshold_metric(axD, tm_s8, "call_rate", D.GNOCCHI_THRESHOLD)
+        panels.panel_threshold_metric(axE, tm_s8, "precision", D.GNOCCHI_THRESHOLD)
+        panels.panel_threshold_metric(axF, tm_s8, "recall", D.GNOCCHI_THRESHOLD, logy=True)
 
-    # Three calls, three x offsets: each letter has to clear its own panel's ylabel, and
-    # A's is one line where B's and C's are two.
+    # Each letter clears its own panel's ylabel: A's is one line and its panel is wide,
+    # B/C's are two lines, D-F are narrower still so their letters sit further out.
     panels.label_panels((axA1,), ("A",))
-    panels.label_panels((axB,), ("B",), x=-0.16)
-    panels.label_panels((axC,), ("C",), x=-0.16)
+    for ax, lab in ((axB, "B"), (axC, "C")):
+        panels.label_panels((ax,), (lab,), x=-0.16)
+    for ax, lab in ((axD, "D"), (axE, "E"), (axF, "F")):
+        panels.label_panels((ax,), (lab,), x=-0.34)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
     written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, s8_name))
@@ -1254,6 +1311,21 @@ if deltas_s8 is not None:
               f"gain = {100 * r['delta']:+6.2f}%  "
               f"[{100 * r['ci_lo']:+6.2f}, {100 * r['ci_hi']:+6.2f}]  "
               f"P(>0) = {r['p_gt0']:.3f}{star}")
+
+if tm_s8 is not None:
+    print(f"\npanels D-F, at Gnocchi >= {D.GNOCCHI_THRESHOLD:g} (Chen et al.'s own cutoff),")
+    print("unbalanced. call_rate uses NO labels, so it is the most robust number here.")
+    for key in D.PR_SCORES:
+        rows = tm_s8.filter(pl.col("score") == key).sort("mid")
+        cr = rows["call_rate"].to_numpy()
+        print(f"\n  Gnocchi, {rows['short'][0]}:  calling rate spans "
+              f"{100 * cr.min():.2f}% - {100 * cr.max():.2f}%  ({cr.max() / cr.min():.0f}x)")
+        for r in rows.iter_rows(named=True):
+            print(f"    GC ({r['lo']:.2f}, {r['hi']:.2f}]  called {r['n_called']:>7,} "
+                  f"({100 * r['call_rate']:6.2f}%)  precision {r['precision']:.3f} "
+                  f"[{r['precision_lo']:.3f}, {r['precision_hi']:.3f}]  "
+                  f"base rate {r['r']:.3f}  lift {r['lift']:.2f}  "
+                  f"recall {100 * r['recall']:6.2f}%")
 """)
 
 
