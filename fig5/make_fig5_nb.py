@@ -1193,6 +1193,23 @@ bias off the geometry, G the panel for comparing the two scores fairly at high G
 lift's ceiling of 1.6 compresses real differences into a few percent. The two disagree in
 emphasis and both are honest; the caption should say which question each answers.
 
+**What D–G establish, in one sentence:**
+
+> Debiasing removes the GC dependence of how often Gnocchi fires, and with it the GC
+> dependence of how much it finds. It leaves untouched the GC dependence of how much a hit
+> is worth — that is signal-to-noise, and it is a property of the data.
+
+Every quantity in this block sorts into one of those two clauses. **Made GC-independent:**
+the calling rate (80$\times$ → 1.35$\times$ across GC) and, as its consequence via
+recall $=$ calling rate $\times$ lift, recall itself (45.7$\times$ → 2.18$\times$).
+**Left GC-dependent:** precision (4.37$\times$ → 3.30$\times$, and dominated by the base
+rate, which climbs 7.70$\times$ and is nobody's to change), lift (1.76$\times$ →
+2.32$\times$, which *widens*) and skill. That is not a shortfall of the correction —
+panels B and C already showed the auPRC-versus-GC decline surviving debiasing intact, so
+what remains is signal-to-noise, which lives in the data rather than in the model. Nor
+would flattening it be desirable: it would mean discarding information where the data
+actually carries it.
+
 **Panel D needs no truth set at all.** The fraction of windows clearing a fixed cutoff is a
 property of the score and of GC content; no labels enter. It is therefore the most robust
 claim in this figure — it depends on neither GeneHancer nor the laxness of an
