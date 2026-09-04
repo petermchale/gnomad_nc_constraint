@@ -1169,14 +1169,36 @@ $P(Y{=}1\mid\text{called})/P(Y{=}1)$ — standard in classification evaluation, 
 *fold-enrichment* in genomics — and by Bayes it is also recall/calling-rate, which is the
 identity tying D, E and F together.
 
+**At a fixed calling budget, precision and recall are the same question.** The number of
+calls is fixed by construction and the number of positives is a property of the truth set,
+so precision $=TP/N_{\mathrm{called}}$ and recall $=TP/P$ are both monotone in $TP$; the
+scores differ only in how they *spend* the budget. And at a fixed budget $TP$ is maximised
+by ranking on $P(Y{=}1\mid\text{window})$, so adding any function of a covariate raises
+$TP$ **iff** that covariate carries information about the label beyond what the score
+already has. Here the base rate climbs ~7.7$\times$ with GC, so GC does — meaning
+published Gnocchi's bias is partly acting as a *GC detector*, and removing it must cost
+unconditional $TP$.
+
+**That is why `data.budget_comparison` ranks on GC content alone as a fourth arm.** If GC
+by itself approaches — or beats — published Gnocchi at the same budget, then a genome-wide
+precision-recall comparison on an enhancer-overlap truth set is substantially a
+GC-content contest and cannot be the criterion by which a bias correction is judged. Read
+that table beside D–F and never instead of them: what the correction buys is *conditional*
+(within a GC stratum, and threshold portability across strata), and a genome-wide average
+marginalises over exactly the variable being fixed. The per-bin `GC only` rows in the
+threshold table are the same control ranked **within** each bin, which is the yardstick a
+score's within-bin lift has to beat to be measuring constraint rather than residual
+within-bin GC.
+
 **Lift is comparable between the two scores within a bin, but not between bins.**
 Precision cannot exceed 1, so lift cannot exceed $1/r$ — a ceiling that falls from 12.0 in
 (0.20, 0.30] to 1.57 in (0.55, 0.80]. A lift declining across GC is therefore partly the
 ceiling coming down, not only the score getting worse; a cross-bin statement needs the
 positive likelihood ratio $P(\text{call}\mid Y{=}1)/P(\text{call}\mid Y{=}0)$, or the skill
-score $(\text{precision}-r)/(1-r)$ which maps random to 0 and perfect to 1. Within a bin
-both scores face the same $r$ and the same ceiling, which is where `data.lift_deltas`
-compares them — with a **paired** bootstrap, for the reason panel C uses one. There the
+score $(\text{precision}-r)/(1-r)$ which maps random to 0 and perfect to 1. Both are
+reported per bin as `LR+` and `skill`, so a cross-bin sentence can be written without the
+ceiling caveat; neither is plotted. Within a bin both scores face the same $r$ and the same
+ceiling, which is where `data.lift_deltas` compares them — with a **paired** bootstrap, for the reason panel C uses one. There the
 base rate cancels outright, so the lift ratio *is* the precision ratio.
 
 **Panel C is where the claim is decided, and panel B cannot do its job.** B draws two
@@ -1263,6 +1285,14 @@ code(r"""
 # lowest GC bin against the tens of thousands behind panel C.
 lifts_s8 = D.lift_deltas(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
                          n_bootstrap=500, seed=0) if NEUTRAL_WINDOWS_BED else None
+""")
+
+code(r"""
+# The genome-wide table, with GC content alone as a baseline. Not a panel -- four numbers
+# that settle what the UNCONDITIONAL precision-recall of this truth set is measuring. It
+# prints as it computes.
+budget_s8 = D.budget_comparison(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax") \
+    if NEUTRAL_WINDOWS_BED else None
 """)
 
 code(r"""

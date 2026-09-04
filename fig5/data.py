@@ -1213,6 +1213,18 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
 # score as people actually apply it.
 GNOCCHI_THRESHOLD = 4.0
 
+# GC content ALONE, ranked as if it were a constraint score, is the baseline that decides
+# how much of the lax truth set's global precision-recall is a GC-content contest rather
+# than a constraint measurement. It is not a curve in any panel -- three curves everywhere
+# would clutter A-F for a quantity that is a control, not a claim -- and the panel loops
+# name their two scores explicitly, so rows with this key are carried past them.
+GC_BASELINE = "gc_only"
+
+# The column each score is ranked by. GC_content is a 0-1 fraction; the z columns are
+# whatever _lax_labelled_windows built.
+def _score_column(key: str) -> str:
+    return "GC_content" if key == GC_BASELINE else f"z_{key}"
+
 
 def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
     """
@@ -1236,7 +1248,8 @@ def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
 
 def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str | None,
                      refit_expected: str | None, gc_bins: list, min_n: int,
-                     match_call_rate: bool, reference_score: str):
+                     match_call_rate: bool, reference_score: str,
+                     include_gc_baseline: bool = False):
     """
     The labelled table, the drawn bins, and each score's threshold -- shared by
     threshold_metrics and lift_deltas so the two cannot disagree about which windows are
@@ -1261,19 +1274,25 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
             drawn.append(b)
     df = df.filter(pl.col("gc_bin").is_in(drawn))
 
-    thresholds = {k: threshold for k in PR_SCORES}
-    if match_call_rate:
+    keys = list(PR_SCORES) + ([GC_BASELINE] if include_gc_baseline else [])
+    thresholds = {k: threshold for k in keys}
+    target = float("nan")
+    if match_call_rate or include_gc_baseline:
         ref = df[f"z_{reference_score}"].to_numpy()
         target = float((ref >= threshold).mean())
-        for key in PR_SCORES:
+        for key in keys:
             if key == reference_score:
                 continue
-            thresholds[key] = float(np.quantile(df[f"z_{key}"].to_numpy(), 1.0 - target))
+            if key in PR_SCORES and not match_call_rate:
+                continue
+            thresholds[key] = float(
+                np.quantile(df[_score_column(key)].to_numpy(), 1.0 - target))
         print(f"  matched calling rate: {100 * target:.3f}% of the {df.height:,} windows "
               f"drawn, set by {reference_score} at z >= {threshold:g}")
         for key, t in thresholds.items():
-            print(f"    {PR_SCORES[key][2]:<15} z >= {t:.3f}")
-    return df, drawn, thresholds
+            name = PR_SCORES[key][2] if key in PR_SCORES else "GC content"
+            print(f"    {name:<15} {'GC' if key == GC_BASELINE else 'z'} >= {t:.3f}")
+    return df, drawn, thresholds, target
 
 
 def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
@@ -1282,7 +1301,8 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       refit_expected: str | None = None, gc_bins: list | None = None,
                       min_n: int = DELTA_MIN_BIN_WINDOWS,
                       match_call_rate: bool = True,
-                      reference_score: str = "published") -> pl.DataFrame:
+                      reference_score: str = "published",
+                      include_gc_baseline: bool = True) -> pl.DataFrame:
     """
     Precision, recall and calling rate at a FIXED Gnocchi threshold, per GC bin, for both
     scores. Panels D and E, and the numbers behind them.
@@ -1357,9 +1377,9 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
 
-    df, drawn, thresholds = _threshold_setup(
+    df, drawn, thresholds, target = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
-        match_call_rate, reference_score)
+        match_call_rate, reference_score, include_gc_baseline)
 
     rows = []
     for b in drawn:
@@ -1367,8 +1387,23 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
         sub = df.filter(pl.col("gc_bin") == b)
         y = sub[TRUTH_TARGET].to_numpy()
         n_pos = int(y.sum())
-        for key, (_, display, short) in PR_SCORES.items():
-            called = sub[f"z_{key}"].to_numpy() >= thresholds[key]
+        for key in thresholds:
+            display, short = (PR_SCORES[key][1], PR_SCORES[key][2]) if key in PR_SCORES \
+                else ("GC content alone", "GC only")
+            if key == GC_BASELINE:
+                # WITHIN the bin, not against a global GC cutoff. A global one is
+                # degenerate here -- it would put every call in the top bin and none
+                # anywhere else, which is the right comparison genome-wide
+                # (budget_comparison) and no comparison at all per bin. Ranked within the
+                # bin at the same calling rate, it answers the question this row is for:
+                # how much of a bin's lift is residual WITHIN-bin GC content? Positives
+                # stay enriched at the high-GC end of every bin (1.4-2.3x), so this is not
+                # zero, and it is the yardstick published Gnocchi's within-bin lift has to
+                # beat to be measuring constraint rather than GC.
+                gc = sub["GC_content"].to_numpy()
+                called = gc >= float(np.quantile(gc, 1.0 - target))
+            else:
+                called = sub[_score_column(key)].to_numpy() >= thresholds[key]
             n_called = int(called.sum())
             tp = int((called & y).sum())
             prec_lo, prec_hi = _wilson(tp, n_called)
@@ -1387,12 +1422,24 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                 "recall": tp / n_pos if n_pos else float("nan"),
                 "recall_lo": rec_lo, "recall_hi": rec_hi,
                 "lift": (tp / n_called) / r if n_called and r else float("nan"),
+                # CEILING-FREE COMPANIONS TO LIFT, for statements made ACROSS bins.
+                # lift <= 1/r, and that ceiling falls from 12.0 to 1.57 over these bins, so
+                # a lift declining with GC is partly the ceiling coming down. skill
+                # normalises by the headroom (0 = random, 1 = perfect); lr_pos conditions
+                # on the true class on both sides, so the base rate cancels outright and it
+                # is the standard diagnostic-test choice. Neither is plotted; they exist so
+                # a cross-bin sentence can be written without the ceiling caveat.
+                "skill": ((tp / n_called) - r) / (1 - r)
+                         if n_called and r < 1 else float("nan"),
+                "lr_pos": ((tp / n_pos) / ((n_called - tp) / (sub.height - n_pos)))
+                          if n_pos and (n_called - tp) and sub.height > n_pos
+                          else float("nan"),
             })
             e = rows[-1]
             print(f"  GC ({lo:.2f}, {hi:.2f}]  {short:<15} called {n_called:>7,} "
-                  f"({100 * e['call_rate']:5.2f}% of windows)  "
-                  f"precision {e['precision']:.3f} [{prec_lo:.3f}, {prec_hi:.3f}]  "
-                  f"base rate {r:.3f}  lift {e['lift']:.2f}  recall {e['recall']:.4f}")
+                  f"({100 * e['call_rate']:5.2f}%)  precision {e['precision']:.3f}  "
+                  f"base rate {r:.3f}  lift {e['lift']:.2f}  skill {e['skill']:+.3f}  "
+                  f"LR+ {e['lr_pos']:.2f}  recall {100 * e['recall']:.2f}%")
     return pl.DataFrame(rows)
 
 
@@ -1456,7 +1503,7 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
-    df, drawn, thresholds = _threshold_setup(
+    df, drawn, thresholds, _ = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
         match_call_rate, reference_score)
 
@@ -1507,4 +1554,78 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
               f"gain {100 * e['delta']:+6.1f}%  "
               f"[{100 * e['ci_lo']:+6.1f}, {100 * e['ci_hi']:+6.1f}]  "
               f"P(>0) = {e['p_gt0']:.3f}{star}")
+    return pl.DataFrame(rows)
+
+
+def budget_comparison(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
+                      cache_dir: str = CACHE_DIR,
+                      neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
+                      refit_expected: str | None = None, gc_bins: list | None = None,
+                      min_n: int = DELTA_MIN_BIN_WINDOWS,
+                      reference_score: str = "published") -> pl.DataFrame:
+    """
+    The GENOME-WIDE comparison at a fixed calling budget, with GC content alone as a
+    baseline. Not a panel -- a table of four numbers that settles what the unconditional
+    precision-recall of this truth set is actually measuring.
+
+    AT A FIXED BUDGET, PRECISION AND RECALL ARE THE SAME QUESTION. The number of calls is
+    fixed by construction and the number of positives is a property of the truth set, so
+    precision = TP/N_called and recall = TP/P are both monotone in TP. There is one
+    quantity to reason about, and the four arms below differ only in how they spend the
+    budget.
+
+    WHY GC ALONE IS THE ARM THAT MATTERS. At a fixed budget TP is maximised by ranking on
+    P(Y=1 | window), so adding any function of a covariate raises TP if and only if that
+    covariate carries information about the label beyond what the score already has. In
+    this truth set the base rate climbs about 7.7x with GC, so GC certainly does -- which
+    means published Gnocchi's GC bias is partly acting as a GC detector, and REMOVING it
+    must cost unconditional TP. That is not a defect of the correction. The way to show it
+    is not a defect is to rank on GC alone and see how far that gets: on the offline
+    stand-in GC alone reaches lift 1.84 against published Gnocchi's 1.77, i.e. it WINS. A
+    global precision-recall comparison on an enhancer-overlap truth set is therefore
+    substantially a GC-content contest, and cannot be the criterion by which a bias
+    correction is judged.
+
+    Read this table beside panels D-F, never instead of them: what the correction buys is
+    conditional (within a GC stratum, and threshold portability across strata), and a
+    genome-wide average marginalises over exactly the variable being fixed.
+
+    Returns one row per arm (published / scored / gc_only / random): n_called, tp,
+    precision, recall, lift. `random` is the analytic expectation, budget x base rate.
+    """
+    if truth_set != "lax":
+        raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
+    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+    df, drawn, thresholds, _ = _threshold_setup(
+        threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
+        match_call_rate=True, reference_score=reference_score, include_gc_baseline=True)
+
+    y = df[TRUTH_TARGET].to_numpy()
+    n, n_pos = df.height, int(y.sum())
+    r = n_pos / n
+    budget = int((df[_score_column(reference_score)].to_numpy()
+                  >= thresholds[reference_score]).sum())
+    print(f"  budget: {budget:,} calls ({100 * budget / n:.2f}% of {n:,} windows); "
+          f"{n_pos:,} positives ({100 * r:.1f}%)")
+
+    rows = []
+    for key in list(thresholds) + ["random"]:
+        if key == "random":
+            tp, n_called = budget * r, budget
+        else:
+            called = df[_score_column(key)].to_numpy() >= thresholds[key]
+            n_called, tp = int(called.sum()), float(y[called].sum())
+        rows.append({
+            "score": key,
+            "display": (PR_SCORES[key][1] if key in PR_SCORES else
+                        "GC content alone" if key == GC_BASELINE else "random"),
+            "n_called": n_called, "tp": tp,
+            "precision": tp / n_called if n_called else float("nan"),
+            "recall": tp / n_pos if n_pos else float("nan"),
+            "lift": (tp / n_called) / r if n_called and r else float("nan"),
+        })
+        e = rows[-1]
+        print(f"    {e['display']:<32} calls {e['n_called']:>7,}  TP {e['tp']:>8,.0f}  "
+              f"precision {e['precision']:.3f}  recall {100 * e['recall']:5.2f}%  "
+              f"lift {e['lift']:.2f}")
     return pl.DataFrame(rows)
