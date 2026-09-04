@@ -1020,7 +1020,8 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
             legend_loc=legend_loc, legend_fontsize=LEGEND_FONTSIZE - 2)
 
 
-def panel_aupr_delta(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True) -> None:
+def panel_aupr_delta(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
+                     ylabel: str | None = None) -> None:
     """
     Supporting Figure 8, panel C. The PAIRED gain of the retrained score over the published
     one, per GC bin, with a bootstrap confidence interval. `deltas` is
@@ -1060,7 +1061,12 @@ def panel_aupr_delta(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True) ->
     # would have said that the ylabel does not -- that the bars are 95% percentile
     # intervals from a paired bootstrap -- belongs in the caption, which can also say how
     # many replicates.
-    _finish(ax, "auPRC gain of the retrained\nscore (%)", xrange, show_xlabel,
+    # `ylabel` is how this panel serves two statistics. The drawing is identical -- a
+    # paired gain per GC bin with a bootstrap interval and a zero reference -- and only the
+    # quantity differs: panel C's auPRC gain integrated over all thresholds, and panel I's
+    # lift gain at a matched per-bin operating point. Those two answer different questions
+    # and, on the real run, give different answers, which is the point of drawing both.
+    _finish(ax, ylabel or "auPRC gain of the retrained\nscore (%)", xrange, show_xlabel,
             legend=False)
 
 
@@ -1106,9 +1112,8 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
     there is no such reference -- recall conditions on the positives, so the base rate has
     already been divided out -- and show_prevalence is ignored.)
     """
-    if metric not in ("call_rate", "precision", "recall"):
-        raise ValueError(
-            f"metric must be 'call_rate', 'precision' or 'recall', not {metric!r}")
+    if metric not in ("call_rate", "precision", "recall", "lift", "skill"):
+        raise ValueError(f"metric {metric!r} is not drawable here")
     logy = (metric == "call_rate") if logy is None else logy
     # PRECISION IS THE ODD ONE OUT and needs both a different corner and a shorter
     # legend. Its two curves run diagonally from bottom left to top right with a base-rate
@@ -1117,7 +1122,11 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
     # thresholds are dropped from ITS legend and carried by D and F, which are log panels
     # whose published curve leaves the whole top-left empty. The caption says the two
     # scores are matched on calling rate; the panel beside it shows the numbers.
-    legend_loc = (("lower right" if metric == "precision" else "upper left")
+    # Precision rises left to right, so its only free corner is lower right; lift and
+    # skill fall left to right, so theirs is lower left; call_rate and recall are read
+    # against a flat corrected curve low on the axes, leaving the top left empty.
+    legend_loc = ({"precision": "lower right", "lift": "lower left",
+                   "skill": "lower left"}.get(metric, "upper left")
                   if legend_loc is None else legend_loc)
     with_threshold = metric != "precision"
 
@@ -1134,10 +1143,16 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
         # on z, so that precision and recall compare like with like (retraining moves the
         # whole z distribution, so a common cutoff is ~8x stricter for the retrained score
         # -- see that function). A reader who is not told will assume a common cutoff.
-        t = float(rows["threshold_used"][0])
+        # ONE threshold or MANY. Under global matching a score has a single cutoff and the
+        # legend states it. Under match_within_bin every bin has its own, and printing the
+        # first bin's would be a quiet lie -- so the suffix is dropped entirely rather than
+        # repeated identically on both entries, which only doubles the legend's width in a
+        # panel whose one free corner is already tight. The caption carries it.
+        ts = rows["threshold_used"].unique().to_list()
         label = f"Gnocchi, {rows['short'][0]}"
         if with_threshold:
-            label += f"  ($z \\geq {t:.2f}$)"
+            label += (f"  ($z \\geq {float(ts[0]):.2f}$)" if len(ts) == 1
+                      else "")
         ax.errorbar(x, y, yerr=np.vstack([lo, hi]),
                     marker=SCORE_MARKERS[key], color=MONO,
                     markerfacecolor="white" if key == "published" else MONO,
@@ -1169,6 +1184,8 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
         "call_rate": "Windows called",
         "precision": "P(constrained | called)",
         "recall": "Fraction of constrained\nwindows called",
+        "lift": "Lift (precision / base rate)",
+        "skill": "Skill  (precision $-$ $r$) / (1 $-$ $r$)",
     }[metric]
     _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)

@@ -1489,6 +1489,10 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                 # it just does not move inside one.)
                 "skill_lo": (prec_lo - r) / (1 - r) if n_called and r < 1 else float("nan"),
                 "skill_hi": (prec_hi - r) / (1 - r) if n_called and r < 1 else float("nan"),
+                # Same argument for lift: within a bin r is a constant, so lift is
+                # precision/r and the Wilson bounds carry over exactly.
+                "lift_lo": (prec_lo / r) if n_called and r else float("nan"),
+                "lift_hi": (prec_hi / r) if n_called and r else float("nan"),
                 "lr_pos": ((tp / n_pos) / ((n_called - tp) / (sub.height - n_pos)))
                           if n_pos and (n_called - tp) and sub.height > n_pos
                           else float("nan"),

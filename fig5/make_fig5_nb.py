@@ -1123,6 +1123,8 @@ requires. The caption should say so.
 | **E** | What an analyst gets from a call | $P(\mathrm{constrained}\mid\mathrm{Gnocchi}\geq4)$ per GC bin, over the bin's base rate |
 | **F** | The bias as a *shape* | lift against recall, one point per GC bin, with iso-calling-rate contours |
 | **G** | The same, ceiling-free | skill $(\mathrm{precision}-r)/(1-r)$ against recall |
+| **H** | Ranking, at one operating point | lift per GC bin with the calling rate matched *within* each bin |
+| **I** | Whether H's gap is real | the paired lift gain, per GC bin, with a bootstrap 95% CI |
 
 **A–C are nearly blind to the bias, and D–F are where it appears.** A, B and C are
 *within-bin ranking* statistics, and a GC-dependent bias is very nearly a common shift
@@ -1239,6 +1241,54 @@ a matched 1% per-bin rate goes 1.80 → 2.40, 1.53 → 1.59, 1.28 → 1.34, 1.13
 1.12 → 1.15 — uniformly up, and still declining across GC in both scores (2.09× for the
 retrained one, 1.61× for published), because that decline is signal-to-noise and remains
 untouched.
+
+---
+
+## Why an analyst should care
+
+> **Debiasing is not mainly about detecting constraint better — that gain is real but
+> modest. It is about making the number mean the same thing everywhere.**
+
+Gnocchi is a $z$-score, and a $z$-score makes a specific promise: a given value means the
+same departure from neutral expectation wherever you are in the genome. That promise is
+what licenses attaching a threshold to it. Panel **D** measures whether it holds, using no
+truth set at all — and it does not, by a factor of 80.
+
+**What that costs, concretely.** Two patients, two *de novo* noncoding variants. One sits
+in a CpG-island promoter and scores Gnocchi 4.2; the other in an AT-rich distal enhancer
+and scores 3.8. The analyst prioritises the first and drops the second below threshold.
+But **14% of GC-rich windows clear 4, against 0.17% of AT-rich ones** — so the second
+variant is in far rarer company than the first, and is the more surprising observation.
+The ranking is backwards, and nothing in the score or its documentation says so. The same
+arithmetic explains where the calls pile up: **44% of all "constrained noncoding" calls
+fall in the 7% of the noncoding genome that is most GC-rich**, where lift is ~1.1 and a
+call is barely distinguishable from picking a GC-rich window at random.
+
+**What you would have to do instead, if you knew the bias.** Convert Gnocchi to a
+percentile *within GC stratum* — rank each window against others of similar GC and
+threshold on that. It is crude, it needs nothing but the published table plus GC content,
+and it recovers most of what panel D fixes. Anyone using published Gnocchi today should be
+doing this rather than applying one genome-wide cutoff.
+
+**But that workaround has a precondition it cannot verify: you must know which covariates
+the score varies with, and know *all* of them.** Stratification only removes the biases
+you have already discovered. McHale et al. tested GC content, background selection and
+gBGC; Chen et al.'s regional model is fit on thirteen features across four length scales,
+and nobody has checked the score's neutral-window behaviour against most of them, nor
+against covariates outside that panel entirely. A stratified threshold is a patch applied
+per symptom, and the list of symptoms is open-ended.
+
+Retraining does not have that precondition. The bias is not a property of GC — it is the
+consequence of fitting the regional adjustment on a training population unlike the one the
+score is applied to (panels **C** and **D** of Fig. 5). Removing the covariate shift
+removes what it induced, whatever features carried it, because the fix is at the mechanism
+rather than at each of its expressions. That is a stronger guarantee than any amount of
+post-hoc stratification, and it is the reason to prefer it even where the stratified patch
+would have worked.
+
+*It is a guarantee about the mechanism, not a measurement.* This figure verifies the
+retrained score's GC behaviour only. Repeating panel D against BGS and gBGC — the other
+two features McHale et al. tested — is the obvious next check, and is not done here.
 
 Every quantity in this block sorts into one of those two clauses. **Made GC-independent:**
 the calling rate (80$\times$ → 1.35$\times$ across GC) and, as its consequence via
@@ -1447,8 +1497,8 @@ if curves_s8 is not None:
     # uniform grid says that, and it gives every panel half a width -- the 2-2-3 shape this
     # replaced squeezed D, E and F into thirds, where a legend carrying a name and a
     # threshold no longer fits.
-    fig = plt.figure(figsize=(13.5, 19.5))
-    gs = fig.add_gridspec(4, 2, wspace=0.30, hspace=0.34)
+    fig = plt.figure(figsize=(13.5, 24.0))
+    gs = fig.add_gridspec(5, 2, wspace=0.30, hspace=0.34)
     axA1 = fig.add_subplot(gs[0, 0])
     axA2 = fig.add_subplot(gs[0, 1], sharey=axA1)
     axB = fig.add_subplot(gs[1, 0])
@@ -1457,6 +1507,8 @@ if curves_s8 is not None:
     axE = fig.add_subplot(gs[2, 1])
     axF = fig.add_subplot(gs[3, 0])
     axG = fig.add_subplot(gs[3, 1])
+    axH = fig.add_subplot(gs[4, 0])
+    axI = fig.add_subplot(gs[4, 1])
 
     for ax, key in zip((axA1, axA2), D.PR_SCORES):
         panels.panel_pr_curves(ax, curves_s8, key, show_ylabel=ax is axA1)
@@ -1478,12 +1530,21 @@ if curves_s8 is not None:
         # differences to a few percent. Neither replaces the other.
         panels.panel_lift_vs_recall(axF, tm_s8, D.GNOCCHI_THRESHOLD, y="lift")
         panels.panel_lift_vs_recall(axG, tm_s8, D.GNOCCHI_THRESHOLD, y="skill")
+    # H and I are the ONE comparison in this figure made at a single operating point: the
+    # calling rate matched WITHIN each bin, so neither score is being read at a different
+    # place on its own curve. H is the level, I the paired inference on the gap -- the same
+    # pairing panel C uses, and drawn by the same function.
+    if withinbin_s8 is not None:
+        panels.panel_threshold_metric(axH, withinbin_s8, "lift", D.GNOCCHI_THRESHOLD)
+    if lifts_wb_s8 is not None:
+        panels.panel_aupr_delta(axI, lifts_wb_s8,
+                                ylabel="Lift gain of the retrained\nscore, matched per bin (%)")
 
     # Each letter clears its own panel's ylabel: A's is one line and its panel is wide,
     # B/C's are two lines, D-F are narrower still so their letters sit further out.
     panels.label_panels((axA1,), ("A",))
     for ax, lab in ((axB, "B"), (axC, "C"), (axD, "D"), (axE, "E"),
-                    (axF, "F"), (axG, "G")):
+                    (axF, "F"), (axG, "G"), (axH, "H"), (axI, "I")):
         panels.label_panels((ax,), (lab,), x=-0.16)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
