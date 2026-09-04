@@ -38,3 +38,8 @@ fig3/output/training_reliability_predictions.*
 fig5/output/r_eff_components.*.parquet
 
 .trash
+
+# Spare panels: working panel functions that Supporting Figures 8 and 9 stopped drawing,
+# moved out of fig5/panels.py so reviewing that file means reviewing what is published.
+# Cut for composition, not correctness. Last tracked at 582c09d; see the file's docstring.
+fig5/panels_extra.py

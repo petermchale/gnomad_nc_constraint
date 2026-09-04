@@ -27,25 +27,22 @@ colour. Two exemptions, both deliberate:
     blue-to-red ramp is the reading of the panel rather than a way of enumerating lines --
     and it is what McHale et al.'s published Fig. 4A does. See panel_pr_curves.
 
-WHAT IS DRAWN AND WHAT IS KEPT. Supporting Figures 8 and 9 were cut from nine panels to
-three, and four working panel functions are now called by nothing: panel_pr_curves (McHale
-et al.'s Fig. 4A, the per-bin precision-recall curves), panel_lift_vs_recall (lift or skill
-against recall, with iso-calling-rate contours), panel_aupr_delta (a paired gain per GC bin
-with a bootstrap interval, whose two callers were folded into curve error bars), and
-panel_threshold_metric's "precision", "recall" and "skill" modes. They are kept rather than
-deleted because each was cut for composition rather than correctness -- the quantities are
-still computed and printed on every run -- and because which panels a manuscript wants has
-already changed several times. The notebook prose names the call for each, so none is
-orphaned; _log_ticks and _threshold_series exist only for panel_lift_vs_recall and go if it
-does. Delete the lot if the figures settle.
+EVERY PANEL IN THIS FILE IS DRAWN. Supporting Figures 8 and 9 were cut from nine panels to
+three, and the three that stopped being drawn -- panel_pr_curves, panel_aupr_delta and
+panel_lift_vs_recall, with the _log_ticks helper only the last one used -- moved to
+fig5/panels_extra.py, which is GITIGNORED. They were cut for composition rather than
+correctness and are worth having back if the figures change again, but they should not be
+in the file someone reviews to see what the manuscript draws. That file's docstring says
+what each was and where to recover it. The one exception is panel_threshold_metric's
+"precision", "recall" and "skill" modes, which stay here: three dict entries and a guard
+inside a function the figures do draw is not dead code a reader trips over, and splitting a
+live function to chase them would cost more than it buys.
 
 The Supporting Figure follows the same rule. Its single-series rows are monochrome --
 one curve and no legend leaves a hue naming nothing -- and colour survives only in its
 hypomethylation row, where two curves share an x axis and have separate y axes, and the
 hue is what says which curve reads against which scale.
 """
-import matplotlib
-import matplotlib.lines as mlines
 import matplotlib.ticker as mticker
 import numpy as np
 
@@ -917,70 +914,8 @@ def panel_dnm_probability_pairs(ax_empirical, ax_fitted, binned: dict, min_n: in
 
 # ------------------------------------------------------- Supporting Figure 8
 
-# GC-poor to GC-rich, and the reference notebook's own choice
-# (papers/neutral_models_are_biased/7.CDTS/main.2.ipynb). A DIVERGING ramp, for the reason
-# in the module docstring's third exemption: the panel's content is a departure from the
-# pooled curve in two directions, which a sequential ramp cannot show.
-GC_CMAP = "coolwarm"
-
-# Panel E draws published Gnocchi as a filled square and the score retrained on the scored
-# population as a filled up triangle. Supporting Figure 8 compares the same two quantities
-# and takes the same two glyphs, so a reader moving between the figures does not have to
-# relearn which curve is which.
 SCORE_MARKERS = {"published": SERIES_MARKERS["step2"],
                  "scored": SERIES_MARKERS["scored"]}
-
-
-def panel_pr_curves(ax, curves: dict, key: str, ylim_scale: float = 3.0,
-                    legend: bool = True, show_ylabel: bool = True) -> None:
-    """
-    Supporting Figure 8, panel A, for ONE score -- `curves` is data.pr_curves()
-    output. Precision against recall, one line per GC bin, over the pooled curve and the
-    random-classifier baseline.
-
-    ONE SCORE PER AXES. Two scores' worth of GC-binned PR curves in a single frame is six
-    lines in one colour ramp with no way to say which belongs to which; the figure draws
-    this panel twice instead, side by side, and shares the y axis between them.
-
-    y IS PRECISION AND ITS SCALE IS SET BY THE BASELINE, not by the data: the axis runs to
-    `ylim_scale` times the positive fraction, so "3" here means "three times better than
-    guessing" whatever the truth set's prevalence, and the dashed baseline sits exactly
-    one third of the way up. That is what lets the two axes be read against each other.
-
-    The pooled black curve is not a summary of the coloured ones -- it is the performance
-    a user of the score actually gets when they do not condition on GC content. The
-    panel's point is the spread of the coloured curves AROUND it.
-    """
-    c = curves[key]
-    entries, r = c["bins"], c["r"]
-    cmap = matplotlib.colormaps[GC_CMAP]
-
-    for i, e in enumerate(entries):
-        ax.plot(e["recall"], e["precision"], color=cmap(i / max(len(entries) - 1, 1)),
-                linewidth=2, label=f"GC in ({e['lo']:.2f}, {e['hi']:.2f}]")
-    ax.plot(c["all"]["recall"], c["all"]["precision"], color="black", linewidth=3,
-            label="all GC content")
-    ax.axhline(r, color="black", linestyle="--", linewidth=2, label="random classifier")
-
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, ylim_scale * r)
-    ax.set_xlabel("Recall", fontsize=AXIS_LABEL_FONTSIZE)
-    if show_ylabel:
-        ax.set_ylabel("Precision", fontsize=AXIS_LABEL_FONTSIZE)
-    # The SHORT name, not the display one: the two axes sit either side of panel B's
-    # letter, and "Gnocchi (decontaminated training set)" is wider than its own axes and
-    # runs into it. It is also the word panel B's legend uses, so the figure names each
-    # score once and identically.
-    ax.set_title(f"Gnocchi, {c['short']}", fontsize=AXIS_LABEL_FONTSIZE)
-    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
-    ax.grid(True, **GRID_KW)
-    ax.set_axisbelow(True)
-    for side in ("top", "right"):
-        ax.spines[side].set_visible(False)
-    # Not _finish: that helper labels x as "GC content", which is every other panel's
-    # abscissa and not this one's -- here x is recall and GC is the colour ramp.
-    if legend:
-        ax.legend(fontsize=LEGEND_FONTSIZE - 2, loc="upper right", frameon=False)
 
 
 def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = True,
@@ -1073,59 +1008,6 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
             legend_loc=legend_loc, legend_fontsize=LEGEND_FONTSIZE - 2)
 
 
-def panel_aupr_delta(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
-                     ylabel: str | None = None) -> None:
-    """
-    Supporting Figure 8, panel C. The PAIRED gain of the retrained score over the published
-    one, per GC bin, with a bootstrap confidence interval. `deltas` is
-    data.pr_curve_deltas() output.
-
-    WHY THIS PANEL EXISTS WHEN PANEL B IS RIGHT THERE. Panel B invites the eye to compare
-    two curves that cross, wobble, and are drawn without uncertainty; the reader cannot
-    tell a real gap from a thin bin. This panel is that same comparison as ONE quantity
-    with an interval on it. The interval is what the panel is for, so the marker is
-    secondary and the bars are drawn heavy enough to read at figure scale.
-
-    y = 0 IS THE CLAIM'S NULL and is the only reference on the panel: an interval clear of
-    it in a bin says the two scores genuinely differ there. Bars are 95% percentile
-    intervals from the paired bootstrap -- see data.pr_curve_deltas for why pairing is
-    what makes them narrow, and why they are NOT the same thing as error bars on panel B's
-    two curves, which would describe the uncertainty of each level rather than of the gap.
-
-    THE TOP BIN IS WIDER THAN PANEL B's (0.55-0.80 against 0.55-0.60), because McHale et
-    al.'s window file is nearly empty above 0.60 and this panel would otherwise say nothing
-    about the tail -- which is where panel E's bias reduction is largest and so where the
-    figure's question actually lives. Its marker sits at the merged bin's centre, well to
-    the right of panel B's last point; the caption has to say so, or the two panels look
-    like they disagree about where the last measurement is.
-    """
-    x = deltas["mid"].to_numpy()
-    y = 100.0 * deltas["delta"].to_numpy()
-    lo = y - 100.0 * deltas["ci_lo"].to_numpy()
-    hi = 100.0 * deltas["ci_hi"].to_numpy() - y
-
-    ax.axhline(0.0, **REF_LINE_KW)
-    ax.errorbar(x, y, yerr=np.vstack([lo, hi]),
-                marker=SCORE_MARKERS["scored"], color=MONO, markerfacecolor=MONO,
-                markeredgewidth=1.2, markersize=6, linewidth=2, capsize=4, elinewidth=1.4)
-    # NO LEGEND: one series, and the ylabel already names it -- a legend here would
-    # restate the ylabel in smaller type across the top of the very bin the panel is about
-    # (the tail one, whose interval is the tallest thing on the axes). What the legend
-    # would have said that the ylabel does not -- that the bars are 95% percentile
-    # intervals from a paired bootstrap -- belongs in the caption, which can also say how
-    # many replicates.
-    # `ylabel` is how this panel serves two statistics. The drawing is identical -- a
-    # paired gain per GC bin with a bootstrap interval and a zero reference -- and only the
-    # quantity differs: panel C's auPRC gain integrated over all thresholds, and panel I's
-    # lift gain at a matched per-bin operating point. Those two answer different questions
-    # and, on the real run, give different answers, which is the point of drawing both.
-    _finish(ax, ylabel or "auPRC gain of the retrained\nscore (%)", xrange, show_xlabel,
-            legend=False)
-
-
-# The two scores' curves in panels D and E, which unlike panel C draw LEVELS rather than a
-# difference and so need to be told apart from each other. Same square/triangle and same
-# open/filled convention as panel B, so a reader learns the pair once for the whole figure.
 def _threshold_series(tm, key: str):
     rows = tm.filter(tm["score"] == key).sort("mid")
     return rows
@@ -1276,190 +1158,3 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
     }[metric]
     _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
-
-
-def _log_ticks(lo: float, hi: float) -> list:
-    """
-    Tick values for a log axis spanning well under a decade, where the default locator puts
-    one label on the whole axis. A 1-1.5-2-3-5-7 sequence per decade, kept to the range.
-    """
-    # Density chosen from the span: the dense sequence is right for a fraction of a
-    # decade and unreadable over two, where the labels collide into a smear.
-    span = hi / lo
-    mults = (1, 3) if span > 50 else (1, 2, 5) if span > 8 else (1, 1.5, 2, 3, 5, 7)
-    out = []
-    k = int(np.floor(np.log10(lo)))
-    while 10.0 ** k <= hi * 10:
-        for m in mults:
-            v = m * 10.0 ** k
-            if lo <= v <= hi:
-                out.append(v)
-        k += 1
-    return out
-
-
-def panel_lift_vs_recall(ax, tm, threshold: float = 4.0, guides=(0.001, 0.01, 0.1),
-                         show_xlabel: bool = True, legend_loc: str = "lower left",
-                         y: str = "lift") -> None:
-    """
-    Supporting Figure 8, the operating-point panel: lift against recall, one point per GC
-    bin, at a fixed threshold. `tm` is data.threshold_metrics() output.
-
-    IT IS PANELS D, E AND F AT ONCE, because of an exact identity:
-
-        recall = calling rate x lift
-
-    (recall = TP/P, calling rate = N_called/N, lift = (TP/N_called)/(P/N); multiply the
-    last two and the call counts cancel). So a point's position fixes all three: recall on
-    x, lift on y, and the calling rate is the ratio. ON LOG-LOG AXES that ratio becomes a
-    difference, so ISO-CALLING-RATE CONTOURS ARE PARALLEL LINES OF SLOPE 1 -- drawn here as
-    the light guides, the same device as iso-F1 curves on a precision-recall plot.
-
-    AND THAT IS WHY THE PANEL SHOWS THE BIAS AS A SHAPE. A score whose threshold means the
-    same thing everywhere calls the same fraction of windows in every GC bin, so all of its
-    points lie on ONE contour and the panel shows a single line segment sliding along it.
-    A GC-biased score's calling rate moves with GC, so its points fan ACROSS contours. The
-    published score spans about two orders of magnitude of them; the retrained score
-    collapses onto one. No summary statistic is doing any work in that comparison -- it is
-    the geometry.
-
-    THE Y AXIS IS ALREADY THE CORRECTED RECALL, which is worth saying because the obvious
-    question about this panel is whether recall needs the base-rate correction precision
-    got. It does not, and the reason is that its null is different: a random classifier's
-    precision IS the base rate, but its recall is the CALLING RATE, whatever the base rate
-    is. So recall's normaliser is q, not r -- and recall/q = lift, identically, by the
-    same cancellation as above. Base-rate-corrected precision and calling-rate-corrected
-    recall are one number. Raw recall stays on x precisely because the gap between it and
-    lift is the calling rate, which is the bias; correcting x would plot lift against lift.
-
-    COMPARE THE TWO SCORES VERTICALLY, NOT HORIZONTALLY. The calling rates are matched
-    GLOBALLY, not per bin, so within a bin the two scores still call very different
-    fractions -- 14% against 0.8% in the top GC bin on the real run. Horizontal distance
-    between a square and a triangle in one bin is therefore a CALLING-RATE difference and
-    not a performance difference: published's 15.1% recall against the retrained score's
-    0.9% there is almost entirely that, both sitting at lift ~1.1. The legitimate within-bin
-    comparison is the vertical one, and data.lift_deltas is what puts an interval on it.
-
-    NEITHER AXIS IS PREVALENCE-FREE ACROSS BINS. Lift is capped at 1/r, and recall at a
-    calling rate q is capped at q/r -- 12% where r = 0.083 but 1.6% where r = 0.639, the
-    same ceiling scaled by q. So read each score's SHAPE across bins, and do not rank bins
-    against each other; the per-bin `skill` and `LR+` in data.threshold_metrics are the
-    ceiling-free quantities for that.
-
-    y="skill" DRAWS THE CEILING-FREE COMPANION, (precision - r)/(1 - r), against the same
-    recall axis. What is gained is that the y axis can be read ACROSS bins: lift is capped
-    at 1/r, which falls from 12.0 to 1.6 over these bins and compresses the high-GC
-    differences into a few percent, whereas skill maps random to 0 and perfect to 1
-    everywhere. What is LOST is the geometry: skill = [r/(1-r)](lift - 1), so its relation
-    to recall runs through the bin's own base rate and the iso-calling-rate contours are no
-    longer one universal family -- each bin would need its own. They are therefore not
-    drawn in this mode, and the only reference is skill = 0, the random classifier. Use
-    y="lift" to read the calling rate off the geometry and y="skill" to compare bins.
-
-    GC IS THE TRACED PARAMETER AND TAKES PANEL A's COLOUR RAMP, blue for GC-poor through
-    red for GC-rich. It is an ordered variable, which is the same exemption to this
-    module's monochrome rule that panel A gets, and using one ramp for one variable across
-    the figure is what lets a reader carry the mapping between them. Score identity stays
-    with the marker: open square published, filled triangle retrained, as everywhere else.
-    """
-    # Only the two scores this panel draws set its limits. threshold_metrics also carries
-    # the GC-content baseline rows, whose within-bin lift dips below 1 and would stretch
-    # the axes around a series that is never plotted here.
-    drawn_scores = ("published", "scored")
-    tm = tm.filter(tm["score"].is_in(drawn_scores))
-
-    cmap = matplotlib.colormaps[GC_CMAP]
-    bins = sorted(set(tm["mid"].to_list()))
-    colour = {m: cmap(i / max(len(bins) - 1, 1)) for i, m in enumerate(bins)}
-
-    if y not in ("lift", "skill"):
-        raise ValueError(f"y must be 'lift' or 'skill', not {y!r}")
-    logy = y == "lift"
-
-    xs = [v for v in tm["recall"].to_list() if v and v > 0]
-    ys = [v for v in tm[y].to_list() if v is not None and np.isfinite(v)]
-    lo_x, hi_x = min(xs) / 2.2, max(xs) * 2.2
-    lo_y, hi_y = ((min(ys) / 1.3, max(ys) * 1.5) if logy else
-                  (min(0.0, min(ys)) - 0.06 * max(ys), max(ys) * 1.28))
-
-    # LIMITS BEFORE GUIDES. The contours run over orders of magnitude; left to autoscale
-    # they set the y range and squash every marker into a band. Fixing the limits to the
-    # DATA and letting the guides clip is what keeps this a plot of the points.
-    ax.set_xscale("log")
-    if logy:
-        ax.set_yscale("log")
-    ax.set_xlim(lo_x, hi_x)
-    ax.set_ylim(lo_y, hi_y)
-
-    if not logy:
-        ax.axhline(0.0, **REF_LINE_KW)      # skill = 0 is the random classifier
-    for c in (guides if logy else ()):
-        ax.plot([lo_x, hi_x], [lo_x / c, hi_x / c], color="0.82", linewidth=0.9, zorder=0)
-        # Label where the contour leaves the top of the axes, or the right edge if it
-        # never gets there. Horizontal: the axes are ~2 decades wide and ~1 tall, so a
-        # slope-1 line is not at 45 degrees on the page and a rotated label would lie.
-        x_top = hi_y * c
-        if lo_x <= x_top <= hi_x:
-            ax.annotate(f"{100 * c:g}% called", xy=(x_top, hi_y), xytext=(2, -2),
-                        textcoords="offset points", fontsize=LEGEND_FONTSIZE - 3,
-                        color="0.5", ha="left", va="top")
-        elif lo_y <= hi_x / c <= hi_y:
-            ax.annotate(f"{100 * c:g}% called", xy=(hi_x, hi_x / c), xytext=(-2, 2),
-                        textcoords="offset points", fontsize=LEGEND_FONTSIZE - 3,
-                        color="0.5", ha="right", va="bottom")
-
-    handles = []
-    for key in drawn_scores:
-        rows = tm.filter(tm["score"] == key).sort("mid")
-        if not rows.height:
-            continue
-        xv, yv = rows["recall"].to_numpy(), rows[y].to_numpy()
-        # The connecting line orders the points by GC; it is not a series in its own right
-        # and must not compete with the coloured markers.
-        ax.plot(xv, yv, color=MONO, linewidth=1.4, zorder=2)
-        if f"{y}_lo" in rows.columns:
-            ax.errorbar(xv, yv, yerr=np.vstack([yv - rows[f"{y}_lo"].to_numpy(),
-                                                rows[f"{y}_hi"].to_numpy() - yv]),
-                        fmt="none", ecolor=MONO, elinewidth=1.0, capsize=3, zorder=1)
-        for xi, yi, mid in zip(xv, yv, rows["mid"].to_list()):
-            ax.plot([xi], [yi], marker=SCORE_MARKERS[key], markersize=8,
-                    markerfacecolor="white" if key == "published" else colour[mid],
-                    markeredgecolor=colour[mid] if key == "published" else MONO,
-                    markeredgewidth=1.6, zorder=3, linestyle="none")
-        # A proxy carrying the MARKER, since the two curves share one line style and a
-        # plain line handle would name them identically.
-        handles.append(mlines.Line2D([], [], color=MONO, linewidth=1.4,
-                                     marker=SCORE_MARKERS[key], markersize=8,
-                                     markerfacecolor="white" if key == "published" else MONO,
-                                     markeredgecolor=MONO, markeredgewidth=1.6,
-                                     # SHORT names here, unlike D-F. This panel's free
-                                     # space is one corner and the full names do not fit
-                                     # in it; the y label already says the subject is
-                                     # Gnocchi, and D carries the full names beside it.
-                                     label=rows["short"][0]))
-
-    # EXPLICIT TICKS. Lift spans well under a decade here, so the default log locator
-    # labels a single value and the axis reads as unscaled. The contours are the reason to
-    # keep a log axis at all -- they are straight lines only in log-log -- so the ticks
-    # have to be supplied rather than the scale changed.
-    ax.set_xticks(_log_ticks(lo_x, hi_x))
-    ax.xaxis.set_major_formatter(mticker.FuncFormatter(
-        lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
-    ax.xaxis.set_minor_locator(mticker.NullLocator())
-    ax.xaxis.set_minor_formatter(mticker.NullFormatter())
-    if logy:
-        ax.set_yticks(_log_ticks(lo_y, hi_y))
-        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:g}"))
-        ax.yaxis.set_minor_locator(mticker.NullLocator())
-        ax.yaxis.set_minor_formatter(mticker.NullFormatter())
-    if show_xlabel:
-        ax.set_xlabel("Recall", fontsize=AXIS_LABEL_FONTSIZE)
-    ax.set_ylabel("Lift (precision / base rate)" if logy else
-                  "Skill  (precision $-$ $r$) / (1 $-$ $r$)",
-                  fontsize=AXIS_LABEL_FONTSIZE)
-    ax.tick_params(axis="both", labelsize=TICK_LABEL_FONTSIZE)
-    ax.grid(True, **GRID_KW)
-    ax.set_axisbelow(True)
-    for side in ("top", "right"):
-        ax.spines[side].set_visible(False)
-    ax.legend(handles=handles, fontsize=LEGEND_FONTSIZE - 2, loc=legend_loc, frameon=False)

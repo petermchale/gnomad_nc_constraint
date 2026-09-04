@@ -1152,8 +1152,9 @@ if curves_s8 is not None:
     # ONE PANEL. The paired interval that was a second panel is drawn here as the retrained
     # curve's error bars -- see panel_aupr_by_gc for why they go on one curve and what they
     # mean. A bar that excludes the published marker is a real difference. The per-bin
-    # precision-recall curves this summarises are not drawn either; panels.panel_pr_curves
-    # is what draws them, once per score, if the manuscript wants McHale et al.'s Fig. 4A.
+    # precision-recall curves this summarises are not drawn either; that panel, and the two
+    # other retired ones, live in the gitignored fig5/panels_extra.py (last tracked at
+    # 582c09d) rather than beside the panels the manuscript actually uses.
     fig, ax = plt.subplots(figsize=(7.2, 5.0))
     panels.panel_aupr_by_gc(ax, curves_s8, deltas=deltas_s8)
 
@@ -1222,11 +1223,15 @@ score *contains*; A says what happens when it is *used*.
 *Lift is capped at $1/r$*, a ceiling falling from 12.0 to 1.6 across these bins, so compare
 the two **scores** within a bin rather than ranking bins against each other.
 `data.threshold_metrics` reports ceiling-free skill and $\mathrm{LR}^{+}$ per bin for
-anything cross-bin, alongside precision and recall. None of those is drawn, and each is one
-call away: `panels.panel_threshold_metric(ax, tm_s8, "precision" | "recall" | "skill")`, and
-`panels.panel_lift_vs_recall(ax, tm_s8, y="lift" | "skill")` for the lift-against-recall
-view, whose iso-calling-rate contours put a portable threshold's bins on one line and a
-biased score's across many.
+anything cross-bin, alongside precision and recall. None of those is drawn;
+`panels.panel_threshold_metric(ax, tm_s8, "precision" | "recall" | "skill")` draws the
+first three. The **retired panels** — the per-bin precision–recall curves, the paired-gain
+panel, and the lift-against-recall view whose iso-calling-rate contours put a portable
+threshold's bins on one line and a biased score's across many — are in
+`fig5/panels_extra.py`, which is **gitignored** and so absent from a fresh clone; it was
+last tracked at `582c09d`, and `git show 582c09d:fig5/panels.py` has all three. They were
+cut for composition, not correctness, and are kept out of `panels.py` so that reviewing
+that file means reviewing what the manuscript draws.
 
 **What A and B establish, in one sentence:**
 
