@@ -7,8 +7,8 @@ standalone vector file for assembly in Illustrator, plus two supporting figures.
 cited there as 7A-7D (A alone on the left, B-D stacked on the right: A's abscissa is
 methylation level, not the GC content the other three share).
 
-`output/supp_fig8.pdf` — **Supporting Figure 8**, which asks what panel E's intervention
-buys or costs in *discovery*: McHale et al.'s Fig. 4A/B for published Gnocchi against the
+`output/supp_fig8.pdf` and `output/supp_fig9.pdf` — **Supporting Figures 8 and 9**, which
+ask what panel E's intervention buys or costs in *discovery*: McHale et al.'s Fig. 4A/B for published Gnocchi against the
 retrained one, on their GeneHancer enhancer-overlap truth set. It is this figure's own
 pipeline with one filter dropped (`keep_enhancer_windows=True`), so it is a statement
 about panel E rather than about a different window set. Unlike every other panel it does
@@ -26,7 +26,11 @@ window-sampling variability cancels), unbalanced (the balancing is only needed f
 cross-bin level comparisons and costs four fifths of the positives), and its top bin is
 merged to (0.55, 0.80] because their file is nearly empty above GC 0.60.
 
-**Panels D–F are where the bias actually appears, and A–C are nearly blind to it.** A, B
+**Supporting Figure 9 is where the bias actually appears, and Supporting Figure 8 is
+nearly blind to it.** That is the seam the two figures are split along: 8 is threshold-free
+(how the score ranks, integrated over all cutoffs, two panels), 9 is at a fixed operating
+point (what happens when you apply a cutoff, four panels, and the analyst-facing argument).
+Formerly one nine-panel figure. A, B
 and C are within-bin *ranking* statistics, and a GC-dependent bias is very nearly a common
 shift on every window in a narrow bin — positives and negatives alike — so it cancels.
 That is why B's curves coincide, and it means the steep decline of auPRC with GC *survives
