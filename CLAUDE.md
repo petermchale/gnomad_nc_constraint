@@ -283,57 +283,73 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    than only relinking.
    **Supporting Figure 8 was added to the notebook on 2026-09-02** (four new cells
    spliced in before "Numbers for the caption"; every other cell kept its committed
-   outputs). It lives where Supporting Figure 7 does -- `data.pr_curves(truth_set="lax")`
-   in `fig5/data.py`, `panels.panel_pr_curves` / `panels.panel_aupr_by_gc` in
-   `fig5/panels.py` -- and has no module or entry point of its own. NAMES ARE ORGANIZED ON
-   LAX vs STRINGENT, McHale et al.'s own vocabulary for their two truth sets: the lax one
-   (GeneHancer overlap, their Fig. 4A/B) is what is built; the stringent one (noncoding
-   windows regulating essential genes, their Fig. 4C/D, from
-   `11.compare-lax-with-stringent-truth-set.ipynb`) is the planned second value of
-   `truth_set` and needs its own labelled-window builder, GC bins and bin floor.
-   Per-truth-set constants carry the name (`LAX_GC_BINS`, `LAX_MIN_BIN_WINDOWS`); shared
-   ones do not (`PR_SCORES`, `TRUTH_TARGET`). Do not put "enhancer" back into these names
-   -- that is how the LAX set is defined, not what the section is about.
-   **The stringent set's spec was read off their notebook on 2026-09-03 and written into
-   `fig5/data.py`'s section header** (three numbered items). Two things there are not
-   guessable and will govern the work: it is a THIRD hand-supplied file
-   (`{CONSTRAINT_TOOLS_DATA}/stringent_truth_set/truth-set.gnocchi.lambda_s.depletion_rank.CDTS.bed`,
-   4,933 rows, target column `truly constrained`, coordinate column `chromosome` not
-   `chrom`), and **its intervals are NOT on Chen's 1 kb grid** -- positives are enhancer
-   intervals of arbitrary length and offset (200 bp, 800 bp), only negatives are tiles --
-   so the retrained score cannot be joined by a string-built `element_id` and needs an
-   interval overlap plus a spanning rule, matching whatever rule their own `gnocchi`
-   column was carried over by. Their Fig. 4C/D are also a DIFFERENT statistic from
-   Supporting Fig. 8's (1,000 bootstrap resamples, exactly two feature bins, mean/sd of
-   auPRC/r and of the between-bin difference, lax set size-matched to the stringent one),
-   so they are new builders rather than another `truth_set` value through `pr_curves`.
-   One more number from that notebook, worth expecting rather than quoting: their lax
-   file has **1,003,227 rows**, so the enhancer-overlapping half is ~31% -- the real run's
-   truth-set join will be far smaller than the 1,843,559-row stand-in used offline.
-   Those four cells are UNEXECUTED and `output/supp_fig8.neutral.pdf`
-   does not exist yet -- the same HPC rebuild produces it, and it needs no extra refit
-   (it reads the `scored` one panel E already uses). It builds a SECOND window table, on
-   a population panel E does not have -- but that is CHEAP, and an earlier note here
-   calling it the notebook's slowest cell was wrong: measured on a warm cache, the whole
-   of Supporting Figure 8 is ~3.6 s (window table 1.8, refit join 0.4, z 0.2, balancing
-   0.2, PR curves 1.0), because `load_joined_table`'s duckdb scan is column-pruned and
-   takes 1.9 s over 1.9 GB of CSV. For scale, panel D reads three 115 MB prediction tables
-   at ~0.6 s each, and panels B/C and Supporting Fig. 7 rebuild in ~0 s from their parquet
-   caches. The rebuild's cost is Illustrator relinking and attention, not compute; the
-   only genuinely slow thing in this figure is `refit.py` (~6 min per population), and no
-   training population changed.
-   **It has never been run against the real truth set**, which is the GeneHancer
-   `window overlaps enhancer` flag in `NEUTRAL_WINDOWS_BED` -- licensed, HPC-only, and
-   with no substitute in the public bucket, so unlike every other panel this one raises
-   rather than builds when that file is unset. Offline it has only been smoke-tested with
-   a synthesized stand-in BED carrying the real schema and a made-up flag, which
-   exercises the code path and says nothing about the answer. There are therefore NO
-   quotable numbers for this figure yet. The one thing the smoke tests did show
-   repeatedly, and which is worth expecting rather than quoting: the two curves nearly
-   coincide, with the retrained one slightly LOWER in every GC bin and the same downward
-   slope -- i.e. removing the score's GC bias need not remove the GC dependence of its
-   PERFORMANCE, consistent with McHale et al. attributing that dependence to
-   signal-to-noise rather than to bias.
+   outputs). **It has since become TWO figures**, split 2026-09-04 along the seam between
+   threshold-free and fixed-threshold measurement, because nine panels at 13.5 x 24 in was
+   one argument over five rows:
+
+     Supporting Fig. 8  ONE panel. auPRC / positive-class fraction vs GC, both scores, the
+                        retrained curve carrying its 95% PAIRED bootstrap interval relative
+                        to published. Threshold-free, and therefore nearly blind to the
+                        bias -- a GC-dependent shift is a common shift within a narrow bin
+                        and cancels from a ranking. Its finding is that the auPRC decline
+                        with GC SURVIVES debiasing, so that decline is signal-to-noise.
+     Supporting Fig. 9  TWO panels. A: fraction of windows called at Gnocchi >= 4 per GC
+                        bin -- 80x across GC for published against 1.35x for the retrained
+                        score, and it uses NO LABELS, so it is the one result here that no
+                        truth-set argument can touch. B: lift per GC bin with the calling
+                        rate matched WITHIN each bin, retrained curve carrying the paired
+                        interval -- higher in all five bins, significantly in four
+                        (+33.3, +4.0, +4.2, +10.8, +2.2 per cent), so the gap is ranking
+                        and not threshold placement.
+
+   Both live in `fig5/data.py` and `fig5/panels.py` beside Supporting Figure 7's, with no
+   module or entry point of their own. Three panel functions the cuts retired --
+   `panel_pr_curves`, `panel_aupr_delta`, `panel_lift_vs_recall` -- moved to the GITIGNORED
+   `fig5/panels_extra.py` so that reading `panels.py` means reading what is published; last
+   tracked at `582c09d`.
+
+   NAMES ARE ORGANIZED ON LAX vs STRINGENT, McHale et al.'s own vocabulary for their two
+   truth sets. Per-truth-set constants carry the name (`LAX_GC_BINS`,
+   `LAX_MIN_BIN_WINDOWS`); shared ones do not (`PR_SCORES`, `TRUTH_TARGET`). Do not put
+   "enhancer" back into these names -- that is how the LAX set is defined, not what the
+   section is about.
+
+   **THE STRINGENT TRUTH SET WAS CONSIDERED AND DELIBERATELY NOT BUILT (2026-09-04). Do not
+   pick it up as pending work.** `data.pr_curves` still takes `truth_set` and still accepts
+   only `"lax"`; that seam stays, and the spec is still in `fig5/data.py`'s section header
+   if the decision is ever revisited. Four reasons, in order of weight:
+
+     * THE CENTRAL RESULT USES NO TRUTH SET. Supporting Fig. 9A is a property of the score
+       and of GC content. Swapping GeneHancer for essential-gene enhancers cannot move it.
+     * IT IS UNDERPOWERED FOR THE COMPARISON WE MAKE. 4,933 windows against 1,003,037. The
+       published-vs-retrained pooled gap on the lax set is +1.5% (auPRC/r 1.321 -> 1.341);
+       the bootstrap sd on 4,933 windows is several times that, so a null would be
+       uninformative. McHale et al.'s Fig. 4C effect is large because it compares TRUTH
+       SETS, not scores.
+     * IT DOES NOT ADDRESS THE OBJECTION WE ACTUALLY HAVE, which is that GC content ALONE
+       beats published Gnocchi on the lax set (lift 2.15 against 1.77). Stringent positives
+       are essential-gene enhancers, GC-rich, against non-enhancer negatives, AT-poor -- so
+       plausibly MORE GC-separated, not less.
+     * IT IS NOT CHEAP: a third hand-supplied file, an interval-overlap join onto Chen's
+       1 kb grid with a spanning rule, and new builders for a bootstrap statistic that is
+       not `pr_curves`.
+
+   WHAT TO DO INSTEAD, and it is the same order of work: a GC-MATCHED CONTROL. Sample
+   negatives from the lax set to match the positives' GC distribution; then GC-only lift is
+   1 by construction and any score's lift above 1 is discrimination that cannot be GC in
+   disguise. Buildable from data already in hand -- no new file, no interval join -- and it
+   answers the objection the stringent set would have left standing.
+
+   AND SAY THE LIMITATION RATHER THAN OMITTING IT. A reviewer of McHale et al. will notice
+   the secondary analyses rest on the set their own paper calls lax. The strong form is a
+   caption sentence carrying the power argument above, not silence.
+
+   ONE PREDICTION WORTH RECORDING, since it would be the cheap test if anyone does build
+   the stringent set: their Fig. 4D measures the GC dependence of ranking performance,
+   which Supporting Fig. 8 says survives debiasing -- so the two scores' 4D bars should be
+   STATISTICALLY INDISTINGUISHABLE. A null there confirms Supporting Fig. 8 rather than
+   failing to find something.
+
 2. **The manuscript text is written**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
    and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
    drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.
