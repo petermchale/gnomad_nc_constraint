@@ -1,5 +1,5 @@
 """
-Data for the five panels of Fig. 5 and for Supporting Figure 7. Every builder caches its
+Data for the six panels of Fig. 5 and for Supporting Figures 7 and 8. Every builder caches its
 result as parquet in fig5/output/, so the notebook is instant after the first pass.
 
 One builder per plotted quantity, grouped by the panel that draws it. Panel C and
@@ -101,9 +101,10 @@ def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
     Wilson score interval for a binomial proportion.
 
     NOT a bootstrap, and not for want of one. Precision and recall at a fixed threshold are
-    plain proportions, so their sampling error has a closed form; and unlike panel C this
-    panel plots two LEVELS rather than their difference, so there is no pairing to exploit
-    -- an interval on each curve is exactly the right object. Wilson rather than the normal
+    plain proportions, so their sampling error has a closed form. Where a panel plots two
+    LEVELS -- Fig. 5F's two calling-rate curves -- an interval on each is exactly the right
+    object. Where it plots a DIFFERENCE, it takes the paired bootstrap instead, and the
+    `deltas` argument in panels.py replaces these bars with that. Wilson rather than the normal
     approximation because the counts get small in the thin GC bins and at a threshold only
     ~1% of windows clear, which is where Wald intervals run outside [0, 1].
     """
@@ -946,12 +947,11 @@ LAX_MIN_BIN_WINDOWS = 4_000
 
 # The two curves. NOT truth-set specific -- the same two scores are evaluated against
 # whichever truth set is in play, which is the whole point of having more than one.
-# key -> (expected-count column, panel title, legend word). Panel A gives
-# each score a whole axes and could afford the full name, but its two axes sit either side
-# of panel B's letter and the long one runs into it; the short word is also what panel B's
-# legend has room for, so the figure names each score once and identically. Both strings
-# travel in the curve dicts, which is what keeps panels.py from having to import this
-# module.
+# key -> (expected-count column, long name, legend word). The long name is for a panel that
+# gives each score a whole axes -- only the retired panel_pr_curves does, so nothing draws
+# it today; the short word is what a shared legend has room for once each entry also
+# carries a pooled figure or a threshold. Both strings travel in the curve dicts, which is
+# what keeps panels.py from having to import this module.
 PR_SCORES = {
     "published": (W.PUBLISHED_EXPECTED_COL, "Gnocchi (published)", "published"),
     "scored": ("expected_scored", "Gnocchi (decontaminated training set)",
@@ -1051,7 +1051,8 @@ def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
     measuring enhancer density and reporting it as performance, which is the opposite of
     the figure's claim. Each bin is thinned to the smallest positive:negative ratio
     present, negatives untouched, which pegs every bin to the same fraction and is what
-    makes the ONE dashed random-classifier line in panel A valid for every curve on it.
+    makes ONE dashed random-classifier line valid for every GC bin's curve -- which the
+    retired panel_pr_curves drew, and which is why the balancing predates the panel cuts.
 
     WHAT IT COSTS, AND WHAT IT DOES NOT. It discards roughly four fifths of the positives,
     because the peg is set by the GC-poorest bin. It does NOT cost any drawn GC bin: the
@@ -1063,8 +1064,8 @@ def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
     ONCE, ON THE LABELLED TABLE, not once per score -- the two scores are columns of the
     same rows. (The reference notebook balances per metric because its four metrics are
     carried on four different window files and it has no choice.) One balancing means the
-    two curves in panel B are computed on an identical set of windows and an identical set
-    of positives, so a difference between them is the score and nothing else.
+    two curves in Supporting Fig. 8A are computed on an identical set of windows and an
+    identical set of positives, so a difference between them is the score and nothing else.
 
     PANEL B'S /r IS NOT A SECOND GUARD ON THIS, once the balancing has run: r is then the
     same number in every bin, so dividing by it is a constant rescale that cannot change
@@ -1100,8 +1101,9 @@ def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
 
 
 def _positive_fraction(df: pl.DataFrame) -> float:
-    """The random classifier's precision on `df` -- panel A's dashed line, and panel B's
-    normalizer. It is `r` in the baseline-classifier theory of McHale et al.'s Methods."""
+    """The random classifier's precision on `df`: the dashed baseline of a per-bin
+    precision-recall curve, and the normalizer of Supporting Fig. 8A's y axis. It is `r` in
+    the baseline-classifier theory of McHale et al.'s Methods."""
     return float(df[TRUTH_TARGET].mean())  # type: ignore[arg-type]
 
 
@@ -1133,7 +1135,7 @@ def pr_curves(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     Returns, per score key:
         display, short   the two names for the curve (panel title, legend word)
         bins             list of {lo, hi, mid, n, recall, precision, aupr, aupr_norm}
-        all              the same, pooled across GC bins -- panel A's black curve
+        all              the same, pooled across GC bins -- the "all GC content" curve
         r                the positive fraction, identical across bins after balancing
 
     auPRC is sklearn's trapezoidal auc() over (recall, precision) -- the reference
@@ -1215,9 +1217,9 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
 
         delta(g) = [auPRC_scored(g) - auPRC_published(g)] / auPRC_published(g)
 
-    and the normalizer r CANCELS from it, since both curves in panel B are the same auPRCs
-    divided by the same per-bin r. So this is the same comparison panel B invites the eye to
-    make, with the prevalence normalization taken out rather than applied twice, and it is
+    and the normalizer r CANCELS from it, since both curves in Supporting Fig. 8A are the
+    same auPRCs divided by the same per-bin r. So this is the same comparison that panel
+    invites the eye to make, with the prevalence normalization taken out rather than applied twice, and it is
     dimensionless -- "the retrained score finds x% more of the enhancers, at equal recall".
 
     WHY PAIRED, AND WHY IT MATTERS SO MUCH HERE. The two scores are columns of ONE table:
@@ -1225,8 +1227,8 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     both expected-count tables onto one window set and z-filters them jointly). Almost all
     of the sampling variability in auPRC is variability in WHICH WINDOWS the truth set
     happens to contain, and that is common to both scores, so it cancels in the difference.
-    Independent error bars on panel B's two curves would therefore be a much weaker -- and
-    misleading -- statement than this: they would show the uncertainty of each level, when
+    Independent error bars on Supporting Fig. 8A's two curves would therefore be a much
+    weaker -- and misleading -- statement than this: they would show the uncertainty of each level, when
     the question is about the gap. Each bootstrap replicate here resamples the bin's rows
     once and scores BOTH models on that same resample, which is what preserves the pairing.
 
@@ -1234,15 +1236,17 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     strata defined by a covariate, not a random draw, so the inference wanted is conditional
     on them: "given these windows at this GC, how sure are we of the gap?"
 
-    `balance=False` BY DEFAULT, WHICH IS THE OPPOSITE OF panel B, and deliberately.
-    _balance_positive_fraction exists to make bins comparable in LEVEL -- it is what makes
-    panel A's single dashed baseline valid for every curve on it. A within-bin,
+    `balance=False` BY DEFAULT, WHICH IS THE OPPOSITE OF Supporting Fig. 8A, and
+    deliberately. _balance_positive_fraction exists to make bins comparable in LEVEL -- it
+    is what makes a single dashed baseline valid for every GC bin's precision-recall curve. A within-bin,
     between-score comparison needs none of that: both scores see the same rows and the same
     prevalence, and r cancels from the statistic anyway. Meanwhile the balancing discards
     about four fifths of the positives, and it bites hardest exactly at high GC where
     positives are densest and the bins are already thin. Keeping them is a large gain in
     power precisely where the question is. Pass balance=True to compute the difference on
-    panel B's own rows instead, which is the check that the two panels agree.
+    Supporting Fig. 8A's own rows instead -- which is not a check but a REQUIREMENT when
+    the result is drawn as that panel's error bars, since an interval computed on a
+    different population belongs to a different statistic than the markers it sits on.
 
     n_bootstrap=500 gives a percentile interval whose own Monte-Carlo error is small
     against the widths involved; the cost is roughly n_bootstrap x one pass of
@@ -1303,12 +1307,12 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     return pl.DataFrame(rows)
 
 
-# ------------------------------------- Supporting Figure 8, panels D and E
+# ------------------------ Fig. 5F and Supporting Figure 8B: at a fixed threshold
 
 # Chen et al.'s OWN cutoff for calling a window constrained, not a choice of ours: the
 # paper says "constrained non-coding regions (Gnocchi >= 4)" and counts "19,471 constrained
-# windows (Gnocchi >= 4)". Using it is what makes panels D and E a statement about the
-# score as people actually apply it.
+# windows (Gnocchi >= 4)". Using it is what makes Fig. 5F and Supporting Fig. 8B
+# statements about the score as people actually apply it.
 GNOCCHI_THRESHOLD = 4.0
 
 # GC content ALONE, ranked as if it were a constraint score, is the baseline that decides
@@ -1394,22 +1398,24 @@ def _bin_thresholds(sub: pl.DataFrame, keys, target: float) -> dict:
     WHY THIS EXISTS, AND WHAT IT FIXES. The global matching in _threshold_setup equalises
     the fraction of the WHOLE population each score calls; it does not equalise the
     fraction of each BIN. That is not a defect of the matching -- the per-bin difference IS
-    the bias, and panel D is precisely a picture of it -- but it means every per-bin
+    the bias, and Fig. 5F is precisely a picture of it -- but it means every per-bin
     comparison of precision, lift or skill between the two scores is made at two DIFFERENT
     operating points. In the top GC bin published calls 13.97% of windows and the retrained
     score 0.82%, a 17-fold difference, and skill falls as a threshold loosens, so published
     would show the lower skill there even if the two scores ranked windows identically.
 
-    AND PANEL C SAYS THEY VERY NEARLY DO. auPRC integrates over all thresholds, so panel C
-    is this same within-bin comparison with the operating point removed, and it finds
+    AND SUPPORTING FIG. 8A SAYS THEY VERY NEARLY DO. auPRC integrates over all thresholds,
+    so it is this same within-bin comparison with the operating point removed, and it finds
     differences of order 1% with the one significant bin NEGATIVE. Two measurements of the
     same thing that disagree by an order of magnitude have to be reconciled; matching
-    within the bin is the way to find out which one is the artefact.
+    within the bin is what settled it, and the answer was that both are right -- auPRC
+    weights the whole recall axis, lift at 1% only its top, and the two scores' curves
+    cross. So this is not a diagnostic that failed; it is Supporting Fig. 8B.
 
-    Use it as a DIAGNOSTIC, not as the figure. Forcing published to call 1% of GC-rich
-    sequence describes a score nobody is using -- the whole point of panel D is that it
-    calls 14% there. What this answers is narrower and worth knowing: of the per-bin gaps
-    in E-G, how much is ranking and how much is threshold placement.
+    IT IS A DIAGNOSTIC AS WELL AS A PANEL. Forcing published to call 1% of GC-rich sequence
+    describes a score nobody is using -- the whole point of Fig. 5F is that it calls 14%
+    there. Supporting Fig. 8B says what the score CONTAINS; Fig. 5F says what happens when
+    it is USED.
     """
     return {k: float(np.quantile(sub[_score_column(k)].to_numpy(), 1.0 - target))
             for k in keys}
@@ -1440,8 +1446,8 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     Gnocchi >= 4 wants P(constrained | called), and if that probability depends on the
     window's GC content then the threshold means different things in different parts of the
     genome and the score cannot be used as a single genome-wide cutoff. That is a stronger
-    practical claim than anything in panels A-C, and it is the one a bias correction should
-    be able to deliver.
+    practical claim than any ranking statistic can make, and it is the one a bias
+    correction should be able to deliver.
 
     THREE QUANTITIES, BECAUSE PRECISION ALONE CONFOUNDS TWO EFFECTS THE FIGURE MUST KEEP
     APART. Per bin g and score:
@@ -1462,7 +1468,7 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     the panel draws r(g) as its reference and `lift` is the base-rate-free version. Expect
     the correction to flatten call_rate strongly, precision and recall less so, and do not
     read a residual slope in precision as a residual bias: declining signal-to-noise with GC
-    survives debiasing (that is panels B/C's finding) and shows up here too.
+    survives debiasing (that is Supporting Fig. 8A's finding) and shows up here too.
 
     THE TWO SCORES ARE COMPARED AT A MATCHED CALLING RATE, NOT AT A COMMON NUMBER, and
     without that these panels would be uninterpretable. Retraining moves the whole z
@@ -1484,9 +1490,9 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     The matching is computed over the windows in the DRAWN bins, so the fraction being
     matched is the one the panels actually cover.
 
-    UNBALANCED, unlike panels A and B. The base rate an analyst faces is the real one; class
-    balancing would answer a question nobody has. The prevalence reference line is what
-    keeps the bins comparable instead.
+    UNBALANCED, unlike Supporting Fig. 8A. The base rate an analyst faces is the real one;
+    class balancing would answer a question nobody has. Reporting the base rate per bin is
+    what keeps the bins comparable instead.
 
     Intervals are Wilson, per curve -- see _wilson for why not a bootstrap here.
 
@@ -1593,7 +1599,8 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                 match_within_bin: bool = False) -> pl.DataFrame:
     """
     The PAIRED difference in lift between the two scores, per GC bin, with a bootstrap
-    confidence interval. Panel E's comparison given the standing panel C's has.
+    confidence interval. It is what Supporting Fig. 8B draws as its error bars, so that a
+    threshold-based comparison carries the same standing the auPRC one does.
 
     LIFT, AND WHY IT IS THE RIGHT CONTROL WITHIN A BIN.
 
@@ -1602,7 +1609,8 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     the factor by which a call beats picking a window of that bin at random. Standard in
     association-rule mining and classification evaluation; genomics usually calls the same
     quantity fold-enrichment. By Bayes it is also recall / calling-rate, which is the
-    identity tying panels D, E and F together. It is exactly the control the base rate
+    identity tying calling rate, precision and recall together. It is exactly the control
+    the base rate
     demands: enhancer prevalence climbs about 7.7x across these bins, so raw precision
     rises with GC for ANY score and cannot be compared bin to bin without dividing it out.
 
@@ -1623,14 +1631,14 @@ def lift_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     because both scores are evaluated on the same rows and r is a property of the bin, not
     of the score. It cancels inside every bootstrap replicate too -- a resample changes r,
     but identically for both -- so the interval below is equally an interval on the
-    precision ratio. The statistic reported is that ratio minus one, a relative gain, to
-    match panel C's.
+    precision ratio. The statistic reported is that ratio minus one, a relative gain, so
+    that it matches the form pr_curve_deltas returns and the two can be read together.
 
     PAIRED, for the reason in pr_curve_deltas: one index vector per replicate, both scores
     scored on it, so the variability in WHICH windows the bin happens to contain cancels.
-    Independent Wilson intervals on the two precision curves -- which is what panels D-F
-    draw, correctly, since those show levels -- would badly understate the evidence about
-    the difference.
+    Independent Wilson intervals on the two curves -- correct wherever a panel shows two
+    LEVELS, as Fig. 5F does -- would badly understate the evidence about a difference,
+    which is why Supporting Fig. 8B takes this instead.
 
     THE THRESHOLDS ARE HELD FIXED across replicates rather than re-matched inside each one.
     They are quantiles of ~10^6 windows, so their own sampling error is negligible beside
@@ -1732,7 +1740,7 @@ def budget_comparison(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     substantially a GC-content contest, and cannot be the criterion by which a bias
     correction is judged.
 
-    Read this table beside panels D-F, never instead of them: what the correction buys is
+    Read this table beside Fig. 5F, never instead of it: what the correction buys is
     conditional (within a GC stratum, and threshold portability across strata), and a
     genome-wide average marginalises over exactly the variable being fixed.
 
@@ -1799,14 +1807,14 @@ def lift_delta_sweep(call_rates=(0.01, 0.03, 0.10), truth_set: str = "lax",
 
     IT IS A COMPLEMENT TO THE ANCHORED RESULT, NOT A REPLACEMENT. "The top q of the genome
     by Gnocchi" is not "Gnocchi >= 4", and only the latter is the cutoff Chen et al. use
-    and therefore the score as people apply it. Panels D-F stay anchored; this is the
-    robustness check beside them.
+    and therefore the score as people apply it. Fig. 5F and Supporting Fig. 8B stay
+    anchored; this is the robustness check beside them, printed and not drawn.
 
     IT ALSO MAKES A CONTINUUM VISIBLE that is otherwise implicit in this figure. As q rises
     the statistic integrates over more of the ranking and converges toward what auPRC
-    already measures -- which is panel C, whose intervals are ~0.2% wide. So panel C is the
-    powerful-but-uninterpretable end of one axis and z >= 4 the interpretable-but-noisy
-    end; the sweep is the path between them.
+    already measures -- which is Supporting Fig. 8A, whose intervals are ~0.2% wide. So 8A
+    is the powerful-but-uninterpretable end of one axis and z >= 4 the
+    interpretable-but-noisy end; the sweep is the path between them.
 
     Returns lift_deltas' columns with `call_rate` filled in, stacked over the rates.
     """

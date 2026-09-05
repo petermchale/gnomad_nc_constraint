@@ -361,7 +361,14 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    STATISTICALLY INDISTINGUISHABLE. A null there confirms Supporting Fig. 8 rather than
    failing to find something.
 
-2. **The manuscript text is written**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
+2. **`fig5/captions.txt` now covers Fig. 5A-F and Supporting Fig. 8 too, but panel F's
+   caption carries FIVE `[F-...]` PLACEHOLDERS** -- the matched threshold, the low and high
+   calling rates, the fold-swing and the retrained score's flat range. Fig. 5F has never
+   been executed on the neutral window set, so those numbers do not exist yet; the next
+   `nbconvert` prints all five from `data.calling_rate_by_gc` and they are a copy-in.
+   Supporting Fig. 8's caption is complete except that its paired intervals in (A) were
+   computed under a different binning before the panel took its current form, so re-read
+   them from the run before quoting. **The manuscript text**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
    and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
    drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.
    `METHODS.md` covers the rank statistic and points at them.
