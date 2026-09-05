@@ -895,7 +895,7 @@ genome gets called?
 **It uses no labels**, being a property of the score and of GC content, which is why it
 belongs here with the other label-free panels rather than with the discovery analyses that
 follow. And it is computed from **panel E's own table and bins**, so E and F are two views
-of one fix on one population — E's rank returning to 0.5 and F's calling rate flattening —
+of one fix on one population — E's rank returning to 0.5 and F's percentile flattening —
 rather than two measurements that happen to agree.
 
 The two scores are matched on **overall** calling rate rather than given a common number:
@@ -909,7 +909,11 @@ rate_f, thr_f = D.calling_rate_by_gc(df_e, threshold=D.GNOCCHI_THRESHOLD,
                                      n_bins=N_BINS, min_n=MIN_N_WINDOWS)
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
-panels.panel_calling_rate(ax, rate_f, thr_f, xrange=XRANGE)
+# PANEL E'S OWN MEAN, not a freshly computed one: F is drawn on df_e, so the two panels
+# must mark the same place on the GC axis or the "one measurement seen twice" pairing
+# is only approximately true.
+panels.panel_calling_rate(ax, rate_f, thr_f, xrange=XRANGE,
+                          gc_mean=float(df_e["GC_content"].mean()))
 save(fig, "F")
 """)
 
@@ -1188,13 +1192,57 @@ anything cross-bin, alongside precision and recall; none is drawn, and
 first three. The retired panels are in the gitignored `fig5/panels_extra.py`, last tracked
 at `582c09d`.
 
-**Recall is not drawn because it is panel F.** Since recall $=$ calling rate $\times$ lift,
-and lift varies only 1.8$\times$ across these bins while the calling rate varies
-80$\times$, recall is the calling fraction to within a factor of two: published
-0.33 → 15.07% (45.7$\times$), the retrained score 0.93 → 2.03% (2.18$\times$). Drawing both
-would report one measurement twice. Those recall figures still belong in the caption,
-because *"finds 15% of the constrained windows at high GC and 0.33% at low"* is the
-analyst-legible form of what F shows in calling fractions.
+**C is B in the analyst's unit, and that is the whole reason it is drawn.** B matches the
+calling rate within each bin, so $\text{lift} = \text{recall} / \text{calling rate}$ with
+the calling rate constant makes recall a rescaling of lift by 1.002%, and precision likewise
+since both scores see the same rows and therefore the same base rate. C carries no
+information B does not, and its five per-bin gains are B's five numbers. It earns its place
+because the units are not interchangeable to a reader: *"catches 2.42% of the enhancer
+windows here against 1.81%"* is actionable, and recovering it from a lift of 2.40 against
+1.80 requires knowing the matched rate. Precision is the third face of the same quantity
+and is **not** drawn -- three would be a restatement rather than a translation. The identity
+is checked numerically in the next cell rather than asserted here.
+
+**Recall is not drawn beside F either, because it is F.** At the fixed threshold, recall
+$=$ calling rate $\times$ lift, and lift varies only 1.8$\times$ across these bins while
+the calling rate varies 80$\times$, so recall is the calling fraction to within a factor of
+two: published 0.33 → 15.07% (45.7$\times$), the retrained score 2.03 → 0.93%. Those recall
+figures still belong in the caption, because *"finds 15% of the constrained windows at high
+GC and 0.33% at low"* is the analyst-legible form of what F shows in calling fractions.
+
+**RECALL IS REDISTRIBUTED ACROSS GC, NOT LOST.** This is the sentence to keep hold of, and
+the reason the per-bin recall numbers must never be quoted one bin at a time. The two
+scores are matched on the GLOBAL calling rate, so the call budget is fixed: 10,051 windows
+called by each, 1.00% of the 1,003,036 drawn. Debiasing does not spend less; it spends
+elsewhere. What the GC-rich bins give up, the GC-poor bins receive:
+
+| GC bin | published | retrained | |
+|---|---|---|---|
+| (0.20, 0.30] | 0.33% | 2.03% | 6.2$\times$ **up** |
+| (0.30, 0.40] | 0.52% | 1.60% | 3.1$\times$ up |
+| (0.40, 0.50] | 1.24% | 1.39% | 1.1$\times$ up |
+| (0.50, 0.55] | 4.01% | 1.07% | 3.7$\times$ down |
+| (0.55, 0.80] | 15.07% | 0.93% | 16.2$\times$ **down** |
+
+So "debiasing costs recall" is a high-GC statement and a half-truth; the whole truth is
+that published Gnocchi concentrates its entire discovery budget in GC-rich sequence, and
+the retrained score spreads it evenly. Which of the two is better spending is not a
+question a GC-confounded truth set can answer — see the pooled numbers below.
+
+**And the pooled numbers do fall, which is not evidence against the correction.** At the
+same 10,051-call budget, published finds 5,485 positives and the retrained score 4,396
+(precision 0.546 → 0.437, recall 1.77 → 1.42%, lift 1.77 → 1.42). But GC content ALONE,
+carrying no constraint information whatsoever, scores lift 2.15 on this truth set and beats
+both. That is the measurement of how much of the lax set's apparent signal is a GC-content
+contest: its positives are GC-rich (base rate 8.3% in the lowest bin against 63.9% in the
+highest, 7.7$\times$), so any GC-biased score wins pooled, by being biased. Pooled
+performance on this truth set is therefore uninterpretable as a verdict on either score,
+which is precisely why every panel here is computed WITHIN a GC bin, and why the control
+worth building is a GC-matched negative set rather than a second truth set.
+
+*If a recall-vs-GC panel is ever wanted, it is the UNMATCHED one* —
+`panel_threshold_metric(ax, tm_unmatched, "recall", ...)` on the table behind F, which
+draws the redistribution above. Beside B it would draw nothing new.
 
 **What Fig. 5F and this figure establish together, in one sentence:**
 
@@ -1285,24 +1333,64 @@ lifts_wb_s8 = D.lift_deltas(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
 """)
 
 code(r"""
+# VERIFYING SUPPORTING FIG. 8C AGAINST 8B, rather than asserting the identity in a caption.
+# Bayes gives lift = precision / r = recall / k with k the calling rate; 8B/8C match k
+# within each bin, so recall / lift must equal that one matched k in every (bin, score)
+# cell. If it does not, the two panels are not the same measurement and C is telling a
+# second story -- which is exactly the failure mode a reader cannot check by eye.
+#
+# The scatter is the same check drawn: ten points, two per bin, on the line of slope k
+# through the origin. It is a METHODS check and not a panel of the figure -- a plot whose
+# content is "an identity holds" belongs in the notebook, not in the manuscript.
+if withinbin_s8 is not None:
+    wb = withinbin_s8.to_pandas()
+    k = wb["call_rate"].to_numpy()
+    resid = np.abs(wb["recall"].to_numpy() - wb["lift"].to_numpy() * k)
+    print(f"recall = lift x calling rate: max |residual| = {resid.max():.2e} "
+          f"over {len(wb)} (bin, score) cells")
+    print(f"  matched calling rate k spans {100 * k.min():.4f}% - {100 * k.max():.4f}% "
+          f"(equal by construction up to bin-size rounding)")
+    fig_chk, ax_chk = plt.subplots(figsize=(4.2, 4.2))
+    ax_chk.axline((0, 0), slope=float(k.mean()), color="0.7", linewidth=1,
+                  label=f"slope = {100 * k.mean():.3f}% (matched calling rate)")
+    for key, s in wb.groupby("score"):
+        ax_chk.plot(s["lift"], s["recall"], "o", markersize=5,
+                    label=s["display"].iloc[0])
+    ax_chk.set_xlabel("lift"); ax_chk.set_ylabel("recall")
+    ax_chk.legend(fontsize=7, frameon=False)
+    plt.show()
+""")
+
+code(r"""
 # Guarded, so a run without NEUTRAL_WINDOWS_BED skips these figures rather than dying.
 if curves_s8 is not None:
-    # TWO PANELS, ONE QUESTION. A is threshold-free and B is at one operating point; both
-    # ask what debiasing does to DISCOVERY, share a truth set, and share a caption's worth
-    # of caveats, so they are one figure. Each carries its paired interval as error bars on
+    # THREE PANELS, ONE QUESTION. A is threshold-free, B and C are at one operating point
+    # in two units; all three ask what debiasing does to DISCOVERY, share a truth set, and
+    # share a caption's worth of caveats, so they are one figure. Each carries its paired interval as error bars on
     # the retrained curve -- see panel_aupr_by_gc for why they go on one curve. The panels
     # this figure retired live in the gitignored fig5/panels_extra.py (last tracked at
     # 582c09d) rather than beside the panels the manuscript uses.
-    fig = plt.figure(figsize=(13.5, 5.0))
-    gs = fig.add_gridspec(1, 2, wspace=0.30)
+    fig = plt.figure(figsize=(20.0, 5.0))
+    gs = fig.add_gridspec(1, 3, wspace=0.30)
     axA = fig.add_subplot(gs[0, 0])
     axB = fig.add_subplot(gs[0, 1])
+    axC = fig.add_subplot(gs[0, 2])
 
     panels.panel_aupr_by_gc(axA, curves_s8, deltas=deltas_s8)
     if withinbin_s8 is not None:
+        # B AND C ARE THE SAME MEASUREMENT IN TWO UNITS, and that is why both are drawn.
+        # With the calling rate matched within the bin, recall = lift x (calling rate) with
+        # the calling rate a constant, so C is B rescaled by 1.002% and carries no
+        # independent information. It is here because lift is the statistician's unit and
+        # recall is the analyst's: "the retrained score catches 2.42% of the enhancer
+        # windows in the most AT-rich bin against published's 1.81%" is the sentence a
+        # reader wants, and deriving it from a lift of 2.40 against 1.80 is a step most
+        # will not take. The identity is verified two cells down rather than asserted.
         panels.panel_threshold_metric(axB, withinbin_s8, "lift", D.GNOCCHI_THRESHOLD,
                                       deltas=lifts_wb_s8)
-    for ax, lab in ((axA, "A"), (axB, "B")):
+        panels.panel_threshold_metric(axC, withinbin_s8, "recall", D.GNOCCHI_THRESHOLD,
+                                      deltas=lifts_wb_s8)
+    for ax, lab in ((axA, "A"), (axB, "B"), (axC, "C")):
         panels.label_panels((ax,), (lab,), x=-0.16)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
@@ -1319,7 +1407,7 @@ md(r"""
 
 Gnocchi is a $z$-score, and a $z$-score promises that a given value means the same departure
 from neutral expectation anywhere in the genome. That promise is what licenses attaching a
-threshold to it. Panel **9A** measures it, with no truth set, and it fails by a factor of 80.
+threshold to it. **Fig. 5F** measures it, with no truth set, and it fails by a factor of 80.
 
 **Concretely.** Two patients, two *de novo* noncoding variants: one in a CpG-island promoter
 scoring Gnocchi 4.2, one in an AT-rich distal enhancer scoring 3.8. The analyst keeps the

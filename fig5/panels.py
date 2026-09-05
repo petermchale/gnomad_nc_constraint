@@ -171,8 +171,8 @@ def _gc_mean_line(ax, gc_mean: float | None) -> None:
     Vertical line at `gc_mean`, in the panel's own x units (GC as a 0-1 fraction).
 
     EACH PANEL MARKS THE MEAN OF THE POPULATION IT DRAWS, which is not one number
-    across the figure: A and E bin the windows left after their joint z filter, D bins
-    training SITES. On McHale et al.'s window set those means span 0.390-0.402, so the
+    across the figure: A, E and F bin the windows left after their joint z filter -- F on
+    E's very frame, so the two lines coincide -- while D bins training SITES. On McHale et al.'s window set those means span 0.390-0.402, so the
     lines land within half a bin of each other -- close enough to read across panels,
     and not so close that quoting one number for all of them would be true. The caller
     passes the mean of the very frame it plots, so the line cannot drift from the curves;
@@ -329,7 +329,7 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
     -- they are the decomposition, not the claim -- and are separated from each other by
     marker and by dash pattern, so the panel still reads in greyscale.
 
-    NO MEAN-GC LINE HERE, though A, D and E carry one (_gc_mean_line) and uniformity
+    NO MEAN-GC LINE HERE, though A, D, E and F carry one (_gc_mean_line) and uniformity
     would argue for it. It was drawn here for one commit and taken out: measured off the
     render, R_eff and R_non cross 1 at GC 0.413 against a mean at 0.393, 0.8 of a bin
     apart, and a vertical line that close to where three curves meet the horizontal
@@ -1166,7 +1166,9 @@ def panel_calling_rate(ax, binned, thresholds: dict,
                        labels=(("step2", "Gnocchi, as published"),
                                ("scored", "Gnocchi, decontaminated DNM training set")),
                        xrange=(0.2, 0.73), show_xlabel: bool = True,
-                       legend_loc: str = "upper left") -> None:
+                       legend_loc: str | None = None,
+                       percentile_axis: bool = True,
+                       gc_mean: float | None = None) -> None:
     """
     Panel F. The fraction of windows in each GC bin clearing a fixed z, one curve per
     score. `binned`, `thresholds` are data.calling_rate_by_gc() output.
@@ -1175,16 +1177,59 @@ def panel_calling_rate(ax, binned, thresholds: dict,
     mean rank returning to 0.5, F shows the calling rate flattening. Same markers as A and
     E, so a reader carries the two scores across all three without re-reading a legend.
 
-    LOG Y, because published Gnocchi's calling rate spans nearly two orders of magnitude
-    across GC and on a linear axis every bin but the last sits on the floor. The axis is
-    labelled in per cent; the bars are Wilson intervals, which is the right object here --
-    these are plain proportions, and unlike the discovery panels there is no paired
-    difference to draw, since the two curves are far apart relative to their own error.
+    WHAT THE Y AXIS SAYS (percentile_axis=True, the default). The quantity computed is the
+    calling rate; the quantity LABELLED is its complement, the percentile at which that
+    score's cutoff falls within the GC bin's OWN distribution of Gnocchi scores.
+
+    ONE z PER SCORE, APPLIED UNCHANGED IN EVERY BIN -- this is what makes the panel mean
+    anything, and it is the opposite of Supporting Fig. 8B. data.calling_rate_by_gc fixes
+    both thresholds ONCE on the whole population (published at 4, the retrained score at
+    the global quantile matching published's overall calling rate) and then counts, bin by
+    bin, what fraction of that bin clears its own score's single fixed number. So the two
+    values named in the legend are the two values whose local percentiles are plotted, and
+    the curve's slope is the score moving underneath a stationary cutoff. 8B does the
+    reverse: it re-derives a threshold per bin so that the calling rate is constant, which
+    is why the slope there is not the bias but what survives its removal. They are
+    the same number read from either end -- percentile = 100 x (1 - calling rate) -- and
+    the percentile is the form the result states itself in: the same numeral 4 is the
+    99.9th percentile of AT-rich sequence and the 58th percentile of GC-rich sequence, so
+    it is a stringent cutoff in one part of the genome and a permissive one in another.
+    Note that the percentile is LOCAL to the bin, not a genome-wide rank; that is the whole
+    content of the panel, since a score meeting its own promise would put a fixed z at the
+    same percentile everywhere.
+
+    LOG Y AND INVERTED, and both are forced. Log, because published Gnocchi's calling rate
+    spans nearly two orders of magnitude across GC: plot the percentile on a LINEAR axis
+    instead and the AT-rich bins (99.87, 99.9, 100, 100) collapse onto one line at the top
+    and the panel loses its content, so the axis stays logarithmic in the calling rate and
+    only its labels change. Inverted, because an uninverted percentile axis would read 99.9
+    at the bottom and 90 at the top; inverting makes the labels increase upward and the
+    published curve descend with GC, which is the sentence the panel is making. Ticks are
+    set explicitly rather than left to the log locator -- the decades alone label 99.99
+    through 90 and then nothing, leaving the GC-rich half of the curve unreadable.
+
+    `percentile_axis=False` restores the original calling-rate axis, labelled in per cent
+    and not inverted; nothing else about the panel changes. Bars are Wilson intervals,
+    which is the right object here -- these are plain proportions, and unlike the discovery
+    panels there is no paired difference to draw, since the two curves are far apart
+    relative to their own error.
+
+    `gc_mean` marks the mean GC of the population drawn, as in A, D and E -- pass panel
+    E's own mean, since F is computed on E's frame and a line at a different value would
+    break the pairing the two panels rest on. See _gc_mean_line.
 
     Each score's own threshold goes in its legend entry: they are matched on overall
     calling rate rather than given a common number, so one figure in the y label would be
     wrong for one of the curves. See data.calling_rate_by_gc.
     """
+    # THE RELATION IN THE LEGEND FOLLOWS THE AXIS, and getting it wrong misdescribes what
+    # is plotted. On the calling-rate axis the y value is the size of a SET, the windows
+    # satisfying z >= t, and ">=" is the condition defining it. On the percentile axis the
+    # y value is a property of the single VALUE t -- where t falls in this bin's own
+    # distribution -- so the legend names that value and "=" is what belongs there. The
+    # underlying count is 1 - fraction(z >= t) either way; what changes is which of the two
+    # readings the panel is presenting, and the legend has to agree with the ylabel.
+    rel = "=" if percentile_axis else "\\geq"
     for key, display in labels:
         y = binned[f"rate_{key}"].to_numpy()
         # Clamped: a Wilson bound can land a float-epsilon the wrong side of its own
@@ -1192,19 +1237,58 @@ def panel_calling_rate(ax, binned, thresholds: dict,
         # negative yerr outright rather than treating it as zero.
         lo = np.maximum(y - binned[f"lo_{key}"].to_numpy(), 0.0)
         hi = np.maximum(binned[f"hi_{key}"].to_numpy() - y, 0.0)
+        # A BIN THAT CALLS NOTHING IS A GAP, NOT A PLUNGE. Published Gnocchi calls 0% in
+        # the most AT-rich bins, and 0 has no position on a log axis: left unmasked,
+        # errorbar draws the segment to that point as a vertical line running off the
+        # edge of the panel, which reads as a data excursion and is the loudest mark on
+        # the artwork. Masked, the curve simply starts where the score starts calling --
+        # and "calls nothing at all here" is a stronger statement than any plotted point,
+        # carried by the caption rather than by a spike.
+        y = np.ma.masked_less_equal(y, 0.0)
         ax.errorbar(binned["gc_mid"].to_numpy(), y, yerr=np.vstack([lo, hi]),
                     marker=SERIES_MARKERS[key], color=MONO,
                     markerfacecolor="white" if key in MONO_OPEN else MONO,
                     markeredgewidth=1.2, markersize=5, linewidth=2, capsize=3,
-                    elinewidth=1, label=f"{display}  ($z \\geq {thresholds[key]:.2f}$)")
+                    elinewidth=1, label=f"{display}  ($z {rel} {thresholds[key]:.2f}$)")
     ax.set_yscale("log")
-    ax.yaxis.set_major_formatter(mticker.FuncFormatter(
-        lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
     ax.yaxis.set_minor_formatter(mticker.NullFormatter())
     # A bin can legitimately call nothing, and 0 has no place on a log axis: the floor
     # comes from the smallest NON-zero rate, so an empty bin plots at the bottom edge
     # rather than taking the axis with it.
     vals = [v for k, _ in labels for v in binned[f"rate_{k}"].to_list() if v and v > 0]
-    ax.set_ylim(min(vals) / 2.0, max(vals) * 4.0)   # headroom for the legend
-    _finish(ax, "Windows called", xrange, show_xlabel, legend_loc=legend_loc,
+    lo_lim, hi_lim = min(vals) / 2.0, max(vals) * 4.0   # headroom for the legend
+    ax.set_ylim(lo_lim, hi_lim)
+    if percentile_axis:
+        # SAME CURVE, SAME LOG SCALE, COMPLEMENTARY LABELS. The quantity plotted is still
+        # the calling rate -- that is what keeps the ~300-fold swing legible, since on a
+        # LINEAR percentile axis the AT-rich bins (99.87, 99.9, 100, 100) collapse onto one
+        # line and the panel loses its content. Only the tick labels and the direction
+        # change. The decades of the log axis land on round percentiles by construction
+        # (1e-3 -> 99.9, 1e-2 -> 99, 1e-1 -> 90), so no locator of its own is needed.
+        # EXPLICIT TICKS, because the log decades alone label only the top of the panel:
+        # they run 99.99, 99.9, 99, 90 and then nothing until 0, leaving the whole lower
+        # half -- where published Gnocchi's most GC-rich bins land -- unreadable. These
+        # are round percentiles, chosen in rate space so they stay on the log grid, and
+        # filtered to the range actually drawn.
+        ticks = [t for t in (1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.25, 0.5, 0.75)
+                 if lo_lim <= t <= hi_lim and t <= 0.5]
+        ax.yaxis.set_major_locator(mticker.FixedLocator(ticks))
+        ax.yaxis.set_minor_locator(mticker.NullLocator())
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(
+            lambda v, _: f"{100 * (1 - v):g}" if 0 < v < 1 else ""))
+        # INVERTED, so the labels increase upward. Uninverted, a percentile axis reads
+        # 99.9 at the bottom and 90 at the top, which is the one thing a reader will not
+        # forgive. Inverted, the published curve DESCENDS with GC and the panel reads as
+        # the sentence it is: the same numeral 4 sits at a lower and lower percentile of
+        # the local score distribution as sequence gets more GC-rich.
+        ax.invert_yaxis()
+        ylabel = "Percentile of the local Gnocchi\ndistribution at the indicated $z$"
+        legend_loc = "lower left" if legend_loc is None else legend_loc
+    else:
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(
+            lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
+        ylabel = "Windows called"
+        legend_loc = "upper left" if legend_loc is None else legend_loc
+    _gc_mean_line(ax, gc_mean)
+    _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 1)

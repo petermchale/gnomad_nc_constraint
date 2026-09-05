@@ -1,81 +1,121 @@
 # Fig. 5 — Gnocchi's GC bias comes from its regional adjustment, fit on the wrong population
 
-`fig5.ipynb` builds the figure and writes each panel to `output/fig5{A..E}.pdf` as a
+`fig5.ipynb` builds the figure and writes each panel to `output/fig5{A..F}.pdf` as a
 standalone vector file for assembly in Illustrator, plus two supporting figures.
 
 `output/supp_fig7.pdf` — **Supporting Figure 7** in the manuscript, whose four panels are
 cited there as 7A-7D (A alone on the left, B-D stacked on the right: A's abscissa is
 methylation level, not the GC content the other three share).
 
-`output/supp_fig8.pdf` and `output/supp_fig9.pdf` — **Supporting Figures 8 and 9**, which
-ask what panel E's intervention buys or costs in *discovery*: McHale et al.'s Fig. 4A/B for published Gnocchi against the
-retrained one, on their GeneHancer enhancer-overlap truth set. It is this figure's own
-pipeline with one filter dropped (`keep_enhancer_windows=True`), so it is a statement
-about panel E rather than about a different window set. Unlike every other panel it does
-**not** build without `NEUTRAL_WINDOWS_BED` — the enhancer flag in that file *is* the
-truth set, GeneHancer is licensed and not derivable from the public bucket, and
+`output/supp_fig8.pdf` — **Supporting Figure 8**, **two panels**, which ask what panel E's
+intervention buys or costs in *discovery*: McHale et al.'s Fig. 4A/B for published Gnocchi
+against the retrained one, on their GeneHancer enhancer-overlap truth set. It is this
+figure's own pipeline with one filter dropped (`keep_enhancer_windows=True`), so it is a
+statement about panel E rather than about a different window set. Unlike every other panel
+it does **not** build without `NEUTRAL_WINDOWS_BED` — the enhancer flag in that file *is*
+the truth set, GeneHancer is licensed and not derivable from the public bucket, and
 classifying against some other annotation would be a different experiment wearing this
 figure's name. The cells check and skip.
 
-Its builders are `data.pr_curves(truth_set="lax")` and `data.pr_curve_deltas()`, and its
-panels are `panels.panel_pr_curves` / `panels.panel_aupr_by_gc` / `panels.panel_aupr_delta`,
-alongside Supporting Figure 7's. **Panel C is where the claim is decided**: B's two curves
-cross and wobble without uncertainty, so C reduces the comparison to one paired number per
-GC bin with a bootstrap CI. It is paired (both scores on the same resampled rows, so the
-window-sampling variability cancels), unbalanced (the balancing is only needed for
-cross-bin level comparisons and costs four fifths of the positives), and its top bin is
-merged to (0.55, 0.80] because their file is nearly empty above GC 0.60.
+**There is no Supporting Figure 9.** It existed for a few hours on 2026-09-04 and was
+merged back into 8 the same day, once its calling-rate panel was promoted to Fig. 5F. Its
+orphaned `output/supp_fig9.neutral.*` were removed after the fact; nothing writes them.
 
-**Panel F is where the bias appears in usable units, and Supporting Figure 8 is nearly
-blind to it.** Panel F — the fraction of windows clearing Gnocchi ≥ 4 per GC bin — needs no
-labels at all, so it sits in the main figure beside the other label-free panels, built from
-panel E's own table and bins. Supporting Figure 8 is the two-panel discovery analysis that
-does need a truth set. There is no Supporting Figure 9.
+**Fig. 5F is where the bias appears in usable units, and Supporting Figure 8 is nearly
+blind to it.** F — the fraction of windows clearing Gnocchi ≥ 4 per GC bin — uses **no
+labels at all**, so it rests on neither GeneHancer nor the laxness of an enhancer proxy,
+and it sits in the main figure beside the other label-free panels, built from panel E's own
+table and bins (`data.calling_rate_by_gc`, `panels.panel_calling_rate`). Its y axis reads that
+fraction as its complement — the percentile at which each score's cutoff falls in the bin's
+own Gnocchi distribution — because that is the form the claim states itself in: a score
+meeting its own promise would put a fixed z at a fixed percentile everywhere, and published
+Gnocchi's z = 4 runs from the 99.9th percentile of AT-rich sequence to roughly the 58th of
+GC-rich. The axis stays logarithmic in the calling rate underneath and is inverted so
+percentiles increase upward; `percentile_axis=False` restores the original calling-rate
+axis. Supporting Figure 8 is the three-panel discovery analysis that does need a truth set.
 
-Supporting Figure 8's B is the same two scores with the calling rate matched *within* each
-bin, which is what separates ranking from threshold placement. Recall, precision, skill and
-the lift-against-recall view with its iso-calling-rate contours are all computed and
-printed; none is drawn, because each tells panel F's story in another projection.
+**8A — auPRC/`r` against GC for both scores**, threshold-free, `data.pr_curves` +
+`data.pr_curve_deltas` through `panels.panel_aupr_by_gc`. A GC-dependent bias is very
+nearly a common shift on every window in a narrow bin, positives and negatives alike, so it
+cancels from a within-bin *ranking* statistic: that is why A's two curves nearly coincide,
+and it means the steep decline of auPRC with GC *survives debiasing* (published
+1.518 → 1.199 across the bins, retrained 1.554 → 1.298). What remains is signal-to-noise,
+which is what McHale et al. conjectured in their text.
 
-Supporting Figure 8 is a single panel: auPRC/`r` against GC for both scores, with the
-retrained curve carrying its **paired** bootstrap interval relative to published. Those
-bars are on one curve deliberately — independent intervals would describe the uncertainty
-of each *level* when the question is about the *gap*, and would be wider than the gap's own
-interval, since the two scores share almost all of their sampling variability. A bar that
-excludes the published marker is a real difference. A, B
-and C are within-bin *ranking* statistics, and a GC-dependent bias is very nearly a common
-shift on every window in a narrow bin — positives and negatives alike — so it cancels.
-That is why B's curves coincide, and it means the steep decline of auPRC with GC *survives
-debiasing*: what remains is signal-to-noise, which is what McHale et al. conjectured in
-their text. Fix the threshold instead (`data.threshold_metrics`, at Chen et al.'s own
-Gnocchi ≥ 4) and the shift stops cancelling. **D — the fraction of windows called — uses
-no labels at all**, so it rests on neither GeneHancer nor the laxness of an enhancer
-proxy; it is the most robust claim the figure makes. E (precision) is the analyst's
-number and will *not* be flattened by the correction, because the base rate itself climbs
-~7.7× across these bins — hence the dashed base-rate reference, against which the gap, not
-the height, is what carries information.
+**8B/8C — lift and recall per GC bin with the calling rate matched *within* each bin**, which is what
+separates ranking from threshold placement: `data.threshold_metrics(match_within_bin=True)`
+and `data.lift_deltas(match_within_bin=True)` through
+`panels.panel_threshold_metric(..., "lift", ...)`. Higher in all five bins and
+significantly so in four: +33.3, +4.0, +4.2, +10.8, +2.2 per cent.
 
-**D–F compare the two scores at a matched calling rate**, not at a common `z`. Retraining
-shifts the whole `z` distribution: at `z ≥ 4` published calls ~1.0% of windows and the
-retrained score ~0.13%, eight times fewer, so a common cutoff would credit the retrained
-score for being strict (higher precision) and penalise it for the same reason (lower
-recall). Published is held at 4 and the other takes the quantile calling the same
-fraction; each legend carries its own threshold. Panel D's swing is a within-score ratio
-and is unaffected either way.
+*Be precise about what B matches.* Every score calls the same fraction of every bin, and
+that fraction is the **global** rate published attains at `z ≥ 4` — 1.002% of all drawn
+windows. It is **not** `z ≥ 4` applied bin by bin, and **not** published's own per-bin
+calling rate (which runs 0.17% → 13.97%). So B's published threshold in a bin is that bin's
+98.998th percentile of `z`, equal to 4.0 only by coincidence; `data._bin_thresholds` is
+where this happens. One consequence is worth stating because it decides what B can show:
+with the calling rate common, `lift = recall / calling rate` makes recall a constant
+rescaling of lift within a bin, and precision likewise since the base rate is shared. B
+and C are therefore the same panel with two y axes, and C is drawn anyway because lift is
+the statistician's unit and recall is the analyst's — the translation is worth a panel, a
+third face of it (precision) would be a restatement. `fig5.ipynb` verifies
+`recall == lift * k` numerically rather than asserting it.
+
+Both panels carry the retrained curve's **paired** bootstrap interval relative to
+published. Those bars are on one curve deliberately — independent intervals would describe
+the uncertainty of each *level* when the question is about the *gap*, and would be wider
+than the gap's own interval, since the two scores share almost all of their sampling
+variability. A bar that excludes the published marker is a real difference. The comparison
+is paired (both scores on the same resampled rows, so window-sampling variability cancels),
+unbalanced (the balancing is only needed for cross-bin level comparisons and costs four
+fifths of the positives), and its top bin is merged to (0.55, 0.80] because their file is
+nearly empty above GC 0.60.
+
+*B is a diagnostic in a second sense.* Forcing published to call 1% of GC-rich sequence
+describes a score nobody uses — Fig. 5F's whole point is that it calls 14% there. B says
+what the score *contains*; F says what happens when it is *used*.
+
+*Lift is capped at `1/r`*, a ceiling falling from 12.0 to 1.6 across these bins, so compare
+the two **scores** within a bin rather than ranking bins against each other.
+`data.threshold_metrics` reports ceiling-free skill and `LR+` per bin for anything
+cross-bin, alongside precision and recall; none is drawn, because each tells Fig. 5F's
+story in another projection. The retired panel functions — `panel_pr_curves`,
+`panel_aupr_delta`, `panel_lift_vs_recall` — are in the gitignored `fig5/panels_extra.py`,
+last tracked at `582c09d`.
+
+**Fig. 5F and Supporting Fig. 8 compare the two scores at a matched calling rate**, not at
+a common `z`. Retraining shifts the whole `z` distribution: at `z ≥ 4` published calls
+~1.0% of windows and the retrained score ~0.13%, eight times fewer, so a common cutoff
+would credit the retrained score for being strict (higher precision) and penalise it for
+the same reason (lower recall). Published is held at 4 and the other takes the quantile
+calling the same fraction; each legend carries its own threshold. Fig. 5F's swing is a
+within-score ratio and is unaffected either way.
+
 **"Lax" is McHale et al.'s own word and the axis these names are organized on**: a truth
 set says which windows count as constrained; the lax one is GeneHancer overlap (big, but
-not every enhancer window is under selection) and their **stringent** one — noncoding
-windows regulating essential genes, their Fig. 4C/D — is the planned second value of
-`truth_set`, not built yet. Constants belonging to a truth set carry its name
-(`LAX_GC_BINS`, `LAX_MIN_BIN_WINDOWS`); those that do not, do not (`PR_SCORES`,
-`TRUTH_TARGET`).
+not every enhancer window is under selection) and their **stringent** one is noncoding
+windows regulating essential genes, their Fig. 4C/D. Constants belonging to a truth set
+carry its name (`LAX_GC_BINS`, `LAX_MIN_BIN_WINDOWS`); those that do not, do not
+(`PR_SCORES`, `TRUTH_TARGET`).
 
-**Read `data.py`'s section header before starting the stringent set.** Its three numbered
-items are the spec, taken from their notebook: it is a third hand-supplied file with a
-different target and coordinate column; **its intervals are not on Chen's 1 kb grid**, so
-the retrained score needs an interval overlap rather than a string-built `element_id`; and
-Fig. 4C/D are a bootstrap statistic over two feature bins, so they are new builders rather
-than another `truth_set` value through `pr_curves`.
+**The stringent set was considered and deliberately NOT built** (2026-09-04) — do not pick
+it up as pending work. `data.pr_curves` still takes `truth_set` and still accepts only
+`"lax"`; that seam stays, and `data.py`'s section header still holds the spec if the
+decision is ever revisited. Four reasons, in order of weight: the central result, Fig. 5F,
+uses **no truth set at all**, so swapping truth sets cannot move it; 4,933 windows against
+1,003,037 is underpowered for a published-vs-retrained gap that is +1.5% pooled on the lax
+set; it does not address the objection we actually have, which is that **GC content alone
+beats published Gnocchi** on the lax set (lift 2.15 against 1.77), and stringent positives
+are GC-rich essential-gene enhancers against AT-poor non-enhancer negatives, so plausibly
+*more* GC-separated; and it is not cheap — a third hand-supplied file, an interval-overlap
+join onto Chen's 1 kb grid, and new bootstrap builders that are not `pr_curves`.
+
+**What to do instead, at the same cost: a GC-matched control.** Sample negatives from the
+lax set to match the positives' GC distribution; GC-only lift is then 1 by construction and
+any score's lift above 1 is discrimination that cannot be GC in disguise. Buildable from
+data already in hand. And **say the limitation rather than omitting it** — a reviewer will
+notice the secondary analyses rest on the set McHale et al. themselves call lax; the strong
+form is a caption sentence carrying the power argument above, not silence.
 
 Run the notebook top to bottom.
 
