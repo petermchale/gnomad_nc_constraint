@@ -1158,3 +1158,53 @@ def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float =
     }[metric]
     _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
+
+
+# ------------------------------------------------------------------- panel F
+
+def panel_calling_rate(ax, binned, thresholds: dict,
+                       labels=(("step2", "Gnocchi, as published"),
+                               ("scored", "Gnocchi, decontaminated DNM training set")),
+                       xrange=(0.2, 0.73), show_xlabel: bool = True,
+                       legend_loc: str = "upper left") -> None:
+    """
+    Panel F. The fraction of windows in each GC bin clearing a fixed z, one curve per
+    score. `binned`, `thresholds` are data.calling_rate_by_gc() output.
+
+    E AND F ARE ONE FIX SEEN TWICE, on one population and one set of GC bins: E shows the
+    mean rank returning to 0.5, F shows the calling rate flattening. Same markers as A and
+    E, so a reader carries the two scores across all three without re-reading a legend.
+
+    LOG Y, because published Gnocchi's calling rate spans nearly two orders of magnitude
+    across GC and on a linear axis every bin but the last sits on the floor. The axis is
+    labelled in per cent; the bars are Wilson intervals, which is the right object here --
+    these are plain proportions, and unlike the discovery panels there is no paired
+    difference to draw, since the two curves are far apart relative to their own error.
+
+    Each score's own threshold goes in its legend entry: they are matched on overall
+    calling rate rather than given a common number, so one figure in the y label would be
+    wrong for one of the curves. See data.calling_rate_by_gc.
+    """
+    for key, display in labels:
+        y = binned[f"rate_{key}"].to_numpy()
+        # Clamped: a Wilson bound can land a float-epsilon the wrong side of its own
+        # point estimate in a bin where the rate is 0 or 1, and errorbar rejects a
+        # negative yerr outright rather than treating it as zero.
+        lo = np.maximum(y - binned[f"lo_{key}"].to_numpy(), 0.0)
+        hi = np.maximum(binned[f"hi_{key}"].to_numpy() - y, 0.0)
+        ax.errorbar(binned["gc_mid"].to_numpy(), y, yerr=np.vstack([lo, hi]),
+                    marker=SERIES_MARKERS[key], color=MONO,
+                    markerfacecolor="white" if key in MONO_OPEN else MONO,
+                    markeredgewidth=1.2, markersize=5, linewidth=2, capsize=3,
+                    elinewidth=1, label=f"{display}  ($z \\geq {thresholds[key]:.2f}$)")
+    ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(
+        lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
+    ax.yaxis.set_minor_formatter(mticker.NullFormatter())
+    # A bin can legitimately call nothing, and 0 has no place on a log axis: the floor
+    # comes from the smallest NON-zero rate, so an empty bin plots at the bottom edge
+    # rather than taking the axis with it.
+    vals = [v for k, _ in labels for v in binned[f"rate_{k}"].to_list() if v and v > 0]
+    ax.set_ylim(min(vals) / 2.0, max(vals) * 4.0)   # headroom for the legend
+    _finish(ax, "Windows called", xrange, show_xlabel, legend_loc=legend_loc,
+            legend_fontsize=LEGEND_FONTSIZE - 1)

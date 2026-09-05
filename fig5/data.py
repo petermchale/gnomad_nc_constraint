@@ -96,6 +96,26 @@ def duck(memory_limit: str = "8GB") -> duckdb.DuckDBPyConnection:
     return con
 
 
+def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
+    """
+    Wilson score interval for a binomial proportion.
+
+    NOT a bootstrap, and not for want of one. Precision and recall at a fixed threshold are
+    plain proportions, so their sampling error has a closed form; and unlike panel C this
+    panel plots two LEVELS rather than their difference, so there is no pairing to exploit
+    -- an interval on each curve is exactly the right object. Wilson rather than the normal
+    approximation because the counts get small in the thin GC bins and at a threshold only
+    ~1% of windows clear, which is where Wald intervals run outside [0, 1].
+    """
+    if n == 0:
+        return (float("nan"), float("nan"))
+    p = k / n
+    d = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / d
+    half = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
 # --------------------------------------------------------------- shared GC bins
 
 def gc_edges(gc: np.ndarray, n_bins: int = N_BINS) -> np.ndarray:
@@ -732,6 +752,84 @@ def cpg_rate_by_methyl(cache_dir: str = CACHE_DIR) -> pl.DataFrame:
     return ct
 
 
+# ------------------------------------------------------------------- panel F
+
+def calling_rate_by_gc(df: pl.DataFrame, threshold: float = 4.0,
+                       labels=(("step2", "as published"),
+                               ("scored", "decontaminated DNM training set")),
+                       reference: str = "step2", n_bins: int = N_BINS,
+                       min_n: int = 100) -> tuple[pl.DataFrame, dict]:
+    """
+    Panel F: the fraction of windows in each GC bin whose z clears a fixed threshold.
+
+    WHY THIS BELONGS IN FIG. 5 AND NOT IN A SUPPORTING FIGURE. Panels A and E measure the
+    bias as a RANK -- the statistic is uniform on (0,1) by construction, so the departure
+    from 0.5 is interpretable but abstract. This is the same fact in the units the score is
+    used in: at Chen et al.'s own cutoff, what fraction of each part of the genome gets
+    called constrained? It is the consequence of E for anyone applying the score, and it
+    uses NO LABELS -- it is a property of the score and of GC content -- so it belongs with
+    the other label-free panels rather than with the discovery analyses.
+
+    SAME POPULATION AND SAME BINS AS PANEL E, which is the point of computing it from
+    panel E's own table rather than from the truth-set table. E and F then read as two
+    views of one fix on one set of windows: E shows the rank returning to 0.5, F shows the
+    calling rate flattening. A different population underneath them would make that pairing
+    a coincidence rather than an identity.
+
+    THE TWO SCORES ARE MATCHED ON OVERALL CALLING RATE, not given a common number.
+    Retraining moves the whole z distribution, so the same numeral is a stricter cutoff for
+    one score than the other and a common-threshold comparison would confound level with
+    GC dependence. `reference` is held at `threshold` and every other score takes the
+    quantile of its own z that calls the same fraction of the whole population; the swing
+    ACROSS GC is a ratio computed within one score, so it is untouched by that choice.
+
+    Returns (binned, thresholds): one row per GC bin with gc_mid, n, and rate/lo/hi per
+    label (Wilson intervals -- these are plain proportions), and the threshold each score
+    was given.
+    """
+    gc = df["GC_content"].to_numpy()
+    edges = gc_edges(gc, n_bins)
+    idx = assign_bin(gc, edges)
+
+    ref = df[f"z_{reference}"].to_numpy()
+    target = float((ref >= threshold).mean())
+    thresholds = {}
+    for key, _ in labels:
+        thresholds[key] = (threshold if key == reference else
+                           float(np.quantile(df[f"z_{key}"].to_numpy(), 1.0 - target)))
+    print(f"  matched calling rate {100 * target:.3f}%, set by {reference} at "
+          f"z >= {threshold:g}")
+    for key, disp in labels:
+        print(f"    {disp:<38} z >= {thresholds[key]:.3f}")
+
+    rows = []
+    for b in range(len(edges) - 1):
+        m = idx == b
+        n = int(m.sum())
+        if n < min_n:
+            continue
+        row = {"gc_mid": float(0.5 * (edges[b] + edges[b + 1])), "n": n}
+        for key, _ in labels:
+            k = int((df[f"z_{key}"].to_numpy()[m] >= thresholds[key]).sum())
+            lo, hi = _wilson(k, n)
+            row[f"rate_{key}"], row[f"lo_{key}"], row[f"hi_{key}"] = k / n, lo, hi
+        rows.append(row)
+    out = pl.DataFrame(rows)
+    for key, disp in labels:
+        r = out[f"rate_{key}"].to_numpy()
+        nz = r[r > 0]
+        # The swing is quoted over bins where the score calls ANYTHING. At this resolution
+        # published Gnocchi calls nothing at all in the most AT-rich bins, which makes the
+        # raw ratio infinite -- a stronger statement than any finite number, and one the
+        # range carries better than a fold-change.
+        span = (f"{r.max() / nz.min():.0f}x over bins it calls in"
+                if len(nz) < len(r) else f"{r.max() / r.min():.0f}x across GC")
+        zeros = len(r) - len(nz)
+        print(f"  {disp:<38} calling rate {100 * r.min():.3f}% - {100 * r.max():.3f}%  "
+              f"({span}" + (f", and 0% in {zeros} bin(s))" if zeros else ")"))
+    return out, thresholds
+
+
 # --------------------------------------------------------- Supporting Figure 8
 
 # WHAT THIS SECTION IS FOR. Panel E says the retrained score is no longer GC-biased. It
@@ -1224,26 +1322,6 @@ GC_BASELINE = "gc_only"
 # whatever _lax_labelled_windows built.
 def _score_column(key: str) -> str:
     return "GC_content" if key == GC_BASELINE else f"z_{key}"
-
-
-def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
-    """
-    Wilson score interval for a binomial proportion.
-
-    NOT a bootstrap, and not for want of one. Precision and recall at a fixed threshold are
-    plain proportions, so their sampling error has a closed form; and unlike panel C this
-    panel plots two LEVELS rather than their difference, so there is no pairing to exploit
-    -- an interval on each curve is exactly the right object. Wilson rather than the normal
-    approximation because the counts get small in the thin GC bins and at a threshold only
-    ~1% of windows clear, which is where Wald intervals run outside [0, 1].
-    """
-    if n == 0:
-        return (float("nan"), float("nan"))
-    p = k / n
-    d = 1 + z * z / n
-    centre = (p + z * z / (2 * n)) / d
-    half = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
-    return (max(0.0, centre - half), min(1.0, centre + half))
 
 
 def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str | None,

@@ -287,23 +287,33 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    threshold-free and fixed-threshold measurement, because nine panels at 13.5 x 24 in was
    one argument over five rows:
 
-     Supporting Fig. 8  ONE panel. auPRC / positive-class fraction vs GC, both scores, the
-                        retrained curve carrying its 95% PAIRED bootstrap interval relative
-                        to published. Threshold-free, and therefore nearly blind to the
-                        bias -- a GC-dependent shift is a common shift within a narrow bin
-                        and cancels from a ranking. Its finding is that the auPRC decline
-                        with GC SURVIVES debiasing, so that decline is signal-to-noise.
-     Supporting Fig. 9  TWO panels. A: fraction of windows called at Gnocchi >= 4 per GC
-                        bin -- 80x across GC for published against 1.35x for the retrained
-                        score, and it uses NO LABELS, so it is the one result here that no
-                        truth-set argument can touch. B: lift per GC bin with the calling
-                        rate matched WITHIN each bin, retrained curve carrying the paired
-                        interval -- higher in all five bins, significantly in four
-                        (+33.3, +4.0, +4.2, +10.8, +2.2 per cent), so the gap is ranking
-                        and not threshold placement.
+     Fig. 5F            The calling rate itself, PROMOTED OUT OF THE SUPPORTING FIGURES on
+                        2026-09-04 because it uses NO LABELS: the fraction of windows in
+                        each GC bin clearing Gnocchi >= 4, Chen et al.'s own cutoff. Built
+                        from PANEL E's table and bins (`data.calling_rate_by_gc`,
+                        `panels.panel_calling_rate`), so E and F are two views of one fix
+                        on one population -- E's rank returning to 0.5, F's calling rate
+                        flattening -- rather than two measurements that happen to agree. On
+                        20 bins the offline reproduction gives published 0.13% -> 46% (and
+                        0% in its most AT-rich bin) against a flat ~1% for the retrained
+                        score. The two are matched on OVERALL calling rate, not given a
+                        common z, since retraining moves the whole distribution.
+     Supporting Fig. 8  TWO panels, one question -- what debiasing does to DISCOVERY, which
+                        unlike Fig. 5 needs a truth set. A: auPRC / positive-class fraction
+                        vs GC. Threshold-free and therefore nearly blind to the bias, since
+                        a GC-dependent shift is a common shift within a narrow bin and
+                        cancels from a ranking; its finding is that the auPRC decline with
+                        GC SURVIVES debiasing, so that decline is signal-to-noise. B: lift
+                        per GC bin with the calling rate matched WITHIN each bin -- higher
+                        in all five bins, significantly in four (+33.3, +4.0, +4.2, +10.8,
+                        +2.2 per cent), so the gap is ranking and not threshold placement.
+                        Both carry the retrained curve's 95% PAIRED bootstrap interval
+                        relative to published. THERE IS NO SUPPORTING FIG. 9; it existed
+                        for a few hours on 2026-09-04 and was merged back once its calling-
+                        rate panel moved to Fig. 5F.
 
-   Both live in `fig5/data.py` and `fig5/panels.py` beside Supporting Figure 7's, with no
-   module or entry point of their own. Three panel functions the cuts retired --
+   All of it lives in `fig5/data.py` and `fig5/panels.py` beside Supporting Figure 7's,
+   with no module or entry point of its own. Three panel functions the cuts retired --
    `panel_pr_curves`, `panel_aupr_delta`, `panel_lift_vs_recall` -- moved to the GITIGNORED
    `fig5/panels_extra.py` so that reading `panels.py` means reading what is published; last
    tracked at `582c09d`.
@@ -319,8 +329,9 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    only `"lax"`; that seam stays, and the spec is still in `fig5/data.py`'s section header
    if the decision is ever revisited. Four reasons, in order of weight:
 
-     * THE CENTRAL RESULT USES NO TRUTH SET. Supporting Fig. 9A is a property of the score
-       and of GC content. Swapping GeneHancer for essential-gene enhancers cannot move it.
+     * THE CENTRAL RESULT USES NO TRUTH SET. Fig. 5F is a property of the score and of GC
+       content. Swapping GeneHancer for essential-gene enhancers cannot move it. That is
+       also why it was promoted into the main figure.
      * IT IS UNDERPOWERED FOR THE COMPARISON WE MAKE. 4,933 windows against 1,003,037. The
        published-vs-retrained pooled gap on the lax set is +1.5% (auPRC/r 1.321 -> 1.341);
        the bootstrap sd on 4,933 windows is several times that, so a null would be

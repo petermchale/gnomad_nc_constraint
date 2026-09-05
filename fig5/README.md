@@ -26,18 +26,16 @@ window-sampling variability cancels), unbalanced (the balancing is only needed f
 cross-bin level comparisons and costs four fifths of the positives), and its top bin is
 merged to (0.55, 0.80] because their file is nearly empty above GC 0.60.
 
-**Supporting Figure 9 is where the bias actually appears, and Supporting Figure 8 is
-nearly blind to it.** That is the seam the two figures are split along: 8 is threshold-free
-(how the score ranks, integrated over all cutoffs, two panels), 9 is at a fixed operating
-point (what happens when you apply a cutoff, two panels, and the analyst-facing argument).
-Formerly one nine-panel figure.
+**Panel F is where the bias appears in usable units, and Supporting Figure 8 is nearly
+blind to it.** Panel F — the fraction of windows clearing Gnocchi ≥ 4 per GC bin — needs no
+labels at all, so it sits in the main figure beside the other label-free panels, built from
+panel E's own table and bins. Supporting Figure 8 is the two-panel discovery analysis that
+does need a truth set. There is no Supporting Figure 9.
 
-Supporting Figure 9 is A, the fraction of windows called at Gnocchi ≥ 4 per GC bin — which
-uses no labels at all and is therefore the most robust number in either figure — and B, the
-same two scores with the calling rate matched *within* each bin, which is what separates
-ranking from threshold placement. Recall, precision, skill, and the lift-against-recall
-view with its iso-calling-rate contours are all computed and printed; none is drawn,
-because each tells A's story in another projection.
+Supporting Figure 8's B is the same two scores with the calling rate matched *within* each
+bin, which is what separates ranking from threshold placement. Recall, precision, skill and
+the lift-against-recall view with its iso-calling-rate contours are all computed and
+printed; none is drawn, because each tells panel F's story in another projection.
 
 Supporting Figure 8 is a single panel: auPRC/`r` against GC for both scores, with the
 retrained curve carrying its **paired** bootstrap interval relative to published. Those
