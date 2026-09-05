@@ -275,12 +275,24 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    population's marker and dash pattern the same in both. Its shape is now
    `panel_dnm_probability_pairs(ax_empirical, ax_fitted, binned, ...)`, the notebook cell
    builds a 2x1 like panel C's, and `_grouped_legend` went with the change (no other
-   caller). Again no number changed, and `captions.txt`/`methods.txt` are updated. What is
-   outstanding is the rebuild, which can only happen on the constraint-tools HPC path:
+   caller). Again no number changed, and `captions.txt`/`methods.txt` are updated.
+   **Fig. 5F's axis became a percentile on 2026-09-05** -- detail below, and again no number
+   changed, only which end of one is labelled.
+   What is outstanding is the rebuild, which can only happen on the constraint-tools HPC path:
    regenerate and re-execute the notebook (no `refit.py` rerun -- no training population
-   changed) and re-place the PDFs in `fig5.neutral.ai`. Panel D's placed PDF changes aspect
-   ratio there (4.6 in tall -> 7.6, matching panel C), so its frame needs resizing rather
-   than only relinking.
+   changed) and re-place the PDFs in `fig5.neutral.ai`. **THREE CELLS carry no output in
+   the committed notebook** and are exactly the ones that must run: Fig. 5F (its old
+   output was cleared, being a picture of an axis that no longer exists), the Supporting
+   Fig. 8B/8C identity check, and the Supporting Fig. 8 build. Every other cell keeps its
+   committed output. TWO PLACED PDFs CHANGE SHAPE in `fig5.neutral.ai` and need their
+   frames resized rather than only relinked: panel D (4.6 in tall -> 7.6, matching panel C)
+   and Supporting Fig. 8 (13.5 x 5 -> 20 x 5, on gaining panel C).
+   One cosmetic note on the notebook diff, so it is not mistaken for damage: regenerating
+   through `make_fig5_nb.py` drops the per-cell `"id"` fields and the `iopub` execution
+   timings, because the generator hand-builds the notebook JSON and writes
+   `nbformat_minor: 5` without ids. Only `nbconvert --execute --inplace` puts them back.
+   Pre-existing generator behaviour, harmless, but it makes a small source edit look like a
+   thousand-line diff.
    **Supporting Figure 8 was added to the notebook on 2026-09-02** (four new cells
    spliced in before "Numbers for the caption"; every other cell kept its committed
    outputs). **It has since become TWO figures**, split 2026-09-04 along the seam between
@@ -292,14 +304,37 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         each GC bin clearing Gnocchi >= 4, Chen et al.'s own cutoff. Built
                         from PANEL E's table and bins (`data.calling_rate_by_gc`,
                         `panels.panel_calling_rate`), so E and F are two views of one fix
-                        on one population -- E's rank returning to 0.5, F's calling rate
-                        flattening -- rather than two measurements that happen to agree. On
+                        on one population -- E's rank returning to 0.5, F flattening --
+                        rather than two measurements that happen to agree. On
                         20 bins the offline reproduction gives published 0.13% -> 46% (and
                         0% in its most AT-rich bin) against a flat ~1% for the retrained
                         score. The two are matched on OVERALL calling rate, not given a
                         common z, since retraining moves the whole distribution.
-     Supporting Fig. 8  TWO panels, one question -- what debiasing does to DISCOVERY, which
-                        unlike Fig. 5 needs a truth set. A: auPRC / positive-class fraction
+                          SINCE 2026-09-05 THE AXIS IS A PERCENTILE, NOT THE CALLING RATE
+                        (`percentile_axis=True`, the default; `False` restores the old
+                        panel and nothing else changes). Same quantity read from the other
+                        end -- percentile = 100 x (1 - calling rate) -- but it states the
+                        claim directly: the percentile is LOCAL to the GC bin, so a score
+                        meeting its own promise would put a fixed z at a fixed percentile
+                        everywhere and a HORIZONTAL LINE IS THE NULL. Published Gnocchi's
+                        z = 4 runs from the ~99.9th percentile of AT-rich sequence to
+                        roughly the 58th of GC-rich. The axis stays LOGARITHMIC in the
+                        calling rate underneath, because a linear percentile axis collapses
+                        the AT-rich bins (99.87, 99.9, 100, 100) onto one line and loses
+                        the panel; it is INVERTED so percentiles increase upward; its ticks
+                        are set explicitly to round percentiles, since the log decades label
+                        only the top; a bin calling nothing is MASKED rather than drawn as a
+                        spike off the edge; and it carries a mean-GC line taken from panel
+                        E's own frame so both panels mark the same place.
+                          ONE z PER SCORE, APPLIED UNCHANGED IN EVERY BIN. This is the
+                        OPPOSITE convention to Supporting Fig. 8B and the two are easy to
+                        confuse. `calling_rate_by_gc` fixes both thresholds ONCE on the
+                        whole population, then counts per bin; so the legend reads `z =`
+                        rather than `z >=` on the percentile axis, a percentile being a
+                        property of a value and not of the set above it.
+     Supporting Fig. 8  THREE panels (20 x 5 in), one question -- what debiasing does to
+                        DISCOVERY, which unlike Fig. 5 needs a truth set. A: auPRC /
+                        positive-class fraction
                         vs GC. Threshold-free and therefore nearly blind to the bias, since
                         a GC-dependent shift is a common shift within a narrow bin and
                         cancels from a ranking; its finding is that the auPRC decline with
@@ -307,10 +342,27 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         per GC bin with the calling rate matched WITHIN each bin -- higher
                         in all five bins, significantly in four (+33.3, +4.0, +4.2, +10.8,
                         +2.2 per cent), so the gap is ranking and not threshold placement.
-                        Both carry the retrained curve's 95% PAIRED bootstrap interval
+                        C (added 2026-09-05): the SAME measurement in recall, 1.81 -> 2.42,
+                        1.53 -> 1.59, 1.29 -> 1.34, 1.13 -> 1.25 and 1.13 -> 1.15 per cent.
+                        It carries NO information B does not -- matching k within a bin
+                        makes recall = lift x 1.002% exactly, and the five gains are B's
+                        five numbers -- and is drawn because lift is the statistician's unit
+                        and recall the analyst's. A notebook cell VERIFIES that identity
+                        numerically; do not add precision as a fourth panel, which would be
+                        restatement rather than translation.
+                          B AND C DO NOT USE Gnocchi >= 4, and the caption said they did
+                        until 2026-09-05. z = 4 enters ONLY by fixing the matched rate
+                        (1.002% of the whole population); each score is then cut at its own
+                        98.998th percentile WITHIN each bin (`data._bin_thresholds`), so
+                        published's threshold moves bin to bin and equals 4 nowhere in
+                        particular -- far above it in the top GC bin, where an unmatched 4
+                        calls 13.97%. Contrast Fig. 5F, one fixed z everywhere.
+                        All three carry the retrained curve's 95% PAIRED bootstrap interval
                         relative to published. THERE IS NO SUPPORTING FIG. 9; it existed
                         for a few hours on 2026-09-04 and was merged back once its calling-
-                        rate panel moved to Fig. 5F.
+                        rate panel moved to Fig. 5F. Its orphaned `output/supp_fig9.*` were
+                        removed 2026-09-05, and `fig5/README.md` -- which had announced it
+                        and denied it three paragraphs apart -- was reconciled then.
 
    All of it lives in `fig5/data.py` and `fig5/panels.py` beside Supporting Figure 7's,
    with no module or entry point of its own. Three panel functions the cuts retired --
@@ -362,13 +414,15 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    failing to find something.
 
 2. **`fig5/captions.txt` now covers Fig. 5A-F and Supporting Fig. 8 too, but panel F's
-   caption carries FIVE `[F-...]` PLACEHOLDERS** -- the matched threshold, the low and high
-   calling rates, the fold-swing and the retrained score's flat range. Fig. 5F has never
+   caption carries SEVEN `[F-...]` PLACEHOLDERS** -- the matched threshold, the low and high
+   calling rates, the fold-swing, the retrained score's flat range, and since the percentile
+   axis landed the low and high PERCENTILES (`[F-PCTL-LO]`, `[F-PCTL-HI]`). Fig. 5F has never
    been executed on the neutral window set, so those numbers do not exist yet; the next
-   `nbconvert` prints all five from `data.calling_rate_by_gc` and they are a copy-in.
-   Supporting Fig. 8's caption is complete except that its paired intervals in (A) were
-   computed under a different binning before the panel took its current form, so re-read
-   them from the run before quoting. **The manuscript text**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
+   `nbconvert` prints all seven from `data.calling_rate_by_gc` and they are a copy-in.
+   Supporting Fig. 8's caption is complete -- 8C's numbers are real, derived from the
+   committed cell-29 output rather than a fresh run -- except that its paired intervals in
+   (A) were computed under a different binning before the panel took its current form, so
+   re-read them from the run before quoting. **The manuscript text**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
    and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
    drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.
    `METHODS.md` covers the rank statistic and points at them.
