@@ -32,7 +32,26 @@ meeting its own promise would put a fixed z at a fixed percentile everywhere, an
 Gnocchi's z = 4 runs from the 99.9th percentile of AT-rich sequence to roughly the 58th of
 GC-rich. The axis stays logarithmic in the calling rate underneath and is inverted so
 percentiles increase upward; `percentile_axis=False` restores the original calling-rate
-axis. Supporting Figure 8 is the three-panel discovery analysis that does need a truth set.
+axis. Since 2026-09-05 the panel also draws that null rather than implying it: a dashed
+horizontal line at the matched genome-wide calling rate (`calling_rate_by_gc`'s third
+return value, passed as `matched_rate`; `matched_rate_line=False` drops it). Precisely, it sits at
+`k = |{w : z_s(w) ≥ t_s}| / |W|` over the whole window population — the fraction of *all*
+windows clearing the cutoff, one number for both scores since the matching gives the
+retrained score the quantile of its own `z` attaining published's `k`. So the line and the
+curves are one quantity over two populations: each cutoff's percentile **genome-wide**
+against its percentile **within each GC bin**. The panel is worded that way — a y axis
+neutral between the two readings (`Cutoff's percentile in the Gnocchi score distribution`),
+curve entries naming the cutoff, and the line's entry naming the population
+(`Genome-wide percentile common to both cutoffs`). Qualifying the curve entries as well
+overruns the axes width at this type size, so the per-bin half rests on the contrast with
+*genome-wide* and on the caption, which states it outright. It is
+computed over every window including the bins the drawing floor removes — not a mean of the
+plotted points — and it is the null strictly rather than loosely, since bin rates average to
+`k` and percentile is affine in the rate, so a curve flat across GC can only be flat on this
+line. Read with the vertical mean-GC line it makes the panel's arithmetic
+visible: published meets it around GC 0.43 while the genome averages 0.393, because a
+near-exponential calling rate has a window-weighted mean well above its value at a typical
+window. Supporting Figure 8 is the two-panel discovery analysis that does need a truth set.
 
 **8A — auPRC/`r` against GC for both scores**, threshold-free, `data.pr_curves` +
 `data.pr_curve_deltas` through `panels.panel_aupr_by_gc`. A GC-dependent bias is very
@@ -42,7 +61,7 @@ and it means the steep decline of auPRC with GC *survives debiasing* (published
 1.518 → 1.199 across the bins, retrained 1.554 → 1.298). What remains is signal-to-noise,
 which is what McHale et al. conjectured in their text.
 
-**8B/8C — lift and recall per GC bin with the calling rate matched *within* each bin**, which is what
+**8B — lift per GC bin with the calling rate matched *within* each bin**, which is what
 separates ranking from threshold placement: `data.threshold_metrics(match_within_bin=True)`
 and `data.lift_deltas(match_within_bin=True)` through
 `panels.panel_threshold_metric(..., "lift", ...)`. Higher in all five bins and
@@ -55,10 +74,13 @@ calling rate (which runs 0.17% → 13.97%). So B's published threshold in a bin 
 98.998th percentile of `z`, equal to 4.0 only by coincidence; `data._bin_thresholds` is
 where this happens. One consequence is worth stating because it decides what B can show:
 with the calling rate common, `lift = recall / calling rate` makes recall a constant
-rescaling of lift within a bin, and precision likewise since the base rate is shared. B
-and C are therefore the same panel with two y axes, and C is drawn anyway because lift is
-the statistician's unit and recall is the analyst's — the translation is worth a panel, a
-third face of it (precision) would be a restatement. `fig5.ipynb` verifies
+rescaling of lift within a bin, and precision likewise since the base rate is shared. So a
+recall panel would be B with a second y axis and the same five per-bin gains, which is why
+there is no 8C: it was drawn for a few hours on 2026-09-05 on the argument that lift is the
+statistician's unit and recall the analyst's, and cut because that translation is a
+sentence rather than a set of axes. It now sits in the caption and in the notebook markdown
+as the identity `recall = lift × k` with the five translated numbers (1.81 → 2.42%,
+1.53 → 1.59, 1.29 → 1.34, 1.13 → 1.25, 1.13 → 1.15%), and `fig5.ipynb` verifies
 `recall == lift * k` numerically rather than asserting it.
 
 Both panels carry the retrained curve's **paired** bootstrap interval relative to

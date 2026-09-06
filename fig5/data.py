@@ -784,9 +784,17 @@ def calling_rate_by_gc(df: pl.DataFrame, threshold: float = 4.0,
     quantile of its own z that calls the same fraction of the whole population; the swing
     ACROSS GC is a ratio computed within one score, so it is untouched by that choice.
 
-    Returns (binned, thresholds): one row per GC bin with gc_mid, n, and rate/lo/hi per
-    label (Wilson intervals -- these are plain proportions), and the threshold each score
-    was given.
+    Returns (binned, thresholds, target): one row per GC bin with gc_mid, n, and rate/lo/hi
+    per label (Wilson intervals -- these are plain proportions), the threshold each score
+    was given, and the matched genome-wide calling rate itself.
+
+    THAT THIRD RETURN VALUE IS A PANEL ELEMENT, not a diagnostic. `target` is the fraction
+    of the WHOLE population `reference` calls at `threshold`, and the matching hands the
+    same fraction to every other score -- so it is the one horizontal line both curves are
+    pinned to, and panels.panel_calling_rate draws it as `matched_rate`. It is computed
+    over every window in `df`, INCLUDING the bins `min_n` drops from the drawing, so it is
+    the genome-wide operating point rather than a mean over the plotted points. The two
+    differ, and only the first is what the thresholds were chosen to equalise.
     """
     gc = df["GC_content"].to_numpy()
     edges = gc_edges(gc, n_bins)
@@ -828,7 +836,7 @@ def calling_rate_by_gc(df: pl.DataFrame, threshold: float = 4.0,
         zeros = len(r) - len(nz)
         print(f"  {disp:<38} calling rate {100 * r.min():.3f}% - {100 * r.max():.3f}%  "
               f"({span}" + (f", and 0% in {zeros} bin(s))" if zeros else ")"))
-    return out, thresholds
+    return out, thresholds, target
 
 
 # --------------------------------------------------------- Supporting Figure 8

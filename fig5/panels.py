@@ -96,6 +96,13 @@ REF_LINE_KW = {"color": "0.45", "linewidth": 0.8, "linestyle": "--"}
 # in the tail that happens -- solid to distinguish it from the dashed horizontal
 # references (rank 0.5, r = 1), thin and grey because it is a reference, not a series.
 GC_MEAN_LINE_KW = {"color": "0.45", "linewidth": 0.8}
+# Panel F's horizontal companion. DASHED rather than dotted and darker than the mean-GC
+# line, which is not decoration: at 0.85 grey the panel's own gridlines are horizontal
+# dotted rules, and a thin dotted reference line reads as one more of them. Long dashes at
+# 0.3 grey are unmistakably an annotation, and still distinct in KIND from the solid
+# vertical mean-GC line -- one is a property of the window population, the other of the
+# thresholds those windows were scored at.
+MATCHED_RATE_LINE_KW = {"color": "0.30", "linewidth": 1.8, "linestyle": (0, (6, 3))}
 # Sized for the figure as it appears in the manuscript, where each panel PDF is placed
 # at roughly half a page width -- at the previous 12/11/10 the tick labels were the first
 # thing to become unreadable there. Every panel reads these three, so the figure cannot
@@ -1168,10 +1175,13 @@ def panel_calling_rate(ax, binned, thresholds: dict,
                        xrange=(0.2, 0.73), show_xlabel: bool = True,
                        legend_loc: str | None = None,
                        percentile_axis: bool = True,
-                       gc_mean: float | None = None) -> None:
+                       gc_mean: float | None = None,
+                       matched_rate: float | None = None,
+                       matched_rate_line: bool = True) -> None:
     """
     Panel F. The fraction of windows in each GC bin clearing a fixed z, one curve per
-    score. `binned`, `thresholds` are data.calling_rate_by_gc() output.
+    score. `binned`, `thresholds` and `matched_rate` are data.calling_rate_by_gc()'s
+    three return values.
 
     E AND F ARE ONE FIX SEEN TWICE, on one population and one set of GC bins: E shows the
     mean rank returning to 0.5, F shows the calling rate flattening. Same markers as A and
@@ -1218,6 +1228,49 @@ def panel_calling_rate(ax, binned, thresholds: dict,
     E's own mean, since F is computed on E's frame and a line at a different value would
     break the pairing the two panels rest on. See _gc_mean_line.
 
+    `matched_rate` is the genome-wide calling rate the two scores were matched on --
+    data.calling_rate_by_gc's third return value -- drawn as a horizontal line unless
+    `matched_rate_line=False`.
+
+    WHAT THE LINE IS, EXACTLY, because a legend entry has to be checkable. Write W for the
+    whole window population the panel is computed on (every window in the frame, including
+    those in bins min_n drops from the drawing), and t_s for the one cutoff score s is
+    drawn at -- the value its legend entry names. The line sits at
+
+        k = |{w in W : z_s(w) >= t_s}| / |W|,
+
+    the fraction of the WHOLE population that clears the cutoff. That is one number and not
+    two: data.calling_rate_by_gc sets t_published = 4 and then hands every other score the
+    quantile of its own z attaining that same k, so k is common to the curves by
+    construction (up to the discreteness of an empirical quantile). On the percentile axis
+    the same line is labelled 100(1 - k).
+
+    SO THE LINE AND THE CURVE ARE THE SAME QUANTITY OVER TWO POPULATIONS: the line is where
+    the cutoff falls in the score distribution of the WHOLE genome, the curve is where that
+    same cutoff falls in each GC BIN's own distribution. That is the panel's entire
+    comparison, which is why the line is not decoration -- and it is why the legend entry
+    names it as the genome-wide percentile of the same cutoffs the curves are drawn at,
+    rather than as anything about "matching".
+
+    IT IS THE PANEL'S NULL in a strict sense, not a loose one. Bin-wise calling rates
+    average to k exactly -- sum_g n_g p_s(g) / sum_g n_g = k over ALL bins, the drawn ones
+    differing only by the windows min_n removes, and percentile = 100(1 - rate) is AFFINE in
+    the rate, so the identity holds in the units drawn as well -- therefore a curve that is
+    CONSTANT across bins can only be constant at k. A score meeting its own
+    promise does not merely draw some horizontal line; it draws THIS one. It belongs to both
+    curves and to neither -- both scores are pinned to it -- so it must never be captioned
+    as published Gnocchi's own level. What is pinned is that weighted MEAN, which leaves any
+    single bin free: hence a curve may sit off the line anywhere, so long as it pays for it
+    elsewhere.
+
+    WHERE IT MEETS EACH CURVE IS THE CONTENT. The retrained curve hugs it through the GC
+    bulk and falls away in the tails, since what the matching pins is the window-weighted
+    MEAN and not the value in any one bin. Published crosses it well to the GC-rich side of
+    the `gc_mean` line, and that offset is why both lines are drawn: its calling rate is
+    near-exponential in GC, so its window-weighted mean is pulled far above its value at
+    mean GC and it reaches that mean only in unusually GC-rich sequence. Read together,
+    the two lines say that z = 4 is a typical cutoff nowhere near the typical window.
+
     Each score's own threshold goes in its legend entry: they are matched on overall
     calling rate rather than given a common number, so one figure in the y label would be
     wrong for one of the curves. See data.calling_rate_by_gc.
@@ -1230,6 +1283,17 @@ def panel_calling_rate(ax, binned, thresholds: dict,
     # underlying count is 1 - fraction(z >= t) either way; what changes is which of the two
     # readings the panel is presenting, and the legend has to agree with the ylabel.
     rel = "=" if percentile_axis else "\\geq"
+    # WHY ONLY THE LINE'S ENTRY IS QUALIFIED. Every entry would ideally say which
+    # distribution its percentile is taken in -- the curves per GC bin, the line
+    # genome-wide -- but "(cutoff z = 3.24, within GC bin)" on the longer score name runs
+    # the legend to 629 px against 542 px of axes at this type size, and the panel is
+    # placed at half a page width where the type size is already the binding constraint.
+    # Measured alternatives: two-line entries fit (504 px) but stand 117 px tall in a
+    # corner the published curve descends into. So the contrast is carried by the one word
+    # that only means anything against its opposite -- the line says GENOME-WIDE, the
+    # curves are per bin because the x axis is GC bins -- and the caption states it
+    # outright. Re-measure before adding words here.
+    series = []
     for key, display in labels:
         y = binned[f"rate_{key}"].to_numpy()
         # Clamped: a Wilson bound can land a float-epsilon the wrong side of its own
@@ -1245,11 +1309,29 @@ def panel_calling_rate(ax, binned, thresholds: dict,
         # and "calls nothing at all here" is a stronger statement than any plotted point,
         # carried by the caption rather than by a spike.
         y = np.ma.masked_less_equal(y, 0.0)
-        ax.errorbar(binned["gc_mid"].to_numpy(), y, yerr=np.vstack([lo, hi]),
-                    marker=SERIES_MARKERS[key], color=MONO,
-                    markerfacecolor="white" if key in MONO_OPEN else MONO,
-                    markeredgewidth=1.2, markersize=5, linewidth=2, capsize=3,
-                    elinewidth=1, label=f"{display}  ($z {rel} {thresholds[key]:.2f}$)")
+        series.append(ax.errorbar(
+            binned["gc_mid"].to_numpy(), y, yerr=np.vstack([lo, hi]),
+            marker=SERIES_MARKERS[key], color=MONO,
+            markerfacecolor="white" if key in MONO_OPEN else MONO,
+            markeredgewidth=1.2, markersize=5, linewidth=2, capsize=3,
+            elinewidth=1,
+            label=f"{display}  (cutoff $z {rel} {thresholds[key]:.2f}$)"))
+    # BETWEEN THE GRID AND THE CURVES. _finish calls set_axisbelow(True), which puts the
+    # gridlines at zorder 0.5, so a reference line drawn there ties with them and can be
+    # painted over by the grid it is meant to be read against; at 1.5 it clears the grid and
+    # still passes under every marker and interval. And LAST in
+    # the legend, which needs saying explicitly: matplotlib lists plain lines before
+    # errorbar containers whatever the draw order, so the handles go to _finish in the
+    # order a reader meets them -- the two measurements, then the line they are read
+    # against.
+    if matched_rate_line and matched_rate is not None:
+        series.append(ax.axhline(
+            matched_rate, zorder=1.5, **MATCHED_RATE_LINE_KW,
+            label=("Genome-wide percentile common to both cutoffs "
+                   f"({100 * (1 - matched_rate):.2f}th)"
+                   if percentile_axis else
+                   "Genome-wide calling rate common to both cutoffs "
+                   f"({100 * matched_rate:.3f}%)")))
     ax.set_yscale("log")
     ax.yaxis.set_minor_formatter(mticker.NullFormatter())
     # A bin can legitimately call nothing, and 0 has no place on a log axis: the floor
@@ -1282,7 +1364,15 @@ def panel_calling_rate(ax, binned, thresholds: dict,
         # the sentence it is: the same numeral 4 sits at a lower and lower percentile of
         # the local score distribution as sequence gets more GC-rich.
         ax.invert_yaxis()
-        ylabel = "Percentile of the local Gnocchi\ndistribution at the indicated $z$"
+        # THE AXIS NAMES THE QUANTITY; THE LEGEND SAYS WHOSE DISTRIBUTION. Every mark in
+        # the panel is one cutoff's percentile in some Gnocchi distribution -- the curves in
+        # their own GC bin's, the dashed line in the whole population's -- so the axis
+        # cannot say "local" any more without contradicting the line it now carries. Each
+        # legend entry supplies the missing half. The wrap is measured rather than
+        # eyeballed: a rotated label is as tall as its longest line, and at
+        # AXIS_LABEL_FONTSIZE the axes are 354 px, which a 43-character line (448 px)
+        # overruns.
+        ylabel = "Cutoff's percentile in the\nGnocchi score distribution"
         legend_loc = "lower left" if legend_loc is None else legend_loc
     else:
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(
@@ -1291,4 +1381,4 @@ def panel_calling_rate(ax, binned, thresholds: dict,
         legend_loc = "upper left" if legend_loc is None else legend_loc
     _gc_mean_line(ax, gc_mean)
     _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
-            legend_fontsize=LEGEND_FONTSIZE - 1)
+            legend_fontsize=LEGEND_FONTSIZE - 1, handles=series)

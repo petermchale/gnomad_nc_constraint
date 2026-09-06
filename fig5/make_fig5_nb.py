@@ -902,17 +902,41 @@ The two scores are matched on **overall** calling rate rather than given a commo
 retraining moves the whole $z$ distribution, so the same numeral is a stricter cutoff for
 one of them. The swing *across* GC is a ratio computed within one score and is untouched
 by that choice.
+
+**The panel carries two reference lines, and they are different kinds of thing.** The
+vertical one is mean GC — where the genome actually is, and the same mark panel E carries.
+The horizontal one is that matched genome-wide calling rate, and it is **this panel's
+null**: a score meeting its own promise would put a fixed $z$ at a fixed percentile of
+every bin, so it would *be* that line. It belongs to both curves, since the matching pins
+both scores to it, and to neither one in particular.
+
+Where each curve meets it is the content. The retrained curve hugs it through the GC bulk
+and falls away in the tails — what is pinned is the window-weighted *mean*, not the value
+in any one bin. The published curve crosses it **well to the GC-rich side of mean GC**,
+and that offset is the panel's claim in one glance: its calling rate is near-exponential
+in GC, so a handful of GC-rich bins calling tens of per cent pull the window-weighted mean
+far above the rate at a typical window, and published reaches its own average rate only in
+sequence appreciably more GC-rich than average. Equivalently: $z = 4$ is a *typical*
+cutoff nowhere near the typical window.
 """)
 
 code(r"""
-rate_f, thr_f = D.calling_rate_by_gc(df_e, threshold=D.GNOCCHI_THRESHOLD,
-                                     n_bins=N_BINS, min_n=MIN_N_WINDOWS)
+rate_f, thr_f, matched_f = D.calling_rate_by_gc(df_e, threshold=D.GNOCCHI_THRESHOLD,
+                                                n_bins=N_BINS, min_n=MIN_N_WINDOWS)
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
 # PANEL E'S OWN MEAN, not a freshly computed one: F is drawn on df_e, so the two panels
 # must mark the same place on the GC axis or the "one measurement seen twice" pairing
 # is only approximately true.
+#
+# AND THE MATCHED RATE AS A HORIZONTAL LINE, which is the panel's null rather than a
+# summary of it: both thresholds were chosen to call that fraction of the whole
+# population, so a score whose z meant the same thing everywhere would lie along it. It is
+# the genome-wide value from calling_rate_by_gc, computed over every window including the
+# bins min_n drops, and NOT a mean over the plotted points -- see that function.
+# matched_rate_line=False drops it.
 panels.panel_calling_rate(ax, rate_f, thr_f, xrange=XRANGE,
+                          matched_rate=matched_f,
                           gc_mean=float(df_e["GC_content"].mean()))
 save(fig, "F")
 """)
@@ -1192,16 +1216,33 @@ anything cross-bin, alongside precision and recall; none is drawn, and
 first three. The retired panels are in the gitignored `fig5/panels_extra.py`, last tracked
 at `582c09d`.
 
-**C is B in the analyst's unit, and that is the whole reason it is drawn.** B matches the
-calling rate within each bin, so $\text{lift} = \text{recall} / \text{calling rate}$ with
-the calling rate constant makes recall a rescaling of lift by 1.002%, and precision likewise
-since both scores see the same rows and therefore the same base rate. C carries no
-information B does not, and its five per-bin gains are B's five numbers. It earns its place
-because the units are not interchangeable to a reader: *"catches 2.42% of the enhancer
-windows here against 1.81%"* is actionable, and recovering it from a lift of 2.40 against
-1.80 requires knowing the matched rate. Precision is the third face of the same quantity
-and is **not** drawn -- three would be a restatement rather than a translation. The identity
-is checked numerically in the next cell rather than asserted here.
+**Recall is not drawn beside B, because with the calling rate matched it IS B.** Bayes
+gives $\text{lift} = \text{precision}/r = \text{recall}/k$, with $r$ the bin's base rate
+and $k$ the calling rate, and B holds $k$ fixed within each bin. So
+
+$$\text{recall} \;=\; \text{lift} \times k, \qquad
+  k = 1.002\%\ \text{ in every bin and for both scores.}$$
+
+A recall panel is therefore B rescaled by a constant -- the same five per-bin gains, no
+information of its own -- and precision is the third face of the same quantity for the same
+reason, since both scores see the same rows and hence the same $r$. What the identity does
+NOT do is translate itself for a reader: *"catches 2.42% of the enhancer windows here
+against 1.81%"* is the sentence an analyst acts on, and recovering it from a lift of 2.40
+against 1.80 requires knowing $k$. That translation is a sentence, not a panel, so it lives
+in the caption and in this table:
+
+| GC bin | lift, published → retrained | recall $=$ lift $\times\,1.002\%$ |
+|---|---|---|
+| (0.20, 0.30] | 1.80 → 2.40 | 1.81 → 2.42% |
+| (0.30, 0.40] | 1.53 → 1.59 | 1.53 → 1.59% |
+| (0.40, 0.50] | 1.28 → 1.34 | 1.29 → 1.34% |
+| (0.50, 0.55] | 1.13 → 1.25 | 1.13 → 1.25% |
+| (0.55, 0.80] | 1.12 → 1.15 | 1.13 → 1.15% |
+
+This figure drew that recall column as panel 8C from 2026-09-05 until later the same day.
+It was cut because a panel whose entire content is a constant rescaling of the panel beside
+it is a restatement, and the identity states the relation more compactly than a second set
+of axes can. The identity is CHECKED in the next cell rather than asserted here.
 
 **Recall is not drawn beside F either, because it is F.** At the fixed threshold, recall
 $=$ calling rate $\times$ lift, and lift varies only 1.8$\times$ across these bins while
@@ -1333,11 +1374,14 @@ lifts_wb_s8 = D.lift_deltas(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
 """)
 
 code(r"""
-# VERIFYING SUPPORTING FIG. 8C AGAINST 8B, rather than asserting the identity in a caption.
-# Bayes gives lift = precision / r = recall / k with k the calling rate; 8B/8C match k
-# within each bin, so recall / lift must equal that one matched k in every (bin, score)
-# cell. If it does not, the two panels are not the same measurement and C is telling a
-# second story -- which is exactly the failure mode a reader cannot check by eye.
+# THE IDENTITY THAT STANDS IN FOR SUPPORTING FIG. 8C, which this figure no longer draws.
+# Bayes gives lift = precision / r = recall / k with k the calling rate; 8B matches k
+# WITHIN each bin, so recall / lift must equal that one matched k in every (bin, score)
+# cell, and a recall panel would be 8B rescaled by 1.002%. The caption makes that claim and
+# quotes the translated numbers; this cell is where they come from and where the identity
+# is CHECKED rather than asserted. If the residual were not zero, the caption's recall
+# figures would be a second measurement rather than a change of units -- which is exactly
+# the failure mode a reader cannot check by eye.
 #
 # The scatter is the same check drawn: ten points, two per bin, on the line of slope k
 # through the origin. It is a METHODS check and not a panel of the figure -- a plot whose
@@ -1350,6 +1394,13 @@ if withinbin_s8 is not None:
           f"over {len(wb)} (bin, score) cells")
     print(f"  matched calling rate k spans {100 * k.min():.4f}% - {100 * k.max():.4f}% "
           f"(equal by construction up to bin-size rounding)")
+    # THE TRANSLATION, PRINTED, since it is the caption's recall numbers and nothing else
+    # in the notebook prints them now that 8C is gone.
+    print("  lift -> recall, per GC bin (the caption quotes this table):")
+    for (lo, hi), g in wb.groupby(["lo", "hi"], sort=True):
+        cells = "   ".join(f"{r['short']}: lift {r['lift']:.2f}, recall "
+                           f"{100 * r['recall']:.2f}%" for _, r in g.iterrows())
+        print(f"    GC ({lo:.2f}, {hi:.2f}]  {cells}")
     fig_chk, ax_chk = plt.subplots(figsize=(4.2, 4.2))
     ax_chk.axline((0, 0), slope=float(k.mean()), color="0.7", linewidth=1,
                   label=f"slope = {100 * k.mean():.3f}% (matched calling rate)")
@@ -1364,33 +1415,30 @@ if withinbin_s8 is not None:
 code(r"""
 # Guarded, so a run without NEUTRAL_WINDOWS_BED skips these figures rather than dying.
 if curves_s8 is not None:
-    # THREE PANELS, ONE QUESTION. A is threshold-free, B and C are at one operating point
-    # in two units; all three ask what debiasing does to DISCOVERY, share a truth set, and
-    # share a caption's worth of caveats, so they are one figure. Each carries its paired interval as error bars on
+    # TWO PANELS, ONE QUESTION. A is threshold-free and B is at one operating point; both
+    # ask what debiasing does to DISCOVERY, share a truth set, and share a caption's worth
+    # of caveats, so they are one figure. Each carries its paired interval as error bars on
     # the retrained curve -- see panel_aupr_by_gc for why they go on one curve. The panels
     # this figure retired live in the gitignored fig5/panels_extra.py (last tracked at
     # 582c09d) rather than beside the panels the manuscript uses.
-    fig = plt.figure(figsize=(20.0, 5.0))
-    gs = fig.add_gridspec(1, 3, wspace=0.30)
+    fig = plt.figure(figsize=(13.5, 5.0))
+    gs = fig.add_gridspec(1, 2, wspace=0.30)
     axA = fig.add_subplot(gs[0, 0])
     axB = fig.add_subplot(gs[0, 1])
-    axC = fig.add_subplot(gs[0, 2])
 
     panels.panel_aupr_by_gc(axA, curves_s8, deltas=deltas_s8)
     if withinbin_s8 is not None:
-        # B AND C ARE THE SAME MEASUREMENT IN TWO UNITS, and that is why both are drawn.
-        # With the calling rate matched within the bin, recall = lift x (calling rate) with
-        # the calling rate a constant, so C is B rescaled by 1.002% and carries no
-        # independent information. It is here because lift is the statistician's unit and
-        # recall is the analyst's: "the retrained score catches 2.42% of the enhancer
-        # windows in the most AT-rich bin against published's 1.81%" is the sentence a
-        # reader wants, and deriving it from a lift of 2.40 against 1.80 is a step most
-        # will not take. The identity is verified two cells down rather than asserted.
+        # RECALL IS NOT A THIRD PANEL, AND THAT IS A DECISION RATHER THAN AN OVERSIGHT.
+        # With the calling rate k matched WITHIN the bin, Bayes makes recall = lift x k
+        # with k constant at 1.002%, so a recall panel would be this one rescaled: the same
+        # five per-bin gains, no information of its own. It was drawn as 8C for a few hours
+        # on 2026-09-05, on the argument that lift is the statistician's unit and recall
+        # the analyst's. That translation is real, but it is a sentence rather than a set
+        # of axes: it is now in the caption and in the markdown above, over the identity
+        # the next cell verifies numerically.
         panels.panel_threshold_metric(axB, withinbin_s8, "lift", D.GNOCCHI_THRESHOLD,
                                       deltas=lifts_wb_s8)
-        panels.panel_threshold_metric(axC, withinbin_s8, "recall", D.GNOCCHI_THRESHOLD,
-                                      deltas=lifts_wb_s8)
-    for ax, lab in ((axA, "A"), (axB, "B"), (axC, "C")):
+    for ax, lab in ((axA, "A"), (axB, "B")):
         panels.label_panels((ax,), (lab,), x=-0.16)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
