@@ -7,7 +7,8 @@ standalone vector file for assembly in Illustrator, plus two supporting figures.
 cited there as 7A-7D (A alone on the left, B-D stacked on the right: A's abscissa is
 methylation level, not the GC content the other three share).
 
-`output/supp_fig8.pdf` — **Supporting Figure 8**, **two panels**, which ask what panel E's
+`output/supp_fig8.pdf` — **Supporting Figure 8**, **five panels in three columns** (A over B, one score each;
+C over D sharing an x axis; E alone), which ask what panel E's
 intervention buys or costs in *discovery*: McHale et al.'s Fig. 4A/B for published Gnocchi
 against the retrained one, on their GeneHancer enhancer-overlap truth set. It is this
 figure's own pipeline with one filter dropped (`keep_enhancer_windows=True`), so it is a
@@ -51,59 +52,138 @@ plotted points — and it is the null strictly rather than loosely, since bin ra
 line. Read with the vertical mean-GC line it makes the panel's arithmetic
 visible: published meets it around GC 0.43 while the genome averages 0.393, because a
 near-exponential calling rate has a window-weighted mean well above its value at a typical
-window. Supporting Figure 8 is the two-panel discovery analysis that does need a truth set.
+window. Supporting Figure 8 is the five-panel discovery analysis that does need a truth set —
+and its C is F read the other way round, fixing the calling rate and reading off the
+threshold, so C needs no truth set either.
 
-**8A — auPRC/`r` against GC for both scores**, threshold-free, `data.pr_curves` +
+**Everything read ACROSS GC bins is `LR+`, not lift**, and the 2026-09-08 revision moved
+every panel of this figure onto it. Lift is `precision / r` and `r` climbs 7.7× across these
+bins, so lift carries a ceiling of `1/r` falling 12.0 → 1.57 and a declining curve is partly
+that ceiling coming down. It is not a matter of degree: on the same rows lift falls
+1.80 → 1.12 while ceiling-free skill *rises* 0.073 → 0.218, so **dividing by a function of
+the prevalence is not a prevalence correction** and the choice of measure decides the sign of
+the trend. `LR+ = P(call | Y=1) / P(call | Y=0)` conditions on the true class on both sides,
+so `r` cancels outright. Lift survives only as the *within-bin* translation a caption quotes,
+where both scores face one `r` and it is the more legible of the two.
+
+**8A and 8B — recall and `LR+` together, ONE PANEL PER SCORE, at ONE FIXED GLOBAL CUTOFF**:
+A published, B retrained. Each panel draws both metrics for a single score on twin y axes —
+recall left and logarithmic, `LR+` right and linear — so **the comparison is inside a
+panel**, asking whether that score sends its calls where a call is worth anything. Both
+share both y ranges, so their shapes are comparable by eye. Built from
+`data.threshold_metrics(match_call_rate=True)` through
+`panels.panel_recall_and_enrichment(ax, tm_s8, "published" | "scored")`. Published Gnocchi is
+read at Chen et al.'s `z ≥ 4`, the retrained score at `z ≥ 3.140`, the value calling the same
+1.00% of the whole population; each calls 10,051 of the 1,003,036 windows drawn, so the
+*budget* is fixed and only its *distribution* is free.
+
+**A's two curves run in opposite directions** — recall climbing 0.33% → 15.07% across GC
+(45.7×) while `LR+` falls 2.06 → 1.25 — so published Gnocchi **calls most where a call is
+worth least**, putting 2,618 calls in the bin where `LR+` is 1.25 and 38 where it is 2.06.
+**B's recall is flat**, 2.03% → 0.93%, and the calls move with it: 168 in the AT-rich bin
+against 38, and 154 in the GC-rich bin against 2,618. B's `LR+` still declines, 3.11 → 1.50,
+and *that residual is 8E's signal-to-noise, not a remnant of the bias* — a reader who takes B
+as "still not fixed" has read E's quantity off B's axes.
+
+*Do not turn A and B into one comparison.* The retrained `LR+` is higher in four bins of five
+(3.11, 1.69, 1.80, 1.50 against 2.06, 1.57, 1.44, 1.25) and marginally lower in the second
+(1.91 against 1.94) — but the two scores sit at **different operating points in every bin**,
+which is exactly the confound D removes. D is the clean form of that comparison. For the same
+reason A and B carry **Wilson** bars rather than the paired interval, and their claim is each
+curve's *shape*.
+
+*Do not impose a per-bin rate on A or B either.* The per-bin freedom **is** the bias, and
+these panels exist to show what it does to discovery; matching it away is D's job.
+
+**8C — the per-bin threshold that calls 1% of that bin**, one curve per score:
+the same `withinbin_s8` table D uses, through `panels.panel_bin_thresholds`. This is the
+bias in the score's own units and it uses **no labels at all**, so like Fig. 5F it rests on
+neither GeneHancer nor the laxness of an enhancer proxy. Published Gnocchi answers with a
+climbing curve; the retrained score answers with something close to a constant. It is
+Fig. 5F's **inverse**, not its repetition — 5F fixes the threshold and reads off the calling
+rate, C fixes the rate and reads off the threshold. C sits directly above D and shares its x
+axis, because it is **D's x-axis made visible**: D's per-bin gains are measured at exactly
+these thresholds, so a vertical dropped through the pair shows that D's gain at a given GC is
+measured at C's cutoff for that GC. It carried a dashed `z = 4` horizontal until 2026-09-08,
+dropped because a rule crossing one row of a stacked pair reads as a gridline belonging to
+both. No error bars: a quantile of a million windows has none worth drawing.
+
+**8D — the `LR+` RATIO per GC bin with the calling rate matched *within* each bin** (the
+panel that was 8B until 2026-09-08), which is what separates ranking from threshold
+placement: `data.threshold_metrics(match_within_bin=True)` and
+`data.paired_deltas(match_within_bin=True, metric="lr_pos")` through `panels.panel_lr_ratio`.
+
+*It is a ratio, not two levels, and that is deliberate.* Two level curves invite the reader
+to compare each curve against itself across GC — the cross-bin reading, which is A and B's
+job — when the only question here is whether retraining helps **in** a bin. One curve, one
+reference line at 1.0, and no way to misread it as a statement about GC.
+
+*And it is the ODDS ratio.* Within a bin the base rate cancels from either measure, so the
+lift ratio is exactly the precision ratio — but a fold increase in *precision* is bounded by
+`1/precision_published`, a ceiling falling about 14× across these bins, so a +2% in the
+GC-rich bins and a +33% in the AT-poor ones are not measured on the same ruler. Since
+`odds(precision) = LR+ × odds(r)`, the `LR+` ratio **is** the odds ratio and the prevalence
+cancels exactly, which is why `data.paired_deltas`' default moved to `metric="lr_pos"`.
+Expect every gain to **exceed** its old lift counterpart — the odds ratio amplifies wherever
+precision is high, and this truth set reaches 0.73 in the top bin — so the pre-2026-09-08
+figures (+33.3, +4.0, +4.2, +10.8, +2.2 per cent) are a **different statistic**, not stale
+values of this one, and must not be carried over.
+
+*Be precise about what D matches.* Every score calls the same fraction of every bin, and
+since 2026-09-08 that fraction is a flat **1%** — `data.LAX_CALL_RATE` — rather than the
+1.002% published attains at `z ≥ 4`, which is where it used to be inherited from. It is
+**not** `z ≥ 4` applied bin by bin, and **not** published's own per-bin calling rate (which
+runs 0.17% → 13.97%). So D's published threshold in a bin is that bin's 99th percentile of
+`z`, equal to 4.0 nowhere in particular — panel C is exactly that variation drawn — and
+`data._bin_thresholds` is where it happens.
+
+*Why no recall panel beside D.* With the calling rate common, `lift = recall / k` makes
+recall a constant rescaling of lift within a bin, and precision likewise since the base rate
+is shared — so a recall curve there would carry no information of its own, which is why the
+panel briefly numbered 8C on 2026-09-05 was cut the same day. **Recall earns its place in A
+and B**, where the cutoff is global, `k` varies 45.7× with GC, and the identity stops being a
+rescaling. Note the wrinkle the 2026-09-08 revision introduced: recall rescales *lift*, and D
+now plots the *odds* ratio, so the caption's per-bin translation is a **precision** ratio and
+is smaller than the number D draws. Quoting one for the other is the easiest error to make
+with this panel. A notebook cell used to verify `recall == lift × k` numerically; it was
+retired on 2026-09-09, once D stopped plotting lift and the check stopped standing in for the
+panel it justified.
+
+**8E — auPRC/`r` against GC for both scores**, threshold-free, `data.pr_curves` +
 `data.pr_curve_deltas` through `panels.panel_aupr_by_gc`. A GC-dependent bias is very
 nearly a common shift on every window in a narrow bin, positives and negatives alike, so it
-cancels from a within-bin *ranking* statistic: that is why A's two curves nearly coincide,
+cancels from a within-bin *ranking* statistic: that is why E's two curves nearly coincide,
 and it means the steep decline of auPRC with GC *survives debiasing* (published
 1.518 → 1.199 across the bins, retrained 1.554 → 1.298). What remains is signal-to-noise,
-which is what McHale et al. conjectured in their text.
+which is what McHale et al. conjectured in their text. **E comes last because it is the
+figure's caveat**, not its premise — A through D argue that debiasing redistributes calls,
+makes the cutoff portable and improves ranking where the score is used, and E says what that
+improvement is *not*: a wash over the whole recall axis, with one bin slightly worse. It is
+also the only panel here with no operating point, so its decline cannot be an artefact of
+where a cutoff sits.
 
-**8B — lift per GC bin with the calling rate matched *within* each bin**, which is what
-separates ranking from threshold placement: `data.threshold_metrics(match_within_bin=True)`
-and `data.lift_deltas(match_within_bin=True)` through
-`panels.panel_threshold_metric(..., "lift", ...)`. Higher in all five bins and
-significantly so in four: +33.3, +4.0, +4.2, +10.8, +2.2 per cent.
+**D and E carry the retrained curve's paired bootstrap interval** relative to published.
+Those bars are on one curve deliberately — independent intervals would describe the
+uncertainty of each *level* when the question is about the *gap*, and would be wider than
+the gap's own interval, since the two scores share almost all of their sampling variability.
+A bar that excludes the reference is a real difference. The comparison is paired (both
+scores on the same resampled rows, so window-sampling variability cancels), unbalanced (the
+balancing is only needed for cross-bin level comparisons and costs four fifths of the
+positives), and its top bin is merged to (0.55, 0.80] because their file is nearly empty
+above GC 0.60.
 
-*Be precise about what B matches.* Every score calls the same fraction of every bin, and
-that fraction is the **global** rate published attains at `z ≥ 4` — 1.002% of all drawn
-windows. It is **not** `z ≥ 4` applied bin by bin, and **not** published's own per-bin
-calling rate (which runs 0.17% → 13.97%). So B's published threshold in a bin is that bin's
-98.998th percentile of `z`, equal to 4.0 only by coincidence; `data._bin_thresholds` is
-where this happens. One consequence is worth stating because it decides what B can show:
-with the calling rate common, `lift = recall / calling rate` makes recall a constant
-rescaling of lift within a bin, and precision likewise since the base rate is shared. So a
-recall panel would be B with a second y axis and the same five per-bin gains, which is why
-there is no 8C: it was drawn for a few hours on 2026-09-05 on the argument that lift is the
-statistician's unit and recall the analyst's, and cut because that translation is a
-sentence rather than a set of axes. It now sits in the caption and in the notebook markdown
-as the identity `recall = lift × k` with the five translated numbers (1.81 → 2.42%,
-1.53 → 1.59, 1.29 → 1.34, 1.13 → 1.25, 1.13 → 1.15%), and `fig5.ipynb` verifies
-`recall == lift * k` numerically rather than asserting it.
+*D is a diagnostic in a second sense.* Forcing published to call 1% of GC-rich sequence
+describes a score nobody uses — Fig. 5F's whole point is that it calls 14% there. D says
+what the score *contains*; F says what happens when it is *used*; A and B are the bridge,
+being what the score contains applied the way it is used.
 
-Both panels carry the retrained curve's **paired** bootstrap interval relative to
-published. Those bars are on one curve deliberately — independent intervals would describe
-the uncertainty of each *level* when the question is about the *gap*, and would be wider
-than the gap's own interval, since the two scores share almost all of their sampling
-variability. A bar that excludes the published marker is a real difference. The comparison
-is paired (both scores on the same resampled rows, so window-sampling variability cancels),
-unbalanced (the balancing is only needed for cross-bin level comparisons and costs four
-fifths of the positives), and its top bin is merged to (0.55, 0.80] because their file is
-nearly empty above GC 0.60.
-
-*B is a diagnostic in a second sense.* Forcing published to call 1% of GC-rich sequence
-describes a score nobody uses — Fig. 5F's whole point is that it calls 14% there. B says
-what the score *contains*; F says what happens when it is *used*.
-
-*Lift is capped at `1/r`*, a ceiling falling from 12.0 to 1.6 across these bins, so compare
-the two **scores** within a bin rather than ranking bins against each other.
-`data.threshold_metrics` reports ceiling-free skill and `LR+` per bin for anything
-cross-bin, alongside precision and recall; none is drawn, because each tells Fig. 5F's
-story in another projection. The retired panel functions — `panel_pr_curves`,
-`panel_aupr_delta`, `panel_lift_vs_recall` — are in the gitignored `fig5/panels_extra.py`,
-last tracked at `582c09d`.
+`data.threshold_metrics` still computes precision, lift and skill per bin alongside recall
+and `LR+`. They are **printed as diagnostics and plotted nowhere** — precision is the
+analyst's number and belongs in a caption, lift is the within-bin translation. The function
+that drew any one of them against GC, `panel_threshold_metric`, moved to the gitignored
+`fig5/panels_extra.py` on 2026-09-09 when the panels split into shapes it cannot draw; it
+joins `panel_pr_curves`, `panel_aupr_delta` and `panel_lift_vs_recall` there, all four last
+tracked at `582c09d` or earlier.
 
 **Fig. 5F and Supporting Fig. 8 compare the two scores at a matched calling rate**, not at
 a common `z`. Retraining shifts the whole `z` distribution: at `z ≥ 4` published calls
