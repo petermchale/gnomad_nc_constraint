@@ -27,16 +27,24 @@ colour. Two exemptions, both deliberate:
     blue-to-red ramp is the reading of the panel rather than a way of enumerating lines --
     and it is what McHale et al.'s published Fig. 4A does. See panel_pr_curves.
 
-EVERY PANEL IN THIS FILE IS DRAWN. Supporting Figures 8 and 9 were cut from nine panels to
-three, and the three that stopped being drawn -- panel_pr_curves, panel_aupr_delta and
-panel_lift_vs_recall, with the _log_ticks helper only the last one used -- moved to
-fig5/panels_extra.py, which is GITIGNORED. They were cut for composition rather than
-correctness and are worth having back if the figures change again, but they should not be
-in the file someone reviews to see what the manuscript draws. That file's docstring says
-what each was and where to recover it. The one exception is panel_threshold_metric's
-"precision", "recall" and "skill" modes, which stay here: three dict entries and a guard
-inside a function the figures do draw is not dead code a reader trips over, and splitting a
-live function to chase them would cost more than it buys.
+EVERY PANEL IN THIS FILE IS DRAWN, AND THE RULE HAS NO EXCEPTIONS. Supporting Figure 8 was
+cut from nine panels to five over the 2026-09-04 to 2026-09-08 revisions (Supporting
+Figure 9 existed for a few hours and was merged back), and the four functions that stopped
+being drawn -- panel_pr_curves, panel_aupr_delta, panel_lift_vs_recall, with the _log_ticks
+helper only the last one used, and panel_threshold_metric -- moved to fig5/panels_extra.py,
+which is GITIGNORED. They were cut for composition rather than correctness and are worth
+having back if the figures change again, but they should not be in the file someone reviews
+to see what the manuscript draws. That file's docstring says what each was and where to
+recover it.
+
+panel_threshold_metric went last, on 2026-09-09, and it is the one whose absence changes how
+this file reads. It drew ONE metric for BOTH scores at a fixed threshold, and it was the
+figure's workhorse until the 2026-09-08 revision split that job in two: panels A and B now
+put BOTH metrics on ONE score and need twin axes (panel_recall_and_enrichment), and panel D
+plots a paired RATIO rather than two levels (panel_lr_ratio). Its "precision" and "skill"
+modes had already stopped being drawn; keeping the function for them would have left a
+six-mode dispatcher in the file to serve no caller. What survives here is _threshold_series,
+which the live panels share.
 
 The Supporting Figure follows the same rule. Its single-series rows are monochrome --
 one curve and no legend leaves a hue naming nothing -- and colour survives only in its
@@ -161,9 +169,14 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
                  "framealpha": 1.0} if legend_frame else {"frameon": False})
     if legend_handlelength is not None:
         frame_kw["handlelength"] = legend_handlelength
+    # ncol applies with or without a bbox. It used to be set only alongside one, because
+    # the only multi-column legend was an outside one; Supporting Fig. 8's panels A and B
+    # need a single-line legend INSIDE a half-height frame, where two stacked entries would
+    # eat a third of the artwork.
+    if legend_ncol != 1:
+        frame_kw["ncol"] = legend_ncol
     if legend_bbox is not None:
         frame_kw["bbox_to_anchor"] = legend_bbox
-        frame_kw["ncol"] = legend_ncol
     if not legend:
         return
     if handles is not None:
@@ -928,43 +941,48 @@ SCORE_MARKERS = {"published": SERIES_MARKERS["step2"],
 def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = True,
                      legend_loc: str = "lower right", deltas=None) -> None:
     """
-    Supporting Figure 8, panel B. Normalized auPRC against GC content, one curve per
-    score.
+    Supporting Figure 8, panel E -- the LAST panel, and the figure's caveat. Normalized
+    auPRC against GC content, one curve per score.
 
-    y = 1 is the random classifier, by construction of the normalization, and it is the
-    only horizontal line on the panel that means anything: a curve at 1.4 finds enhancers
-    40% more precisely than guessing, averaged over the recall axis of panel A.
+    IT CLOSES THE FIGURE RATHER THAN OPENING IT. Panel D reports the retrained score's gain
+    at the top 1% in every bin; this is the same comparison with NO threshold at all, over
+    the whole recall axis, and it finds a wash -- one significant bin, and that one NEGATIVE.
+    Both are true, the two scores' PR curves crossing (retrained higher at low recall,
+    converging by mid-recall), so a gain at the operating point coexists with no gain
+    overall. D without E reads as a general improvement in ranking, which the data does not
+    support.
 
-    THIS PANEL IS THE COMPARISON THE FIGURE EXISTS FOR. Panel E of Fig. 5 establishes that
-    retraining the regional adjustment on the scored population removes the score's GC
-    bias. What it cannot say is whether the biased score was nevertheless the better
-    detector -- bias and signal-to-noise act on discovery jointly -- so the two curves
-    here are the direct test: the gap between them at a given GC is what the retraining
-    buys or costs at that GC, on identical windows and an identical set of positives.
+    IT IS ALSO THE PANEL THE MAIN TEXT CITES FOR SIGNAL-TO-NOISE. The decline with GC
+    survives debiasing, so it belongs to the DATA rather than to either score, and this is
+    the only panel with no operating point, so that decline cannot be an artefact of where a
+    cutoff sits. A and B corroborate it in LR+, which is prevalence-free and therefore
+    legitimately cross-bin; what they cannot rule out is that the decline is specific to the
+    top 1%, and that is what makes E the one to cite.
 
-    `deltas` PUTS THE PAIRED INTERVAL ON THE RETRAINED CURVE, and it is drawn on ONE curve
-    rather than both for a reason that matters. Independent bars on the two curves would be
-    the wrong object twice over: they would describe the uncertainty of each LEVEL when the
-    question is about the GAP, and they would be far WIDER than the gap's own interval,
-    because the two scores are columns of one table and almost all of the sampling
-    variability -- which windows the truth set happens to contain -- is common to both and
-    cancels in the difference. Marginal bars would therefore hide the one real difference
-    here (-1.40% at GC 0.40-0.50) while still leaving the eye-catching top-bin gap
-    ambiguous. So the bar drawn on each retrained point is its 95% paired-bootstrap
-    interval RELATIVE TO PUBLISHED, mapped back into this panel's units: the published
-    value in that bin times (1 + the interval on the relative gain). A bar that excludes
-    the published marker is a real difference; one that spans it is not.
+    y = 1 is the random classifier by construction, and the only meaningful horizontal line:
+    a curve at 1.4 finds enhancers 40% more precisely than guessing, averaged over the recall
+    axis. That axis is no longer drawn anywhere else (panel_pr_curves is retired), so this is
+    where the recall-averaged view survives.
+
+    `deltas` PUTS THE PAIRED INTERVAL ON THE RETRAINED CURVE, on ONE curve rather than both.
+    Independent bars would be the wrong object twice over: they describe the uncertainty of
+    each LEVEL when the question is the GAP, and are far WIDER than the gap's own interval,
+    since the two scores are columns of one table and the variability in which windows the
+    truth set contains cancels in the difference. Marginal bars would hide the one real
+    difference (-1.40% at GC 0.40-0.50) while leaving the eye-catching top-bin gap ambiguous.
+    Each retrained point's bar is therefore its 95% paired-bootstrap interval RELATIVE TO
+    PUBLISHED, mapped into this panel's units (published value times 1 + the interval on the
+    relative gain). A bar excluding the published marker is a real difference.
 
     `deltas` must be data.pr_curve_deltas() run on THIS panel's bins and balancing --
     gc_bins=LAX_GC_BINS, min_n=LAX_MIN_BIN_WINDOWS, balance=True -- or the interval belongs
     to a different statistic than the markers. Bins are matched on their midpoint.
 
-    The legend sits BOTTOM RIGHT rather than in the usual top corner: both curves fall
-    monotonically from the left edge, so the top left is where the panel's content is and
-    the bottom right is empty by construction. The pooled value travels in the legend
-    label because it is the number a reader wants beside the curve -- the performance
-    someone gets from the score without conditioning on GC at all -- and it has no place
-    on the axes, which are conditional on GC everywhere.
+    The legend sits BOTTOM RIGHT: both curves fall monotonically from the left edge, so the
+    top left carries the content and the bottom right is empty by construction. The pooled
+    value travels in the legend label, being the number a reader wants beside the curve --
+    performance without conditioning on GC -- and having no place on axes that are
+    conditional on GC everywhere.
     """
     # The relative gain is the same for auPRC and for auPRC/r, since within a bin both
     # scores are divided by the same base rate -- so the interval maps into this panel's
@@ -1020,150 +1038,226 @@ def _threshold_series(tm, key: str):
     return rows
 
 
-def panel_threshold_metric(ax, tm, metric: str = "precision", threshold: float = 4.0,
-                           xrange=(0.2, 0.8), show_xlabel: bool = True,
-                           show_prevalence: bool = True, logy: bool | None = None,
-                           legend_loc: str | None = None, deltas=None) -> None:
+def panel_recall_and_enrichment(ax, tm, key: str, xrange=(0.2, 0.8),
+                                show_xlabel: bool = True,
+                                legend_loc: str = "upper left") -> None:
     """
-    Supporting Figure 8, panels D-F. One of three quantities at a FIXED Gnocchi threshold,
-    per GC bin, one curve per score, with Wilson intervals. `tm` is
-    data.threshold_metrics() output.
+    Supporting Figure 8, panel A (published) or B (retrained): recall AND LR+ against GC for
+    a SINGLE score, at that score's one fixed global cutoff. `tm` is
+    data.threshold_metrics() built WITHOUT match_within_bin, so every bin is read at the same
+    genome-wide threshold and each bin's called fraction is free to vary. `key` is
+    "published" or "scored".
 
-      metric="call_rate"  the fraction of windows in the bin that clear the threshold.
-                          THE PANEL TO QUOTE: it uses no labels at all, so it rests on
-                          neither GeneHancer nor the laxness of an enhancer proxy -- it is
-                          a property of the score and of GC content. Drawn on a log y axis,
-                          because published Gnocchi's spans nearly two orders of magnitude
-                          across the GC range and a linear axis would show only the top bin.
-      metric="precision"  P(constrained | called) -- the analyst's number.
-      metric="recall"     P(called | constrained) -- what fraction is caught.
-      metric="lift"       precision / base rate, the ceiling-limited quality measure.
-      metric="skill"      (precision - r)/(1 - r), its ceiling-free companion.
+    LR+ AND NOT LIFT, FORCED BY THE CLAIM THESE PANELS MAKE -- that the correction sends
+    calls to bins where one is worth MORE, a comparison ACROSS bins, over which the base rate
+    r spans 7.7x. Lift is precision/r and skill is (precision - r)/(1 - r); across that span
+    they disagree about the SIGN of the trend (lift falls 1.80 -> 1.12 while skill rises
+    0.073 -> 0.218 on the same rows), which shows that dividing by a function of r is not a
+    prevalence correction. LR+ = TPR/FPR conditions on the true class on both sides, so r
+    cancels. Panel D keeps LIFT, correctly: it compares two SCORES WITHIN a bin, where r is
+    one number and lift is the more interpretable. Do not unify them -- the metrics differ
+    because the comparisons do.
 
-    `deltas` REPLACES THE MARGINAL INTERVALS WITH THE PAIRED ONE, drawn on the retrained
-    curve alone. The Wilson bars this function draws by default are correct for what the
-    panel otherwise shows -- two LEVELS, each with its own binomial error -- but they are
-    the wrong object as soon as the question is whether the two curves DIFFER, and they are
-    far wider than the difference's own interval, since the two scores are columns of one
-    table and the variability in which windows the bin happens to contain cancels between
-    them. So when `deltas` (a data.lift_deltas() table on the same bins) is supplied, the
-    published curve loses its bars and each retrained marker gains its 95% paired interval
-    RELATIVE TO PUBLISHED, mapped into the panel's units by scaling the published level.
-    A bar that excludes the published marker is a real difference; one that spans it is
-    not. Same device, same reasoning, as panel_aupr_by_gc's.
+    THE COMPARISON IS BETWEEN THE TWO CURVES, NOT BETWEEN THE TWO PANELS. D puts one metric
+    on both scores and asks which is better; these put both metrics on one score and ask
+    whether it sends its calls where they are worth anything -- answerable without a second
+    score. Published's curves run in OPPOSITE directions (recall climbing 45.7x with GC while
+    LR+ falls, so it calls most where a call is worth least); the retrained score's recall is
+    flat while LR+ still declines, that residual being panel E's signal-to-noise and no part
+    of the bias. A reader who takes B as "still not fixed" has read E's quantity off B's axes.
 
-    WHY THIS PANEL IS NOT A RESTATEMENT OF B. B and C hold the threshold free and ask how
-    well each score RANKS windows within a GC bin, which a GC-dependent shift barely
-    affects. Here the threshold is fixed at the value Chen et al. themselves use to call a
-    window constrained, so the shift decides how many windows in each bin are called at
-    all -- and the analyst's question, "my window scores above 4, how likely is it
-    constrained", is precisely this panel's y-axis.
-
-    THE DASHED CURVE IS THE BIN'S BASE RATE, not a random-classifier line borrowed from
-    panel A, and drawing it is what stops the panel being misread. Enhancer prevalence
-    climbs about 7.7x across these bins, so precision at a fixed threshold rises with GC
-    for ANY score, bias or no bias; what matters is the gap between a curve and the dashed
-    line beneath it. A reader who takes a rising precision curve as evidence of good
-    performance at high GC has read the base rate, not the score. (On the recall panel
-    there is no such reference -- recall conditions on the positives, so the base rate has
-    already been divided out -- and show_prevalence is ignored.)
+    TWO Y AXES, NOT A STYLE CHOICE. Recall spans 0.33% to 15.07% and LR+ 1.25 to 3.11: no
+    shared scale shows both, and no transform makes a probability and a ratio of
+    probabilities commensurable. Recall takes the left axis LOGARITHMICALLY (a 45-fold swing
+    is the point; a linear axis would put four of five bins on the floor), LR+ the right
+    LINEARLY (it is read against 1.0, and a log axis would flatten the decline the panel is
+    about). Both spines are drawn and the series are named by marker and dash rather than by
+    side, so the panel survives being read in one colour. BOTH RANGES ARE SHARED BY THE TWO
+    PANELS, so their shapes are comparable by eye.
     """
-    if metric not in ("call_rate", "precision", "recall", "lift", "skill"):
-        raise ValueError(f"metric {metric!r} is not drawable here")
-    logy = (metric == "call_rate") if logy is None else logy
-    # PRECISION IS THE ODD ONE OUT and needs both a different corner and a shorter
-    # legend. Its two curves run diagonally from bottom left to top right with a base-rate
-    # line beneath them, so no corner is free: upper left sits on the curves, and lower
-    # right -- the emptiest region -- is only wide enough if the entries are short. So the
-    # thresholds are dropped from ITS legend and carried by D and F, which are log panels
-    # whose published curve leaves the whole top-left empty. The caption says the two
-    # scores are matched on calling rate; the panel beside it shows the numbers.
-    # Precision rises left to right, so its only free corner is lower right; lift and
-    # skill fall left to right, so theirs is lower left; call_rate and recall are read
-    # against a flat corrected curve low on the axes, leaving the top left empty.
-    legend_loc = ({"precision": "lower right", "lift": "lower left",
-                   "skill": "lower left"}.get(metric, "upper left")
-                  if legend_loc is None else legend_loc)
-    with_threshold = metric != "precision"
+    rows = _threshold_series(tm, key)
+    if not rows.height:
+        return
+    x = rows["mid"].to_numpy()
 
-    ci = {}
-    if deltas is not None:
-        base = {round(r["mid"], 6): r[metric]
-                for r in _threshold_series(tm, "published").iter_rows(named=True)}
-        for row in deltas.iter_rows(named=True):
-            b = base.get(round(row["mid"], 6))
-            if b is not None:
-                ci[round(row["mid"], 6)] = (b * (1 + row["ci_lo"]), b * (1 + row["ci_hi"]))
+    # BOTH ROWS GET THE SAME TWO Y RANGES, taken over both scores rather than over the one
+    # this row draws. The panel's rows are meant to be read against each other -- published
+    # recall swinging 45.7x against the retrained score's near-flat curve -- and two rows
+    # autoscaled separately would draw those two shapes at the same apparent amplitude,
+    # which is the one reading the panel must not permit. Computed here rather than passed
+    # in so the two calls cannot be given different limits by accident.
+    both = tm.filter(tm["score"].is_in(["published", "scored"]))
+    rec_all = [v for v in both["recall"].to_list() if v and v > 0]
+    lr_all = [v for v in both["lr_pos"].to_list() if v and v == v]
 
+    rec = rows["recall"].to_numpy()
+    h_rec = ax.errorbar(x, rec,
+                yerr=np.vstack([rec - rows["recall_lo"].to_numpy(),
+                                rows["recall_hi"].to_numpy() - rec]),
+                        marker="o", color=MONO, markerfacecolor="white",
+                        markeredgewidth=1.2, markersize=6, linewidth=2, linestyle="--",
+                        capsize=3, elinewidth=1.2, label="Recall (left axis)")
+    ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(
+        lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
+    ax.yaxis.set_minor_formatter(mticker.NullFormatter())
+    if rec_all:
+        ax.set_ylim(min(rec_all) / 2.2, max(rec_all) * 3.0)
+
+    ax2 = ax.twinx()
+    lr = rows["lr_pos"].to_numpy()
+    h_lr = ax2.errorbar(x, lr,
+                        yerr=np.vstack([lr - rows["lr_pos_lo"].to_numpy(),
+                                        rows["lr_pos_hi"].to_numpy() - lr]),
+                        marker="s", color=MONO, markerfacecolor=MONO,
+                        markeredgewidth=1.2, markersize=6, linewidth=2, capsize=3,
+                        elinewidth=1.2, label="LR$^{+}$ (right axis)")
+    # Two lines, because a rotated label is measured against the axes' HEIGHT and this row
+    # is half of one. LR+ is named as well as glossed: the symbol is what the caption and
+    # the table use, and "likelihood ratio" alone would not say which one.
+    ax2.set_ylabel("Likelihood ratio\n(LR$^{+}$)", fontsize=AXIS_LABEL_FONTSIZE)
+    ax2.tick_params(axis="y", labelsize=TICK_LABEL_FONTSIZE)
+    ax2.spines["top"].set_visible(False)
+    # LR+ = 1 is a call that carries NO information: the odds a called window is
+    # constrained are then exactly the odds anywhere in the bin. Published Gnocchi reaches
+    # 1.25 in the top GC bin, and only the distance to this line says how little that is.
+    ax2.axhline(1.0, **REF_LINE_KW, zorder=1.2)
+    # HEADROOM ON BOTH AXES, so the legend has a band to sit in. Two series crossing in a
+    # half-height row leave no free corner -- published's recall ends top right and its
+    # LR+ starts top left -- so the legend goes across the top in one line, and both
+    # curves are pushed below it rather than the legend being hunted around the frame.
+    ax2.set_ylim(min(0.98, min(lr_all) * 0.95), max(lr_all) * 1.42)
+
+    # ONE legend for both axes, which twinx does not give for free -- each axes owns its
+    # own handles, so the second series would be silently dropped. Pass the ERRORBAR
+    # CONTAINERS and not ax.get_lines(): errorbar puts the label on the container, and the
+    # Line2D inside it is labelled "_nolegend_", so handles taken from get_lines() produce
+    # a legend of two blank entries.
+    _finish(ax, "Recall", xrange, show_xlabel, legend_loc=legend_loc,
+            legend_fontsize=LEGEND_FONTSIZE - 2, handles=[h_rec, h_lr],
+            legend_ncol=2)
+    # THE SCORE'S NAME IS THE ROW'S TITLE, not a legend entry or a legend title: it is a
+    # property of the whole row -- both curves are that score -- and inside the legend it
+    # would read as if it named a third series. Left-aligned so it starts at the y axis,
+    # which is where the eye enters the row.
+    ax.set_title(f"Gnocchi, {rows['short'][0]}", fontsize=LEGEND_FONTSIZE,
+                 loc="left", pad=6)
+    ax.set_zorder(ax2.get_zorder() + 1)
+    ax.patch.set_visible(False)
+
+
+def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
+                   legend_loc: str = "upper right") -> None:
+    """
+    Supporting Figure 8D. The retrained score's LR+ over published Gnocchi's, per GC bin,
+    with the 95% paired-bootstrap interval. `deltas` is data.paired_deltas() built with
+    metric="lr_pos", whose `delta` is that ratio minus one.
+
+    A RATIO PANEL RATHER THAN TWO LEVELS, which is a different claim from D's and worth
+    being clear about. Two level curves invite the reader to compare each curve with
+    itself across GC -- the cross-bin reading -- and that is B and C's job, on the two
+    scores separately. Here the question is only whether retraining helps IN a bin, so the
+    within-bin ratio is plotted directly and the levels are left to B and C. One curve, one
+    reference line, and no way to misread it as a statement about GC.
+
+    WHY THE ODDS RATIO AND NOT THE PRECISION RATIO, which is the same choice made in
+    data.paired_deltas and the reason its default moved. The fold increase in PRECISION is
+    bounded by 1/precision_published, a ceiling that falls about 14x across these bins
+    because prevalence climbs 7.7x -- so a +2% in the GC-rich bins and a +33% in the AT-poor
+    ones are not measured on the same ruler. The odds ratio is unbounded and, since
+    odds(precision) = LR+ x odds(prevalence) for either score in a bin, the prevalence
+    cancels exactly:
+
+        odds(p_scored) / odds(p_published) = LR+_scored / LR+_published.
+
+    So this curve is comparable bin to bin in a way a precision ratio is not. The precision
+    ratio is still the analyst-legible number WITHIN a bin -- "33% more likely to be an
+    enhancer here" -- and belongs in the caption, exactly as the lift-to-recall translation
+    does.
+
+    1.0 IS THE NULL AND IS DRAWN. A bar clear of it is a real difference in that bin; one
+    spanning it is not. There is no second curve to compare against, so the line is the
+    entire reference frame and the panel is unreadable without it.
+    """
+    rows = deltas.sort("mid")
+    x = rows["mid"].to_numpy()
+    ratio = 1.0 + rows["delta"].to_numpy()
+    lo = ratio - (1.0 + rows["ci_lo"].to_numpy())
+    hi = (1.0 + rows["ci_hi"].to_numpy()) - ratio
+
+    ax.axhline(1.0, **MATCHED_RATE_LINE_KW, zorder=1.5,
+               label="No difference")
+    ax.errorbar(x, ratio, yerr=np.vstack([lo, hi]),
+                marker=SCORE_MARKERS["scored"], color=MONO, markerfacecolor=MONO,
+                markeredgewidth=1.2, markersize=6, linewidth=2, capsize=3,
+                elinewidth=1.2, label="Retrained / published,\n95% paired CI")
+    # HEADROOM FOR THE LEGEND. This panel has no empty corner by construction -- the null
+    # line pins the bottom and the curve runs across the middle -- so the legend gets a
+    # band above the highest error bar rather than a corner of the artwork.
+    top = float(np.nanmax(1.0 + rows["ci_hi"].to_numpy()))
+    bot = float(np.nanmin(np.append(1.0 + rows["ci_lo"].to_numpy(), 1.0)))
+    ax.set_ylim(bot - 0.04 * (top - bot), top + 0.42 * (top - bot))
+    _finish(ax, "LR$^{+}$ ratio\n(retrained /\npublished)", xrange, show_xlabel,
+            legend_loc=legend_loc, legend_fontsize=LEGEND_FONTSIZE - 2)
+
+
+def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
+                         show_xlabel: bool = True, reference_threshold: float | None = None,
+                         gc_mean: float | None = None,
+                         legend_loc: str = "upper left") -> None:
+    """
+    Supporting Figure 8C. The Gnocchi threshold that calls the SAME fraction of every GC
+    bin, per bin, one curve per score. `tm` is data.threshold_metrics() built with
+    match_within_bin=True, whose `threshold_used` is then per (bin, score).
+
+    THIS IS THE BIAS ITSELF, IN THE SCORE'S OWN UNITS, AND IT USES NO LABELS. A z-score
+    promises that one number means one thing everywhere; the honest test is to ask what
+    number you would have to use in each part of the genome to make a fixed statement, and
+    published Gnocchi answers with a curve rather than a constant. The retrained score
+    answers with something close to a constant. Neither answer involves GeneHancer, an
+    enhancer proxy or any truth set at all -- like Fig. 5F, this panel rests only on the
+    score and on GC content, which is why it sits between the two panels that do need
+    labels rather than among them.
+
+    WHY IT IS NOT FIG. 5F REDRAWN, since the two are the same fact and a reader will ask.
+    5F fixes the threshold and reads off the calling rate; this fixes the calling rate and
+    reads off the threshold. They are inverse views of one function, and each is the
+    natural one for a different reader: 5F for someone holding a cutoff and asking what it
+    does, C for someone holding a discovery budget and asking what cutoff delivers it. C
+    also earns its place HERE rather than beside 5F, because it is the construction D
+    depends on -- D's per-bin lift is measured at exactly these thresholds, so C is D's
+    x-axis made visible, and a reader who finds D's matching artificial should be able to
+    see how far it had to reach.
+
+    NO REFERENCE LINE BY DEFAULT. `reference_threshold` draws a horizontal at Chen et al.'s
+    z = 4 -- the single genome-wide number, correct at exactly one GC content and too
+    strict or too lax on either side -- and the panel carried one until 2026-09-08. It was
+    dropped because the panel is now read directly beneath D, which shares its x axis, and
+    a horizontal rule crossing one row of a stacked pair reads as a gridline belonging to
+    both. What the line said, the published curve already says by being a curve.
+    """
     for key in ("published", "scored"):
         rows = _threshold_series(tm, key)
         if not rows.height:
             continue
-        x = rows["mid"].to_numpy()
-        y = rows[metric].to_numpy()
-        if deltas is not None:
-            if key == "published":
-                lo = hi = np.zeros_like(y)          # the reference carries no bars
-            else:
-                lo = np.array([max(y[i] - ci.get(round(v, 6), (y[i], y[i]))[0], 0.0)
-                               for i, v in enumerate(x)])
-                hi = np.array([max(ci.get(round(v, 6), (y[i], y[i]))[1] - y[i], 0.0)
-                               for i, v in enumerate(x)])
-        else:
-            lo = y - rows[f"{metric}_lo"].to_numpy()
-            hi = rows[f"{metric}_hi"].to_numpy() - y
-        # EACH SCORE'S OWN THRESHOLD GOES IN ITS LEGEND ENTRY, because they are not the
-        # same number: data.threshold_metrics matches the two on CALLING RATE rather than
-        # on z, so that precision and recall compare like with like (retraining moves the
-        # whole z distribution, so a common cutoff is ~8x stricter for the retrained score
-        # -- see that function). A reader who is not told will assume a common cutoff.
-        # ONE threshold or MANY. Under global matching a score has a single cutoff and the
-        # legend states it. Under match_within_bin every bin has its own, and printing the
-        # first bin's would be a quiet lie -- so the suffix is dropped entirely rather than
-        # repeated identically on both entries, which only doubles the legend's width in a
-        # panel whose one free corner is already tight. The caption carries it.
-        ts = rows["threshold_used"].unique().to_list()
-        label = f"Gnocchi, {rows['short'][0]}"
-        if deltas is not None and key == "scored":
-            label += ", 95% CI vs published"
-        if with_threshold:
-            label += (f"  ($z \\geq {float(ts[0]):.2f}$)" if len(ts) == 1
-                      else "")
-        ax.errorbar(x, y, yerr=np.vstack([lo, hi]),
-                    marker=SCORE_MARKERS[key], color=MONO,
-                    markerfacecolor="white" if key == "published" else MONO,
-                    markeredgewidth=1.2, markersize=6, linewidth=2, capsize=3,
-                    elinewidth=1.2, label=label)
+        ax.plot(rows["mid"].to_numpy(), rows["threshold_used"].to_numpy(),
+                marker=SCORE_MARKERS[key], color=MONO,
+                markerfacecolor="white" if key == "published" else MONO,
+                markeredgewidth=1.2, markersize=6, linewidth=2,
+                label=f"Gnocchi, {rows['short'][0]}")
 
-    if metric == "precision" and show_prevalence:
-        base = _threshold_series(tm, "published")
-        ax.plot(base["mid"].to_numpy(), base["r"].to_numpy(),
-                linestyle="--", color="0.45", linewidth=1.4,
-                label="base rate in the bin")
+    if reference_threshold is not None:
+        ax.axhline(reference_threshold, **MATCHED_RATE_LINE_KW,
+                   label=f"Single genome-wide cutoff ($z = {reference_threshold:g}$)",
+                   zorder=1.5)
+    _gc_mean_line(ax, gc_mean)
 
-    if logy:
-        ax.set_yscale("log")
-        ax.yaxis.set_major_formatter(mticker.FuncFormatter(
-            lambda v, _: f"{100 * v:g}%" if v > 0 else ""))
-        ax.yaxis.set_minor_formatter(mticker.NullFormatter())
-        # Headroom for the legend. The legend sits upper LEFT and the published curve's
-        # top point is upper RIGHT, but the box spans most of the panel width, so without
-        # this the entry runs into that marker. A factor on a log axis, not a margin.
-        vals = [v for v in tm["call_rate" if metric == "call_rate" else metric].to_list()
-                if v and v > 0]
-        if vals:
-            ax.set_ylim(min(vals) / 1.6, max(vals) * 4.0)
-    # The threshold is NOT in the y label: the two curves use different ones (matched on
-    # calling rate), so a single number in the label would be wrong for one of them. Each
-    # legend entry carries its own instead.
-    ylabel = {
-        "call_rate": "Windows called",
-        "precision": "P(constrained | called)",
-        "recall": "Fraction of constrained\nwindows called",
-        "lift": "Lift (precision / base rate)",
-        "skill": "Skill  (precision $-$ $r$) / (1 $-$ $r$)",
-    }[metric]
-    _finish(ax, ylabel, xrange, show_xlabel, legend_loc=legend_loc,
+    # WRAPPED, and the wrap points are not free: a rotated label is measured against the
+    # axes' HEIGHT, and this row is half of one, so no line may run much past twenty
+    # characters. The rate is interpolated rather than written in, so the label cannot
+    # drift from the `call_rate` the panel was actually built with.
+    _finish(ax, f"Gnocchi cutoff\n(top {100 * call_rate:g}% of windows\nin GC bin)",
+            xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
 
 
@@ -1180,100 +1274,52 @@ def panel_calling_rate(ax, binned, thresholds: dict,
                        matched_rate_line: bool = True) -> None:
     """
     Panel F. The fraction of windows in each GC bin clearing a fixed z, one curve per
-    score. `binned`, `thresholds` and `matched_rate` are data.calling_rate_by_gc()'s
-    three return values.
+    score. `binned`, `thresholds` and `matched_rate` are data.calling_rate_by_gc()'s three
+    return values. E AND F ARE ONE FIX SEEN TWICE on one population and one set of bins --
+    E's mean rank returning to 0.5, F's calling rate flattening -- and share A and E's
+    markers so a reader carries the two scores across all three.
 
-    E AND F ARE ONE FIX SEEN TWICE, on one population and one set of GC bins: E shows the
-    mean rank returning to 0.5, F shows the calling rate flattening. Same markers as A and
-    E, so a reader carries the two scores across all three without re-reading a legend.
+    ONE z PER SCORE, APPLIED UNCHANGED IN EVERY BIN, which is what makes the panel mean
+    anything and is the INVERSE of Supporting Fig. 8C (which fixes the rate and reads off
+    the threshold). data.calling_rate_by_gc fixes both cutoffs once on the whole population
+    -- published at 4, the retrained score at the global quantile matching its overall
+    calling rate -- then counts per bin, so the curve's slope is the score moving underneath
+    a stationary cutoff.
 
-    WHAT THE Y AXIS SAYS (percentile_axis=True, the default). The quantity computed is the
-    calling rate; the quantity LABELLED is its complement, the percentile at which that
-    score's cutoff falls within the GC bin's OWN distribution of Gnocchi scores.
+    THE Y AXIS (percentile_axis=True, the default) labels the complement of the quantity
+    computed: the percentile at which that cutoff falls in the bin's OWN score distribution.
+    That percentile is LOCAL to the bin, which is the whole content -- a score meeting its
+    own promise would put a fixed z at the same percentile everywhere, whereas the numeral 4
+    is the 99.9th percentile of AT-rich sequence and the 58th of GC-rich. The axis stays
+    LOGARITHMIC in the calling rate (a linear percentile axis collapses the AT-rich bins --
+    99.87, 99.9, 100, 100 -- onto one line), INVERTED so labels increase upward and the
+    published curve descends, with ticks set explicitly, since the log decades label 99.99
+    through 90 and then nothing. `percentile_axis=False` restores the calling-rate axis and
+    changes nothing else. Bars are Wilson intervals: plain proportions, and no paired
+    difference to draw. `gc_mean` marks the population's mean GC -- pass panel E's own, since
+    F is computed on E's frame.
 
-    ONE z PER SCORE, APPLIED UNCHANGED IN EVERY BIN -- this is what makes the panel mean
-    anything, and it is the opposite of Supporting Fig. 8B. data.calling_rate_by_gc fixes
-    both thresholds ONCE on the whole population (published at 4, the retrained score at
-    the global quantile matching published's overall calling rate) and then counts, bin by
-    bin, what fraction of that bin clears its own score's single fixed number. So the two
-    values named in the legend are the two values whose local percentiles are plotted, and
-    the curve's slope is the score moving underneath a stationary cutoff. 8B does the
-    reverse: it re-derives a threshold per bin so that the calling rate is constant, which
-    is why the slope there is not the bias but what survives its removal. They are
-    the same number read from either end -- percentile = 100 x (1 - calling rate) -- and
-    the percentile is the form the result states itself in: the same numeral 4 is the
-    99.9th percentile of AT-rich sequence and the 58th percentile of GC-rich sequence, so
-    it is a stringent cutoff in one part of the genome and a permissive one in another.
-    Note that the percentile is LOCAL to the bin, not a genome-wide rank; that is the whole
-    content of the panel, since a score meeting its own promise would put a fixed z at the
-    same percentile everywhere.
-
-    LOG Y AND INVERTED, and both are forced. Log, because published Gnocchi's calling rate
-    spans nearly two orders of magnitude across GC: plot the percentile on a LINEAR axis
-    instead and the AT-rich bins (99.87, 99.9, 100, 100) collapse onto one line at the top
-    and the panel loses its content, so the axis stays logarithmic in the calling rate and
-    only its labels change. Inverted, because an uninverted percentile axis would read 99.9
-    at the bottom and 90 at the top; inverting makes the labels increase upward and the
-    published curve descend with GC, which is the sentence the panel is making. Ticks are
-    set explicitly rather than left to the log locator -- the decades alone label 99.99
-    through 90 and then nothing, leaving the GC-rich half of the curve unreadable.
-
-    `percentile_axis=False` restores the original calling-rate axis, labelled in per cent
-    and not inverted; nothing else about the panel changes. Bars are Wilson intervals,
-    which is the right object here -- these are plain proportions, and unlike the discovery
-    panels there is no paired difference to draw, since the two curves are far apart
-    relative to their own error.
-
-    `gc_mean` marks the mean GC of the population drawn, as in A, D and E -- pass panel
-    E's own mean, since F is computed on E's frame and a line at a different value would
-    break the pairing the two panels rest on. See _gc_mean_line.
-
-    `matched_rate` is the genome-wide calling rate the two scores were matched on --
-    data.calling_rate_by_gc's third return value -- drawn as a horizontal line unless
-    `matched_rate_line=False`.
-
-    WHAT THE LINE IS, EXACTLY, because a legend entry has to be checkable. Write W for the
-    whole window population the panel is computed on (every window in the frame, including
-    those in bins min_n drops from the drawing), and t_s for the one cutoff score s is
-    drawn at -- the value its legend entry names. The line sits at
+    `matched_rate` is drawn as a horizontal line unless `matched_rate_line=False`. DEFINE IT
+    EXACTLY, since a legend entry must be checkable: with W the whole population (including
+    bins min_n drops from the drawing) and t_s the cutoff score s is drawn at,
 
         k = |{w in W : z_s(w) >= t_s}| / |W|,
 
-    the fraction of the WHOLE population that clears the cutoff. That is one number and not
-    two: data.calling_rate_by_gc sets t_published = 4 and then hands every other score the
-    quantile of its own z attaining that same k, so k is common to the curves by
-    construction (up to the discreteness of an empirical quantile). On the percentile axis
-    the same line is labelled 100(1 - k).
+    labelled 100(1 - k) on the percentile axis. It is ONE number for both curves, since
+    calling_rate_by_gc hands every non-reference score the quantile of its own z attaining
+    published's k. SO LINE AND CURVES ARE ONE QUANTITY OVER TWO POPULATIONS -- the cutoff's
+    percentile genome-wide against its percentile within each bin -- and it belongs to BOTH
+    curves, so never caption it as published's own level. It is the null STRICTLY: bin rates
+    average to k and percentile is AFFINE in rate, so a curve flat across GC can only be flat
+    ON this line. What is pinned is that weighted mean, leaving any single bin free: the
+    retrained curve hugs the line through the GC bulk and departs in the tails, while
+    published crosses it well GC-rich of the `gc_mean` mark, its near-exponential rate
+    pulling its weighted mean far above its value at a typical window. Drawing both lines is
+    what says z = 4 is a typical cutoff nowhere near the typical window.
 
-    SO THE LINE AND THE CURVE ARE THE SAME QUANTITY OVER TWO POPULATIONS: the line is where
-    the cutoff falls in the score distribution of the WHOLE genome, the curve is where that
-    same cutoff falls in each GC BIN's own distribution. That is the panel's entire
-    comparison, which is why the line is not decoration -- and it is why the legend entry
-    names it as the genome-wide percentile of the same cutoffs the curves are drawn at,
-    rather than as anything about "matching".
-
-    IT IS THE PANEL'S NULL in a strict sense, not a loose one. Bin-wise calling rates
-    average to k exactly -- sum_g n_g p_s(g) / sum_g n_g = k over ALL bins, the drawn ones
-    differing only by the windows min_n removes, and percentile = 100(1 - rate) is AFFINE in
-    the rate, so the identity holds in the units drawn as well -- therefore a curve that is
-    CONSTANT across bins can only be constant at k. A score meeting its own
-    promise does not merely draw some horizontal line; it draws THIS one. It belongs to both
-    curves and to neither -- both scores are pinned to it -- so it must never be captioned
-    as published Gnocchi's own level. What is pinned is that weighted MEAN, which leaves any
-    single bin free: hence a curve may sit off the line anywhere, so long as it pays for it
-    elsewhere.
-
-    WHERE IT MEETS EACH CURVE IS THE CONTENT. The retrained curve hugs it through the GC
-    bulk and falls away in the tails, since what the matching pins is the window-weighted
-    MEAN and not the value in any one bin. Published crosses it well to the GC-rich side of
-    the `gc_mean` line, and that offset is why both lines are drawn: its calling rate is
-    near-exponential in GC, so its window-weighted mean is pulled far above its value at
-    mean GC and it reaches that mean only in unusually GC-rich sequence. Read together,
-    the two lines say that z = 4 is a typical cutoff nowhere near the typical window.
-
-    Each score's own threshold goes in its legend entry: they are matched on overall
-    calling rate rather than given a common number, so one figure in the y label would be
-    wrong for one of the curves. See data.calling_rate_by_gc.
+    Each score's threshold goes in its own legend entry: they are matched on overall calling
+    rate, not given a common number, so one figure in the y label would be wrong for one
+    curve.
     """
     # THE RELATION IN THE LEGEND FOLLOWS THE AXIS, and getting it wrong misdescribes what
     # is plotted. On the calling-rate axis the y value is the size of a SET, the windows
