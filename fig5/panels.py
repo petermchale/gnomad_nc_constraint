@@ -979,10 +979,10 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
     to a different statistic than the markers. Bins are matched on their midpoint.
 
     The legend sits BOTTOM RIGHT: both curves fall monotonically from the left edge, so the
-    top left carries the content and the bottom right is empty by construction. The pooled
-    value travels in the legend label, being the number a reader wants beside the curve --
-    performance without conditioning on GC -- and having no place on axes that are
-    conditional on GC everywhere.
+    top left carries the content and the bottom right is empty by construction. It carries
+    the two NAMES and nothing else. The pooled value -- performance without conditioning on
+    GC, which has no place on axes conditional on GC everywhere -- travelled in the label
+    until 2026-09-10 and is now the caption's, alongside the interval's definition.
     """
     # The relative gain is the same for auPRC and for auPRC/r, since within a bin both
     # scores are divided by the same base rate -- so the interval maps into this panel's
@@ -1008,15 +1008,26 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
             hi = np.array([ci.get(round(v, 6), (y[i], y[i]))[1] - y[i]
                            for i, v in enumerate(x)])
             yerr = np.vstack([np.maximum(lo, 0), np.maximum(hi, 0)])
-        label = f"Gnocchi, {c['short']} (pooled {c['all']['aupr_norm']:.3f})"
-        if yerr is not None:
-            label += ", 95% CI vs published"
+        # NAME ONLY. The pooled value and the interval's identity used to travel here --
+        # two clauses per entry on a panel a third of the figure's width -- and both are
+        # better read elsewhere: the pooled numbers are in the caption, where they can be
+        # quoted, and the bars announce themselves as bars. What a legend has to do is tell
+        # the two curves apart, and the name alone does that.
+        label = f"Gnocchi, {c['short']}"
         ax.errorbar(x, y, yerr=yerr,
                     marker=SCORE_MARKERS[key], color=MONO,
                     markerfacecolor="white" if key == "published" else MONO,
                     markeredgewidth=1.2, markersize=6, linewidth=2,
                     capsize=3, elinewidth=1.2, label=label)
-    ax.axhline(1.0, **REF_LINE_KW)
+    # PANEL D'S LINE STYLE, NOT REF_LINE_KW's. Both panels draw a null a reader has to
+    # judge every marker against, and the argument at MATCHED_RATE_LINE_KW applies here
+    # too: at 0.45 grey and 0.8 pt a dashed rule is barely heavier than this panel's own
+    # dotted gridlines and, at set_axisbelow(True)'s zorder 0.5, can be painted over by
+    # them. zorder 1.5 clears the grid and still passes under every marker and bar. This
+    # DIVERGES from the rank-0.5 and r = 1 references in Fig. 5A, B and E, which keep
+    # REF_LINE_KW -- there the line is context for a curve read on its own, here it is the
+    # frame the comparison is made in.
+    ax.axhline(1.0, **MATCHED_RATE_LINE_KW, zorder=1.5)
 
     # Headroom BELOW the y = 1 reference, which autoscaling does not leave: every curve
     # point sits above 1, so matplotlib puts the bottom spine within a hair of the dashed
@@ -1146,8 +1157,7 @@ def panel_recall_and_enrichment(ax, tm, key: str, xrange=(0.2, 0.8),
     ax.patch.set_visible(False)
 
 
-def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
-                   legend_loc: str = "upper right") -> None:
+def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True) -> None:
     """
     Supporting Figure 8D. The retrained score's LR+ over published Gnocchi's, per GC bin,
     with the 95% paired-bootstrap interval. `deltas` is data.paired_deltas() built with
@@ -1185,20 +1195,27 @@ def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
     lo = ratio - (1.0 + rows["ci_lo"].to_numpy())
     hi = (1.0 + rows["ci_hi"].to_numpy()) - ratio
 
-    ax.axhline(1.0, **MATCHED_RATE_LINE_KW, zorder=1.5,
-               label="No difference")
+    ax.axhline(1.0, **MATCHED_RATE_LINE_KW, zorder=1.5)
     ax.errorbar(x, ratio, yerr=np.vstack([lo, hi]),
                 marker=SCORE_MARKERS["scored"], color=MONO, markerfacecolor=MONO,
                 markeredgewidth=1.2, markersize=6, linewidth=2, capsize=3,
-                elinewidth=1.2, label="Retrained / published,\n95% paired CI")
-    # HEADROOM FOR THE LEGEND. This panel has no empty corner by construction -- the null
-    # line pins the bottom and the curve runs across the middle -- so the legend gets a
-    # band above the highest error bar rather than a corner of the artwork.
+                elinewidth=1.2)
+    # NO LEGEND: ONE SERIES, AND THE YLABEL NAMES IT. See _finish's `legend=False` -- a
+    # two-entry legend here restated the ylabel in smaller type and took the only band of
+    # the panel the curve does not already occupy. What the entries used to carry now lives
+    # elsewhere: the ratio's direction in the ylabel, the 95% paired interval in the bars
+    # themselves and in the caption, and the null in the dashed line, which needs no entry
+    # because its height is 1.0 and the axis is labelled.
+    #
+    # HEADROOM, correspondingly reduced. The old +42% band existed to hold that legend --
+    # this panel has no empty corner by construction, the null line pinning the bottom and
+    # the curve running across the middle -- so with the legend gone it was dead space that
+    # flattened the curve into the lower half of the frame.
     top = float(np.nanmax(1.0 + rows["ci_hi"].to_numpy()))
     bot = float(np.nanmin(np.append(1.0 + rows["ci_lo"].to_numpy(), 1.0)))
-    ax.set_ylim(bot - 0.04 * (top - bot), top + 0.42 * (top - bot))
-    _finish(ax, "LR$^{+}$ ratio\n(retrained /\npublished)", xrange, show_xlabel,
-            legend_loc=legend_loc, legend_fontsize=LEGEND_FONTSIZE - 2)
+    ax.set_ylim(bot - 0.06 * (top - bot), top + 0.08 * (top - bot))
+    _finish(ax, "LR$^{+}$ ratio\n(decontaminated /\npublished)", xrange, show_xlabel,
+            legend=False)
 
 
 def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
@@ -1264,8 +1281,8 @@ def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
 # ------------------------------------------------------------------- panel F
 
 def panel_calling_rate(ax, binned, thresholds: dict,
-                       labels=(("step2", "Gnocchi, as published"),
-                               ("scored", "Gnocchi, decontaminated DNM training set")),
+                       labels=(("step2", "Gnocchi, published"),
+                               ("scored", "Gnocchi, decontaminated")),
                        xrange=(0.2, 0.73), show_xlabel: bool = True,
                        legend_loc: str | None = None,
                        percentile_axis: bool = True,
@@ -1328,7 +1345,11 @@ def panel_calling_rate(ax, binned, thresholds: dict,
     # distribution -- so the legend names that value and "=" is what belongs there. The
     # underlying count is 1 - fraction(z >= t) either way; what changes is which of the two
     # readings the panel is presenting, and the legend has to agree with the ylabel.
-    rel = "=" if percentile_axis else "\\geq"
+    # The percentile axis names the VALUE, so the cutoff is written bare and with "=";
+    # the calling-rate axis names a SET, so it keeps "z \geq t", which is the condition
+    # defining that set and is ungrammatical without the z.
+    cutoff_txt = ((lambda t: f"cutoff $= {t:.2f}$") if percentile_axis else
+                  (lambda t: f"cutoff $z \\geq {t:.2f}$"))
     # WHY ONLY THE LINE'S ENTRY IS QUALIFIED. Every entry would ideally say which
     # distribution its percentile is taken in -- the curves per GC bin, the line
     # genome-wide -- but "(cutoff z = 3.24, within GC bin)" on the longer score name runs
@@ -1361,7 +1382,7 @@ def panel_calling_rate(ax, binned, thresholds: dict,
             markerfacecolor="white" if key in MONO_OPEN else MONO,
             markeredgewidth=1.2, markersize=5, linewidth=2, capsize=3,
             elinewidth=1,
-            label=f"{display}  (cutoff $z {rel} {thresholds[key]:.2f}$)"))
+            label=f"{display}  ({cutoff_txt(thresholds[key])})"))
     # BETWEEN THE GRID AND THE CURVES. _finish calls set_axisbelow(True), which puts the
     # gridlines at zorder 0.5, so a reference line drawn there ties with them and can be
     # painted over by the grid it is meant to be read against; at 1.5 it clears the grid and
@@ -1373,11 +1394,13 @@ def panel_calling_rate(ax, binned, thresholds: dict,
     if matched_rate_line and matched_rate is not None:
         series.append(ax.axhline(
             matched_rate, zorder=1.5, **MATCHED_RATE_LINE_KW,
-            label=("Genome-wide percentile common to both cutoffs "
-                   f"({100 * (1 - matched_rate):.2f}th)"
+            # NO VALUE IN THE ENTRY. The line's height IS the value and the axis is
+            # labelled, so the parenthetical restated a number the reader can already read
+            # off; the entry's job is to say WHOSE distribution the percentile is taken in,
+            # which is the one thing the axis does not say. The caption still quotes it.
+            label=("Genome-wide percentile common to both cutoffs"
                    if percentile_axis else
-                   "Genome-wide calling rate common to both cutoffs "
-                   f"({100 * matched_rate:.3f}%)")))
+                   "Genome-wide calling rate common to both cutoffs")))
     ax.set_yscale("log")
     ax.yaxis.set_minor_formatter(mticker.NullFormatter())
     # A bin can legitimately call nothing, and 0 has no place on a log axis: the floor
@@ -1410,15 +1433,20 @@ def panel_calling_rate(ax, binned, thresholds: dict,
         # the sentence it is: the same numeral 4 sits at a lower and lower percentile of
         # the local score distribution as sequence gets more GC-rich.
         ax.invert_yaxis()
-        # THE AXIS NAMES THE QUANTITY; THE LEGEND SAYS WHOSE DISTRIBUTION. Every mark in
-        # the panel is one cutoff's percentile in some Gnocchi distribution -- the curves in
-        # their own GC bin's, the dashed line in the whole population's -- so the axis
-        # cannot say "local" any more without contradicting the line it now carries. Each
-        # legend entry supplies the missing half. The wrap is measured rather than
-        # eyeballed: a rotated label is as tall as its longest line, and at
+        # THE AXIS NAMES THE CURVES' READING, AND THE LINE'S ENTRY NAMES ITS OWN. Every
+        # mark here is one cutoff's percentile in some Gnocchi distribution -- the curves in
+        # their own GC bin's, the dashed line in the whole population's -- and the label
+        # states the curves' half, which is what the panel is about. THE ONE ELEMENT IT DOES
+        # NOT DESCRIBE IS THAT LINE, whose percentile is genome-wide and not within any bin;
+        # its legend entry carries the word GENOME-WIDE precisely to say so, and the caption
+        # states it outright. An earlier label was neutral between the two readings
+        # ("Cutoff's percentile in the Gnocchi score distribution") for that reason; this one
+        # trades that neutrality for saying the curves' claim directly, and the legend is
+        # then load-bearing rather than merely helpful -- do not drop the line's entry.
+        # One line: a rotated label is as tall as its longest line, and at
         # AXIS_LABEL_FONTSIZE the axes are 354 px, which a 43-character line (448 px)
-        # overruns.
-        ylabel = "Cutoff's percentile in the\nGnocchi score distribution"
+        # overruns -- 28 characters clears it comfortably, so no wrap is needed.
+        ylabel = "Gnocchi percentile in GC bin"
         legend_loc = "lower left" if legend_loc is None else legend_loc
     else:
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(

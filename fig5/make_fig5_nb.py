@@ -381,7 +381,7 @@ else:
 
 curves_a = [
     panels.curve_from_binned(binned_a, "step1", "step1", "Gnocchi, context-only"),
-    panels.curve_from_binned(binned_a, "step2", "step2", "Gnocchi, as published"),
+    panels.curve_from_binned(binned_a, "step2", "step2", "Gnocchi, published"),
 ]
 if binned_dr is not None:
     # show_se=False: Halldorsson's windows OVERLAP, so std/sqrt(n) understates the
@@ -864,7 +864,7 @@ df_e, binned_e = D.rank_curves(df_win, extra=extra, min_n=MIN_N_WINDOWS)
 # Published Gnocchi first, then the context-only model it is built on, then the retrained
 # score -- the order the argument is made in, and the same first-two order as panel A.
 curves_e = [
-    panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi, as published"),
+    panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi, published"),
     panels.curve_from_binned(binned_e, "step1", "step1", "Gnocchi, context-only"),
     panels.curve_from_binned(binned_e, "scored", "scored",
                              "Gnocchi, decontaminated DNM training set"),
@@ -939,6 +939,28 @@ panels.panel_calling_rate(ax, rate_f, thr_f, xrange=XRANGE,
                           matched_rate=matched_f,
                           gc_mean=float(df_e["GC_content"].mean()))
 save(fig, "F")
+
+# THE PER-BIN VALUES THE CAPTION QUOTES, which calling_rate_by_gc does not print itself:
+# it prints the min and max across bins, and its MINIMUM is 0.000%, contributed by bins
+# that call nothing at all -- true, and not the number a caption wants for "the most
+# AT-rich bin drawn". Percentile = 100 x (1 - rate) is exactly panel F's y axis, so these
+# are read off the same arithmetic the panel draws and not off the PDF.
+pct = lambda r: 100.0 * (1.0 - r)
+for row in rate_f.iter_rows(named=True):
+    print(f"  GC {row['gc_mid']:.3f}  n = {row['n']:>9,}  "
+          f"published {100 * row['rate_step2']:7.3f}% ({pct(row['rate_step2']):7.3f}th)  "
+          f"retrained {100 * row['rate_scored']:7.3f}% ({pct(row['rate_scored']):7.3f}th)")
+first = rate_f.row(0, named=True)
+last = rate_f.row(rate_f.height - 1, named=True)
+scored_rates = rate_f["rate_scored"].to_numpy()
+print(f"\n  [F-LO] = {100 * first['rate_step2']:.3f}%   "
+      f"[F-PCTL-LO] = {pct(first['rate_step2']):.3f}   "
+      f"(most AT-rich bin drawn, GC {first['gc_mid']:.3f}, n = {first['n']:,})")
+print(f"  [F-HI] = {100 * last['rate_step2']:.3f}%   "
+      f"[F-PCTL-HI] = {pct(last['rate_step2']):.3f}   "
+      f"(most GC-rich bin drawn, GC {last['gc_mid']:.3f}, n = {last['n']:,})")
+print(f"  [F-FLAT] = {100 * scored_rates.min():.3f}% - {100 * scored_rates.max():.3f}% "
+      f"over drawn bins (mean {100 * scored_rates.mean():.3f}%)")
 """)
 
 md(r"""
@@ -1273,8 +1295,8 @@ gain is largest but rests on 220 called windows per score.
 *D describes a score nobody applies, deliberately.* **D says what the score CONTAINS; Fig. 5F
 says what happens when it is USED; A and B are the bridge.** The analyst-legible form is the
 per-bin **precision** ratio, which the matched rate makes a rescaling of D's own rows: the
-retrained score's calls are correct `[8D-PREC-LO]` as often as published's in the most AT-rich
-bin, rising to `[8D-PREC-HI]` in the most GC-rich. Those are *precision* ratios and therefore
+retrained score's calls are correct **1.30 times** as often as published's in the most AT-rich
+bin and **1.02 times** as often in the most GC-rich. Those are *precision* ratios and therefore
 smaller than the odds ratios D plots; quoting one for the other is the easiest error to make
 with this panel.
 
@@ -1424,6 +1446,22 @@ gains_wb_s8 = D.paired_deltas(truth_set="lax", call_rate=D.LAX_CALL_RATE,
                             n_bootstrap=500, seed=0, match_within_bin=True,
                             metric="lr_pos") \
     if NEUTRAL_WINDOWS_BED else None
+
+# PANEL C'S OWN NUMBERS. threshold_metrics prints precision, lift, LR+ and recall per bin
+# but not threshold_used -- and threshold_used IS panel C, the cutoff each score needs in
+# order to call LAX_CALL_RATE of a bin. Printed here rather than added to that function's
+# line, so the tables every other cell shares keep the format their committed outputs have.
+if withinbin_s8 is not None:
+    print(f"\npanel C: the per-bin cutoff calling {100 * D.LAX_CALL_RATE:.1f}% of each bin.")
+    for key in ("published", "scored"):
+        sub = withinbin_s8.filter(pl.col("score") == key).sort("mid")
+        t = sub["threshold_used"].to_numpy()
+        for row in sub.iter_rows(named=True):
+            print(f"  GC ({row['lo']:.2f}, {row['hi']:.2f}]  {row['short']:<15} "
+                  f"z >= {row['threshold_used']:.3f}")
+        print(f"    {sub['short'][0]:<15} {t[0]:.3f} -> {t[-1]:.3f} "
+              f"across GC, range {t.min():.3f} - {t.max():.3f}, "
+              f"{t.max() / t.min():.2f}x")
 """)
 
 code(r"""

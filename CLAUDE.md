@@ -278,13 +278,13 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    caller). Again no number changed, and `captions.txt`/`methods.txt` are updated.
    **Fig. 5F's axis became a percentile on 2026-09-05** -- detail below, and again no number
    changed, only which end of one is labelled.
-   The notebook was executed on the HPC path and committed with ALL 39 cells' outputs at
-   `54c7a76`, so every number in it was real at that commit.
-   What is outstanding is Supporting Figure 8's rebuild after its TWO 2026-09-08 revisions
-   (two panels -> four -> five, the last moving every cross-bin reading onto LR+), and it
-   can only happen on the HPC path. The notebook is now **37 cells**: THREE were retired on
-   2026-09-09, all of them computed-but-undrawn diagnostics, and in every case THE BUILDER
-   IS UNTOUCHED -- only the call site is gone, so each is one line to restore.
+   **The notebook is 37 cells, ALL of them executed on the HPC path and committed with
+   outputs at `3a77e4c` (2026-09-09), so every number in it is real.** That run cleared the
+   rebuild the TWO 2026-09-08 revisions had left outstanding (Supporting Fig. 8, two panels
+   -> four -> five, the last moving every cross-bin reading onto LR+); see WHAT THE RERUN
+   SETTLED below for what it did and did not fill. The 37 count is after THREE cells were
+   retired on 2026-09-09, all of them computed-but-undrawn diagnostics, and in every case
+   THE BUILDER IS UNTOUCHED -- only the call site is gone, so each is one line to restore.
      * the `recall = lift x k` identity check, which stopped licensing its own conclusion
        once panel D moved to the odds ratio (see the RECALL IS DRAWN ONLY IN A AND B block
        below);
@@ -304,40 +304,74 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    because its argument is still good (it says whether a result is a knife-edge or holds
    along the whole calling-rate range) and, unlike an undrawn PANEL function, an unused data
    builder costs a reader nothing to skip. Delete it if that stops being persuasive.
-   **THREE CELLS carry no output** and are exactly the ones that must run -- the C/D table
-   (`withinbin_s8` / `gains_wb_s8`, whose matched rate moved from 1.002% to a flat 1% and
-   whose `metric` moved to `lr_pos`), the FPR-matched LR+ check, and the Supporting Fig. 8
-   build. **ONE FURTHER CELL HAS OUTPUT THAT IS NOW STALE IN ITS LABELS ONLY**: the
-   "Numbers for Supporting Figure 8's caption" cell, whose print strings were renamed on
-   2026-09-09 from an obsolete lettering (they said "panels D-F" and "panel B" for what are
-   now A/B and E). Its NUMBERS are unaffected; only the headings differ from what the code
-   would now print. Panels A and B's table (`tm_s8`) KEPT its committed output, because its
-   anchor did not move and only its comment changed; panel E's inputs never involved a
-   calling rate. No `refit.py` rerun is needed (no training population changed). In
-   `fig5.neutral.ai`, Supporting Fig. 8's placed PDF goes
-   from 13.5 x 5 to **20 x 5** -- a resize, not a relink -- and panel D of Fig. 5 is
-   7.6 in tall rather than 4.6, matching panel C. Until that rerun,
-   `fig5/output/supp_fig8.neutral.{pdf,png}` are the TWO-panel version and are the one
-   stale artefact in the repo; every other committed output is current.
-   **A LAYOUT FIX RIDES ALONG WITH THAT REBUILD, UNVERIFIED.** The 3-column gridspec used a
-   uniform `wspace=0.82`, tuned for the gap between columns 1 and 2 (which holds A/B's
-   right-hand LR+ label AND C/D's three-line left one); the gap between columns 2 and 3
-   holds only E's single left label and inherited the same ~3.5 in, leaving ~2 in of dead
-   space. It is now a 5-column gridspec with SPACER COLUMNS, `width_ratios=[1, 0.72, 1,
-   0.30, 1]` and `wspace=0`, which is the only way one GridSpec holds two different gaps.
-   Gap 1 keeps its old absolute width (3.58 in); the panels each gain ~0.67 in. NOT
-   RENDERED -- matplotlib is not installed on the offline path -- so LOOK AT IT: the wider
-   panels push `label_panels`' axes-coordinate offsets further out in absolute terms, and
-   C/D's `x = -0.34` may want -0.30.
-   **Numbers pending that rerun**: panel D's per-bin gains are `[8D-GAINS]` and
-   `[8D-N-SIGNIFICANT]` in `captions.txt` and the notebook, and its within-bin translation
-   `[8D-PREC-LO]` / `[8D-PREC-HI]`. DO NOT fill these from the old +33.3 / +4.0 / +4.2 /
-   +10.8 / +2.2 per cent: those were LIFT gains, and D now plots the ODDS ratio, which is a
-   different statistic and will be LARGER in every bin. Panel C's numbers were never
-   computed and stand as `[8C-PUB-LO]`, `[8C-PUB-HI]`, `[8C-PUB-FOLD]` and
-   `[8C-RETRAINED-RANGE]`. **A, B and E's numbers are final** and are already in the prose:
-   they come from `tm_s8`'s committed output, which prints LR+ per bin, so no rerun was
-   needed for them.
+   **WHAT THE RERUN SETTLED (2026-09-09, commit `3a77e4c`).** The three cells that had no
+   output all ran -- the C/D table (`withinbin_s8` / `gains_wb_s8`, whose matched rate moved
+   from 1.002% to a flat 1% and whose `metric` moved to `lr_pos`), the FPR-matched LR+
+   check, and the Supporting Fig. 8 build -- and `fig5/output/supp_fig8.neutral.{pdf,png}`
+   are now the FIVE-panel 20 x 5 in version. Every committed output was current as of that
+   commit. No `refit.py` rerun was needed and none is (no training population changed).
+   **SINCE THEN, Fig. 5F AND Supporting Fig. 8D were restyled (2026-09-10), so
+   `fig5/output/fig5{A,E,F}.neutral.{pdf,png}` AND `supp_fig8.neutral.{pdf,png}` are behind
+   `panels.py`** -- 5F's y axis reads "Gnocchi percentile in GC bin", its curve entries
+   "Gnocchi, published (cutoff = 4.00)" and its line entry lost its parenthetical; 5A and
+   5E's published series were renamed to match; 8D lost its legend and says
+   "decontaminated / published" in the ylabel; 8E's legend is two bare names and its y = 1
+   line took D's heavier style. NO NUMBER CHANGED in any of them, and the same HPC run that
+   fills the per-bin prints below regenerates all of them.
+   Geometry WAS checked offline -- matplotlib 3.11 IS in `.venv` even though the system
+   python lacks it, so a panel's frame can always be rendered here on a stand-in frame;
+   only its DATA needs the HPC path. 5F's label measures 300.5 px against 354.2 px of axes
+   (one line, no wrap) and its legend 425.7 px against 542.5 px after both cuts. 8D was
+   previewed on the REAL committed ratios (1.377, 1.063, 1.085, 1.330, 1.084 with their
+   intervals, from cell 28's output), so its shape is verified and not merely its geometry.
+   The layout fix rode along and IS NOW RENDERED: the 3-column gridspec with its uniform
+   `wspace=0.82` became a 5-column one with SPACER COLUMNS, `width_ratios=[1, 0.72, 1, 0.30,
+   1]` and `wspace=0`, which is the only way one GridSpec holds two different gaps -- gap 1
+   keeps its old absolute width (3.58 in) and the panels each gain ~0.67 in. It produced a
+   2000 x 500 px figure with 7 axes. If `label_panels`' offsets look wrong against the wider
+   panels, C/D's `x = -0.34` is the one to try at -0.30.
+   In `fig5.neutral.ai`, Supporting Fig. 8's placed PDF goes from 13.5 x 5 to **20 x 5** --
+   a resize, not a relink -- and panel D of Fig. 5 is 7.6 in tall rather than 4.6, matching
+   panel C. **THAT ILLUSTRATOR EDIT IS STILL TO DO**; it is the only part of the rebuild the
+   rerun could not perform.
+   **Panel D's numbers are computed and written into the prose**: the LR+ gains are
+   **+37.7% [+1.7, +93.8], +6.3% [+0.8, +12.3], +8.5% [+2.3, +15.9], +33.0% [+8.8, +66.4]
+   and +8.4% [-27.5, +58.6]** from the lowest GC bin to the highest, **four of five** clear
+   of 1.0. As predicted, every one EXCEEDS its old lift counterpart (+33.3 / +4.0 / +4.2 /
+   +10.8 / +2.2 per cent), which was a different statistic -- never quote those. The
+   within-bin PRECISION translation, which is the smaller number and the easiest thing to
+   confuse with the odds ratio, is **1.30x in the most AT-rich bin drawn falling to 1.02x in
+   the most GC-rich** (from the printed per-bin lifts 1.81 -> 2.36, 1.53 -> 1.59,
+   1.28 -> 1.34, 1.13 -> 1.25, 1.12 -> 1.15; the base rate cancels, so the lift ratio IS the
+   precision ratio). Note it FALLS across GC while the odds ratio does not, so the caption
+   sentence that once read "rising to" was corrected when it was filled. The FPR-matched
+   check agrees in shape and ordering (published LR+ 2.03 -> 1.33, retrained 2.74 -> 1.48,
+   against rate-matched 1.95 -> 1.44 and 2.69 -> 1.56). A, B and E's numbers were already
+   final before the rerun, from `tm_s8`'s committed output.
+   **WHAT THE RERUN DID NOT FILL**: panel C's four placeholders (`[8C-PUB-LO]`,
+   `[8C-PUB-HI]`, `[8C-PUB-FOLD]`, `[8C-RETRAINED-RANGE]`) and Fig. 5F's three (`[F-LO]`,
+   `[F-PCTL-LO]`, `[F-FLAT]`). Both groups are PER-BIN values that their cells COMPUTED but
+   did not PRINT -- C's live in `withinbin_s8`'s `threshold_used` column, F's in
+   `data.calling_rate_by_gc`'s returned frame, whose cell printed only the min/max across
+   bins (published 0.000% - 41.667%, retrained 0.000% - 0.693%, the zeros coming from bins
+   that call nothing, which is why that minimum is not `[F-LO]`).
+   **THE PRINTS ARE NOW WRITTEN (2026-09-10) AND ONE HPC RUN CLEARS ALL SEVEN.** Cell 18
+   (Fig. 5F) and cell 27 (Supporting Fig. 8's C/D table) each gained a per-bin block that
+   prints the placeholder names beside their values -- F's as a per-bin rate-and-percentile
+   table plus explicit `[F-LO]` / `[F-PCTL-LO]` / `[F-HI]` / `[F-PCTL-HI]` / `[F-FLAT]`
+   lines, C's as `threshold_used` per (bin, score) with each curve's ends and fold swing.
+   `[F-HI]` and `[F-PCTL-HI]` are printed too although already filled, which turns the
+   inference that took the printed MAXIMUM to be the most GC-rich bin's into a printed
+   fact -- check them against 41.667% and 58.333 when it runs. Nothing else changed:
+   `data.py` was deliberately NOT touched, so every other cell's committed output keeps its
+   format. Run `.venv/bin/python fig5/make_fig5_nb.py && .venv/bin/python -m nbconvert
+   --to notebook --execute --inplace fig5/fig5.ipynb` on the HPC path -- no refit, no
+   recomputation. Fill `captions.txt` AND `results.txt` from it, which carry the same seven.
+   Do NOT read them off the PDFs and do NOT back them out of the rounded fold-swing.
+   Until that run, **cells 18 and 27 are the only two whose committed OUTPUT is one print
+   block behind their SOURCE** -- the generator and the notebook were patched together so
+   the two agree, rather than regenerating and losing all 21 cells' outputs. Every number
+   already in those outputs is still real; the new lines are simply absent.
    One cosmetic note on the notebook diff, so it is not mistaken for damage: regenerating
    through `make_fig5_nb.py` drops the per-cell `"id"` fields and the `iopub` execution
    timings, because the generator hand-builds the notebook JSON and writes
@@ -387,15 +421,33 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         its own z attaining published's k. So THE LINE AND THE CURVES ARE
                         ONE QUANTITY OVER TWO POPULATIONS: the cutoff's percentile
                         genome-wide against its percentile within each GC bin. THE PANEL'S
-                        WORDING FOLLOWS THAT, changed 2026-09-05: the y axis is neutral
-                        between the two readings ("Cutoff's percentile in the Gnocchi score
-                        distribution" -- it cannot say "local" while carrying the line), the
-                        curve entries name the cutoff ("Gnocchi, as published (cutoff
-                        z = 4.00)") and the line entry names the population ("Genome-wide
-                        percentile common to both cutoffs (99.34th)"). Saying "within GC
-                        bin" on the curve entries too runs the legend to 629 px against
-                        542 px of axes, so the per-bin half is carried by contrast with the
-                        word GENOME-WIDE and stated outright in the caption. Measure before
+                        WORDING FOLLOWS THAT, changed 2026-09-05 and again 2026-09-10: the
+                        y axis now STATES THE CURVES' READING ("Gnocchi percentile in GC
+                        bin"), the curve entries name the cutoff bare ("Gnocchi, published
+                        (cutoff = 4.00)" and "Gnocchi, decontaminated (cutoff = 3.24)" --
+                        the "z" was dropped on the percentile axis, since a percentile is a
+                        property of a VALUE; the calling-rate branch, percentile_axis=False,
+                        keeps "z >= 4.00", which names a SET and is ungrammatical without
+                        it), and the line entry names the population and NOT its value
+                        ("Genome-wide percentile common to both cutoffs" -- the "(99.34th)"
+                        parenthetical went on 2026-09-10, the line's height being that value
+                        on a labelled axis). The series names shortened the same day, from
+                        "Gnocchi, as published" and "Gnocchi, decontaminated DNM training
+                        set". PANELS A AND E FOLLOWED on the same day, and so did Supporting
+                        Fig. 8E, so "Gnocchi, published" and "Gnocchi, decontaminated" are
+                        now the names EVERYWHERE a legend carries them; "as published"
+                        survives only in prose. The legend measures 426 px against 542 px of
+                        axes after both cuts, down from 509. NOTE WHAT THAT COSTS, since it was a deliberate trade:
+                        from 2026-09-05 to 2026-09-10 the axis read "Cutoff's percentile in
+                        the Gnocchi score distribution", NEUTRAL between the two readings
+                        because it cannot say "local" while carrying a genome-wide line. The
+                        new label says the curves' claim directly and therefore does NOT
+                        describe the dashed line, the one element whose percentile is
+                        genome-wide -- so THE LINE'S LEGEND ENTRY IS NOW LOAD-BEARING AND
+                        MUST NOT BE DROPPED, and the caption still states the split
+                        outright. Saying "within GC bin" on the curve entries too runs the
+                        legend to 629 px against 542 px of axes, so that half is carried by
+                        contrast with the word GENOME-WIDE. Measure before
                         adding words to that legend. It is the null
                         STRICTLY: bin rates average to k, and percentile = 100(1 - rate) is
                         affine, so a curve flat across GC can only be flat ON this line. It
@@ -525,12 +577,26 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         default is the ODDS ratio and larger. `[8D-PREC-LO]` and
                         `[8D-PREC-HI]` come from the first pair and `[8D-GAINS]` from the
                         second, so neither can be dropped before those are filled.
-                        D'S NUMBERS ARE NOT YET COMPUTED --
-                        the old +33.3, +4.0, +4.2, +10.8, +2.2 per cent were LIFT gains and
-                        are a DIFFERENT STATISTIC, not stale values of this one; expect every
-                        LR+ gain to EXCEED its lift counterpart, since the odds ratio
-                        amplifies wherever precision is high and this truth set reaches 0.73
-                        in the top bin. Carries the paired interval.
+                        NO LEGEND SINCE 2026-09-10, and the YLABEL IS NOW THE ONLY THING
+                        NAMING THE CURVE: "LR+ ratio (decontaminated / published)", where it
+                        read "retrained / published" before. One series, so a legend restated
+                        the ylabel in smaller type; its two entries are each better placed
+                        elsewhere -- direction in the label, the 95% paired interval in the
+                        bars and the caption, the null in a dashed line whose height is 1.0
+                        on a labelled axis. The y headroom above the highest bar went from
+                        +42% to +8% with it: that band existed ONLY to hold the legend (this
+                        panel has no empty corner by construction) and left the curve
+                        compressed into the lower half once the legend went. `legend_loc`
+                        left `panel_lr_ratio`'s signature at the same time, unused.
+                        D'S NUMBERS, computed 2026-09-09, are +37.7% [+1.7, +93.8],
+                        +6.3% [+0.8, +12.3], +8.5% [+2.3, +15.9], +33.0% [+8.8, +66.4] and
+                        +8.4% [-27.5, +58.6] from the lowest GC bin to the highest, four of
+                        five clear of 1.0. Every one EXCEEDS its old lift counterpart
+                        (+33.3, +4.0, +4.2, +10.8, +2.2 per cent), exactly as predicted,
+                        since the odds ratio amplifies wherever precision is high and this
+                        truth set reaches 0.73 in the top bin -- those old figures are a
+                        DIFFERENT STATISTIC and must never be quoted for these. Carries the
+                        paired interval.
                           E: auPRC / positive-class fraction vs GC, LAST because it is the
                         figure's CAVEAT and not its premise. Threshold-free and therefore
                         nearly blind to the bias, since a GC-dependent shift is a common
@@ -538,6 +604,20 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         that the auPRC decline with GC SURVIVES debiasing, so that decline is
                         signal-to-noise. Its numbers are unaffected by anything above -- no
                         calling rate enters auPRC.
+                          ITS LEGEND IS TWO NAMES, since 2026-09-10. The pooled values
+                        (1.321, 1.341) and the clause naming the bars a 95% paired CI used
+                        to travel in the labels -- two clauses per entry on a panel a third
+                        of the figure's width -- and are now the CAPTION'S, where the pooled
+                        numbers can be quoted; the cut took the legend from roughly the full
+                        axes width to 233 px against 542. ITS y = 1 REFERENCE ALSO MOVED to
+                        panel D's MATCHED_RATE_LINE_KW at zorder 1.5, from REF_LINE_KW: both
+                        panels draw a null every marker is judged against, and at 0.45 grey
+                        and 0.8 pt a dashed rule is barely heavier than the dotted gridlines
+                        it sits among and, at set_axisbelow's zorder 0.5, can be painted
+                        over by them. DELIBERATE DIVERGENCE from the rank = 0.5 and r = 1
+                        references in Fig. 5A, B and E, which keep REF_LINE_KW -- there the
+                        line is context for a curve read alone, here it is the frame a
+                        comparison is made in.
                           TWO OPERATING POINTS, AND CONFUSING THEM IS THE WAY TO MISREAD
                         THIS FIGURE. A and B are one fixed global cutoff; C and D match the
                         rate within each bin at a flat 1% (`data.LAX_CALL_RATE`, new). Since
@@ -555,9 +635,12 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         rescales the LIFT (= precision) ratio and not the odds ratio. The
                         caption's translation is therefore a PRECISION ratio and is SMALLER
                         than what D draws; quoting one for the other is the easiest error to
-                        make with this panel. Its five old numbers (1.81 -> 2.42, 1.53 ->
-                        1.59, 1.29 -> 1.34, 1.13 -> 1.25, 1.13 -> 1.15 per cent) were
-                        computed under lift and stand as `[8D-PREC-...]` placeholders now.
+                        make with this panel. That translation is now FILLED: the
+                        per-bin lifts are 1.81 -> 2.36, 1.53 -> 1.59, 1.28 -> 1.34,
+                        1.13 -> 1.25 and 1.12 -> 1.15, so the precision ratio FALLS across
+                        GC, 1.30x in the most AT-rich bin drawn to 1.02x in the most
+                        GC-rich, while the odds ratio D draws does not -- the caption's
+                        "rising to" was corrected to match when it was filled.
                         The letter C means the THRESHOLD panel, not that retired recall panel.
                           D DOES NOT USE Gnocchi >= 4, and the caption said it did until
                         2026-09-05. Each score is cut at its own 99th percentile WITHIN each
@@ -624,29 +707,37 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    STATISTICALLY INDISTINGUISHABLE. A null there confirms Supporting Fig. 8 rather than
    failing to find something.
 
-2. **`fig5/captions.txt` covers Fig. 5A-F and Supporting Fig. 8's (A)-(E), and ELEVEN
+2. **`fig5/captions.txt` covers Fig. 5A-F and Supporting Fig. 8's (A)-(E), and SEVEN
    PLACEHOLDERS REMAIN**, down from thirteen. SIX of Fig. 5F's nine were filled on
    2026-09-09 from the committed output of its own cell: `[F-THRESH]` = 3.237,
    `[F-HI]` = 41.667%, `[F-FOLD]` = 277x, `[F-MATCHED]` = 0.660%, hence
    `[F-MATCHED-PCTL]` = 99.340 and `[F-PCTL-HI]` = 58.333 (percentile = 100 x (1 - rate);
    filling `[F-HI]` takes the printed MAXIMUM calling rate to be the most GC-rich bin's,
    which the curve's monotonicity makes safe but which is an inference, not a printed fact).
-   THREE remain -- `[F-LO]`, `[F-PCTL-LO]` and `[F-FLAT]` -- all PER-BIN values that
-   `data.calling_rate_by_gc` computes but does not print (the printed minimum is 0.000%,
-   from bins that call nothing), so filling them means adding a per-bin print to that cell
-   or reading the returned frame; do not read them off the PDF, and do not back them out of
-   the rounded fold-swing.
-   Supporting Fig. 8's caption carries EIGHT, all awaiting the rerun: FOUR in (C) --
-   `[8C-PUB-LO]`, `[8C-PUB-HI]`, `[8C-PUB-FOLD]`, `[8C-RETRAINED-RANGE]` -- read from
-   `withinbin_s8`'s `threshold_used` column; and FOUR in (D) -- `[8D-GAINS]`,
-   `[8D-N-SIGNIFICANT]`, `[8D-PREC-LO]`, `[8D-PREC-HI]`. (A), (B) and (E)'s numbers are
-   FINAL and already written in: A and B's came from `tm_s8`'s committed output, which
-   prints LR+ per bin alongside recall, so the LR+ revision needed no rerun to caption them.
-   The paired intervals in (E) were computed under a different binning before the panel
-   took its current form, so re-read those from the run before quoting. **The manuscript text**: `fig5/captions.txt` (Fig. 5 and Supporting Fig. 7)
-   and `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment
-   drives its GC bias"), both paragraph-per-line for pasting, both on the narrowed run.
-   `METHODS.md` covers the rank statistic and points at them.
+   Supporting Fig. 8's FOUR (D) placeholders were filled the same day from the rerun --
+   `[8D-GAINS]`, `[8D-N-SIGNIFICANT]`, `[8D-PREC-LO]`, `[8D-PREC-HI]`, values under WHAT
+   THE RERUN SETTLED above -- and the "220 called windows per score" beside them was
+   corrected to 219, which is what the matched 1.000% rate actually calls in the most
+   AT-rich bin.
+   THE SEVEN THAT REMAIN ARE ALL PER-BIN VALUES THAT ARE COMPUTED BUT NOT PRINTED, which is
+   why the rerun did not settle them: `[F-LO]`, `[F-PCTL-LO]` and `[F-FLAT]` from
+   `data.calling_rate_by_gc`'s returned frame (its cell prints only the min/max, and the
+   printed minimum is 0.000%, from bins that call nothing), and `[8C-PUB-LO]`,
+   `[8C-PUB-HI]`, `[8C-PUB-FOLD]`, `[8C-RETRAINED-RANGE]` from `withinbin_s8`'s
+   `threshold_used` column. Filling them means adding a per-bin print to those two cells and
+   one more HPC run -- no refit. Do not read them off the PDFs and do not back them out of
+   the rounded fold-swing. (A), (B) and (E)'s numbers are FINAL: A and B's came from
+   `tm_s8`'s committed output, which prints LR+ per bin alongside recall, so the LR+
+   revision needed no rerun to caption them. The paired intervals in (E) were computed under
+   a different binning before the panel took its current form, so re-read those from the run
+   before quoting.
+   **The manuscript text is now THREE files**, all paragraph-per-line for pasting, all on
+   the narrowed run: `fig5/captions.txt` (Fig. 5 and Supporting Figs 7-8),
+   `fig5/methods.txt` (the Methods subsection "How Gnocchi's regional adjustment drives its
+   GC bias"), and `fig5/results.txt`, ADDED 2026-09-10 -- three paragraphs of Results prose
+   on Fig. 5F, Supporting Fig. 8A-D and 8E. `results.txt` already carries the filled 8D
+   numbers and shares the same seven outstanding placeholders as `captions.txt`, so fill
+   both together. `METHODS.md` covers the rank statistic and points at them.
 3. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E
    already is, on gnomAD counts the DNM model never sees).
 4. **`DEPLETION_RANK_BED` and `NEUTRAL_WINDOWS_BED` are both set** in `fig5/config.py` and

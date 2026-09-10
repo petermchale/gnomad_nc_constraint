@@ -41,11 +41,17 @@ windows clearing the cutoff, one number for both scores since the matching gives
 retrained score the quantile of its own `z` attaining published's `k`. So the line and the
 curves are one quantity over two populations: each cutoff's percentile **genome-wide**
 against its percentile **within each GC bin**. The panel is worded that way — a y axis
-neutral between the two readings (`Cutoff's percentile in the Gnocchi score distribution`),
-curve entries naming the cutoff, and the line's entry naming the population
-(`Genome-wide percentile common to both cutoffs`). Qualifying the curve entries as well
-overruns the axes width at this type size, so the per-bin half rests on the contrast with
-*genome-wide* and on the caption, which states it outright. It is
+stating the curves' reading (`Gnocchi percentile in GC bin`), curve entries naming the
+cutoff (`Gnocchi, published (cutoff = 4.00)`), and the line's entry naming the
+population (`Genome-wide percentile common to both cutoffs`) and no longer its value,
+since the line's height *is* that value on a labelled axis. The axis therefore does *not*
+describe the dashed line, whose percentile is genome-wide and not within any bin — that
+half rests on the word *genome-wide* in its entry and on the caption, which states it
+outright, so the line's legend entry is load-bearing and must not be dropped. (Until
+2026-09-10 the axis was neutral between the two readings, `Cutoff's percentile in the
+Gnocchi score distribution`; naming the curves' claim directly was preferred to that
+neutrality.) Qualifying the curve entries as well overruns the axes width at this type
+size. It is
 computed over every window including the bins the drawing floor removes — not a mean of the
 plotted points — and it is the null strictly rather than loosely, since bin rates average to
 `k` and percentile is affine in the rate, so a curve flat across GC can only be flat on this
@@ -118,6 +124,15 @@ to compare each curve against itself across GC — the cross-bin reading, which 
 job — when the only question here is whether retraining helps **in** a bin. One curve, one
 reference line at 1.0, and no way to misread it as a statement about GC.
 
+*No legend, since 2026-09-10.* One series, and the ylabel names it —
+`LR+ ratio (decontaminated / published)`. The two entries it used to carry are each
+better placed elsewhere: the ratio's direction is in that label, the 95% paired interval is
+the error bars themselves and is stated in the caption, and the null needs no entry because
+the dashed line's height is 1.0 on a labelled axis. The y-range headroom shrank with it
+— the old +42% band above the highest bar existed to hold the legend, this panel having no
+empty corner by construction, and left the curve compressed into the lower half once the
+legend went.
+
 *And it is the ODDS ratio.* Within a bin the base rate cancels from either measure, so the
 lift ratio is exactly the precision ratio — but a fold increase in *precision* is bounded by
 `1/precision_published`, a ceiling falling about 14× across these bins, so a +2% in the
@@ -161,6 +176,17 @@ makes the cutoff portable and improves ranking where the score is used, and E sa
 improvement is *not*: a wash over the whole recall axis, with one bin slightly worse. It is
 also the only panel here with no operating point, so its decline cannot be an artefact of
 where a cutoff sits.
+
+*Its legend carries the two names and nothing else, since 2026-09-10.* The pooled values
+(1.321 and 1.341) and the clause identifying the bars as a 95% paired CI travelled in the
+labels until then — two clauses per entry on a panel a third of the figure's width — and
+both now live in the caption, where the pooled numbers can be quoted. Cutting them took the
+legend from ~540 px, the full axes width, to 233 px. Its `y = 1` reference also moved from
+`REF_LINE_KW` to panel D's `MATCHED_RATE_LINE_KW` at zorder 1.5: the two panels each draw a
+null that every marker is judged against, and at 0.45 grey and 0.8 pt a dashed rule is
+barely heavier than the dotted gridlines it sits among and can be painted over by them. This
+is a deliberate divergence from the `rank = 0.5` and `r = 1` references in Fig. 5A, B and E,
+which keep the lighter style — there the line is context for a curve read on its own.
 
 **D and E carry the retrained curve's paired bootstrap interval** relative to published.
 Those bars are on one curve deliberately — independent intervals would describe the
