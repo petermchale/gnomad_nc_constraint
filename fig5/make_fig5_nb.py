@@ -380,7 +380,7 @@ else:
     print("DEPLETION_RANK_BED is not set -- panel A gets two curves instead of three.")
 
 curves_a = [
-    panels.curve_from_binned(binned_a, "step1", "step1", "Gnocchi, context-only"),
+    panels.curve_from_binned(binned_a, "step1", "step1", "Gnocchi, ablated"),
     panels.curve_from_binned(binned_a, "step2", "step2", "Gnocchi, published"),
 ]
 if binned_dr is not None:
@@ -865,9 +865,9 @@ df_e, binned_e = D.rank_curves(df_win, extra=extra, min_n=MIN_N_WINDOWS)
 # score -- the order the argument is made in, and the same first-two order as panel A.
 curves_e = [
     panels.curve_from_binned(binned_e, "step2", "step2", "Gnocchi, published"),
-    panels.curve_from_binned(binned_e, "step1", "step1", "Gnocchi, context-only"),
+    panels.curve_from_binned(binned_e, "step1", "step1", "Gnocchi, ablated"),
     panels.curve_from_binned(binned_e, "scored", "scored",
-                             "Gnocchi, decontaminated DNM training set"),
+                             "Gnocchi, decontaminated"),
 ]
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
