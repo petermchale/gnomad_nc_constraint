@@ -1363,13 +1363,18 @@ everywhere, B at a near-constant top 1%, A at a depth that itself varies 82-fold
 ### The pooled numbers fall, and that is not evidence against the correction
 
 At the same 10,051-call budget, published finds 5,485 positives and the retrained score 4,396
-(precision $0.546 \to 0.437$). But GC content ALONE, carrying no constraint information
-whatsoever, scores lift 2.15 and beats both. That measures how much of the lax set's apparent
-signal is a GC-content contest: its positives are GC-rich (base rate 8.3% in the lowest bin
-against 63.9% in the highest), so any GC-biased score wins pooled, *by being biased*. Pooled
-performance here is therefore uninterpretable as a verdict on either score — which is why
-every panel is computed WITHIN a GC bin, and why the control worth building is a GC-matched
-negative set rather than a second truth set.
+(precision $0.546 \to 0.437$). That cost is real, and it is not evidence against the
+correction, because the quantity it is measured in is the one the correction removes. This
+truth set's positives are GC-rich — the base rate climbs from 8.3% in the lowest GC bin to
+63.9% in the highest — and published Gnocchi is precisely the score that calls GC-rich
+sequence constrained. Its pooled advantage is therefore its GC bias working as an enhancer
+detector, so judging the debiasing by this table is circular: a GC-biased score wins here *by
+being biased*. Which is why every panel is computed WITHIN a GC bin.
+
+The same skew cuts the other way once conditioned, and that is the form worth stating.
+Positives stay enriched at the high-GC end of *every* bin, so even within a bin the truth set
+hands published a tailwind — and the retrained score wins in all five bins anyway. Supporting
+Fig. 8D is conservative, not flattered.
 
 **What Fig. 5F and this figure establish together:**
 
@@ -1424,9 +1429,9 @@ tm_s8 = D.threshold_metrics(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax",
 """)
 
 code(r"""
-# The genome-wide table, with GC content alone as a baseline. Not a panel -- four numbers
-# that settle what the UNCONDITIONAL precision-recall of this truth set is measuring. It
-# prints as it computes.
+# The genome-wide table. Not a panel -- three numbers that settle what the UNCONDITIONAL
+# precision-recall of this truth set is measuring, and why published wins it. It prints as
+# it computes.
 budget_s8 = D.budget_comparison(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax") \
     if NEUTRAL_WINDOWS_BED else None
 """)
@@ -1440,7 +1445,7 @@ code(r"""
 # B's operating point: B is one fixed global cutoff and the per-bin freedom it leaves IS
 # the bias. See data.LAX_CALL_RATE and data._bin_thresholds. Prints as it computes; seconds.
 withinbin_s8 = D.threshold_metrics(truth_set="lax", call_rate=D.LAX_CALL_RATE,
-                                   include_gc_baseline=False, match_within_bin=True) \
+                                   match_within_bin=True) \
     if NEUTRAL_WINDOWS_BED else None
 gains_wb_s8 = D.paired_deltas(truth_set="lax", call_rate=D.LAX_CALL_RATE,
                             n_bootstrap=500, seed=0, match_within_bin=True,

@@ -324,6 +324,13 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    (one line, no wrap) and its legend 425.7 px against 542.5 px after both cuts. 8D was
    previewed on the REAL committed ratios (1.377, 1.063, 1.085, 1.330, 1.084 with their
    intervals, from cell 28's output), so its shape is verified and not merely its geometry.
+   **TWO CELLS' COMMITTED OUTPUTS ALSO SHOW ROWS THE CODE NO LONGER PRODUCES**, since the
+   GC-only arm was removed on 2026-09-10 without a rerun: panels A and B's `tm_s8` table
+   still prints a `GC only` row per bin, and the `budget_s8` cell still prints
+   "GC content alone ... lift 2.15". Those rows are HISTORY, not current output -- nothing
+   cites them, and the same run clears them. No other number in either cell moves: removing
+   an arm changes which rows exist, never the published or decontaminated rows beside them,
+   because each score's threshold is set from its OWN quantile.
    The layout fix rode along and IS NOW RENDERED: the 3-column gridspec with its uniform
    `wspace=0.82` became a 5-column one with SPACER COLUMNS, `width_ratios=[1, 0.72, 1, 0.30,
    1]` and `wspace=0`, which is the only way one GridSpec holds two different gaps -- gap 1
@@ -683,23 +690,40 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
        the bootstrap sd on 4,933 windows is several times that, so a null would be
        uninformative. McHale et al.'s Fig. 4C effect is large because it compares TRUTH
        SETS, not scores.
-     * IT DOES NOT ADDRESS THE OBJECTION WE ACTUALLY HAVE, which is that GC content ALONE
-       beats published Gnocchi on the lax set (lift 2.15 against 1.77). Stringent positives
-       are essential-gene enhancers, GC-rich, against non-enhancer negatives, AT-poor -- so
-       plausibly MORE GC-separated, not less.
+     * IT WOULD NOT ESCAPE THE TRUTH SET'S GC SKEW, which is the objection the lax set
+       actually raises. Stringent positives are essential-gene enhancers, GC-rich, against
+       non-enhancer negatives, AT-poor -- so plausibly MORE GC-separated, not less.
      * IT IS NOT CHEAP: a third hand-supplied file, an interval-overlap join onto Chen's
        1 kb grid with a spanning rule, and new builders for a bootstrap statistic that is
        not `pr_curves`.
 
-   WHAT TO DO INSTEAD, and it is the same order of work: a GC-MATCHED CONTROL. Sample
-   negatives from the lax set to match the positives' GC distribution; then GC-only lift is
-   1 by construction and any score's lift above 1 is discrimination that cannot be GC in
-   disguise. Buildable from data already in hand -- no new file, no interval join -- and it
-   answers the objection the stringent set would have left standing.
+   A GC-MATCHED NEGATIVE SET WAS RECOMMENDED HERE UNTIL 2026-09-10 AND IS NOW REJECTED.
+   DO NOT BUILD IT. The idea was to resample negatives to match the positives' GC
+   distribution, making a GC-only classifier's lift 1 by construction, so that any score
+   above 1 was discriminating on something other than GC. Two objections killed it, both
+   Peter's:
+     * IT REPEATS THE DEFECT THIS FIGURE REJECTS DOWNSAMPLING FOR. Supporting Fig. 8's
+       caption declines to equalise prevalence between bins because "a balanced precision is
+       a number no one will ever encounter"; a GC-matched population is the same move --
+       discovery metrics computed on a genome that does not exist.
+     * THE GC-ONLY CLASSIFIER IS NOT A COMPARATOR WE WANT. The claim is published against
+       decontaminated. That comparison is PAIRED and computed WITHIN a GC bin, so whatever
+       makes GeneHancer easy is a property of the truth set both scores face alike, and a
+       score carrying no constraint information adjudicates nothing between two constraint
+       scores.
+   THE WHOLE GC-ONLY ARM WENT WITH THE RECOMMENDATION on 2026-09-10 -- `GC_BASELINE`,
+   `include_gc_baseline` and the third row of `budget_comparison`, plus every mention in
+   captions, results, README and the notebook's markdown. `data.py`'s `_score_column` keeps
+   a note saying why. If it is ever wanted back it is at `5ac14fa`.
 
-   AND SAY THE LIMITATION RATHER THAN OMITTING IT. A reviewer of McHale et al. will notice
-   the secondary analyses rest on the set their own paper calls lax. The strong form is a
-   caption sentence carrying the power argument above, not silence.
+   WHAT REPLACES IT IS AN ARGUMENT, NOT A CONTROL, and it is stronger: the truth set's GC
+   skew hands PUBLISHED a tailwind, since published is the GC-biased score and GeneHancer
+   positives are GC-rich -- between bins, and still within them, where positives stay
+   enriched at the high-GC end. Decontaminated wins in all five bins ANYWAY, so Supporting
+   Fig. 8D is CONSERVATIVE. Say that rather than omitting it; a reviewer of McHale et al.
+   will notice the secondary analyses rest on the set their own paper calls lax, and the
+   strong form is a caption sentence carrying this plus the power argument above, not
+   silence.
 
    ONE PREDICTION WORTH RECORDING, since it would be the cheap test if anyone does build
    the stringent set: their Fig. 4D measures the GC dependence of ranking performance,

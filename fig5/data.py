@@ -1342,23 +1342,25 @@ GNOCCHI_THRESHOLD = 4.0
 # 0.002 pp, about one window in five hundred.
 LAX_CALL_RATE = 0.01
 
-# GC content ALONE, ranked as if it were a constraint score, is the baseline that decides
-# how much of the lax truth set's global precision-recall is a GC-content contest rather
-# than a constraint measurement. It is not a curve in any panel -- three curves everywhere
-# would clutter A-F for a quantity that is a control, not a claim -- and the panel loops
-# name their two scores explicitly, so rows with this key are carried past them.
-GC_BASELINE = "gc_only"
-
-# The column each score is ranked by. GC_content is a 0-1 fraction; the z columns are
-# whatever _lax_labelled_windows built.
+# The column each score is ranked by, as _lax_labelled_windows built it.
+#
+# A THIRD ARM RANKING WINDOWS BY GC CONTENT ALONE lived here until 2026-09-10, with an
+# include_gc_baseline switch threading it through _threshold_setup, threshold_metrics and
+# budget_comparison. It measured how much of this truth set's precision-recall is a
+# GC-content contest (2.15 pooled, against published Gnocchi's 1.77) -- a true fact about
+# GeneHancer, and the wrong comparison to carry: the manuscript's claim is published
+# against decontaminated, that comparison is paired and computed within a GC bin, and a
+# score with no constraint information in it adjudicates nothing between two constraint
+# scores. What the truth set's GC skew actually does to the comparison is give PUBLISHED a
+# tailwind, since published is the GC-biased one -- so Supporting Fig. 8D is conservative,
+# which is a sentence in the caption and needs no third classifier to support it.
 def _score_column(key: str) -> str:
-    return "GC_content" if key == GC_BASELINE else f"z_{key}"
+    return f"z_{key}"
 
 
 def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str | None,
                      refit_expected: str | None, gc_bins: list, min_n: int,
                      match_call_rate: bool, reference_score: str,
-                     include_gc_baseline: bool = False,
                      call_rate: float | None = None):
     """
     The labelled table, the drawn bins, and each score's threshold -- shared by
@@ -1384,7 +1386,7 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
             drawn.append(b)
     df = df.filter(pl.col("gc_bin").is_in(drawn))
 
-    keys = list(PR_SCORES) + ([GC_BASELINE] if include_gc_baseline else [])
+    keys = list(PR_SCORES)
     # `call_rate` sets the REFERENCE score's threshold by quantile instead of taking the
     # absolute z. Loosening the cutoff is the cheapest way to buy precision in every
     # threshold statistic here -- the intervals close as sqrt(calls) while lift itself is
@@ -1399,21 +1401,18 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
               f"z >= {threshold:.3f}")
     thresholds = {k: threshold for k in keys}
     target = float("nan")
-    if match_call_rate or include_gc_baseline:
+    if match_call_rate:
         ref = df[f"z_{reference_score}"].to_numpy()
         target = float((ref >= threshold).mean())
         for key in keys:
             if key == reference_score:
-                continue
-            if key in PR_SCORES and not match_call_rate:
                 continue
             thresholds[key] = float(
                 np.quantile(df[_score_column(key)].to_numpy(), 1.0 - target))
         print(f"  matched calling rate: {100 * target:.3f}% of the {df.height:,} windows "
               f"drawn, set by {reference_score} at z >= {threshold:g}")
         for key, t in thresholds.items():
-            name = PR_SCORES[key][2] if key in PR_SCORES else "GC content"
-            print(f"    {name:<15} {'GC' if key == GC_BASELINE else 'z'} >= {t:.3f}")
+            print(f"    {PR_SCORES[key][2]:<15} z >= {t:.3f}")
     return df, drawn, thresholds, target
 
 
@@ -1473,7 +1472,6 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       min_n: int = DELTA_MIN_BIN_WINDOWS,
                       match_call_rate: bool = True,
                       reference_score: str = "published",
-                      include_gc_baseline: bool = True,
                       match_within_bin: bool = False,
                       call_rate: float | None = None) -> pl.DataFrame:
     """
@@ -1551,7 +1549,7 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
 
     df, drawn, thresholds, target = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
-        match_call_rate, reference_score, include_gc_baseline, call_rate=call_rate)
+        match_call_rate, reference_score, call_rate=call_rate)
 
     if match_within_bin:
         print(f"  MATCHING WITHIN EACH BIN at {100 * target:.3f}%: every score calls that "
@@ -1567,22 +1565,8 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
         y = sub[TRUTH_TARGET].to_numpy()
         n_pos = int(y.sum())
         for key in thresholds:
-            display, short = (PR_SCORES[key][1], PR_SCORES[key][2]) if key in PR_SCORES \
-                else ("GC content alone", "GC only")
-            if key == GC_BASELINE:
-                # WITHIN the bin, not against a global GC cutoff. A global one is
-                # degenerate here -- it would put every call in the top bin and none
-                # anywhere else, which is the right comparison genome-wide
-                # (budget_comparison) and no comparison at all per bin. Ranked within the
-                # bin at the same calling rate, it answers the question this row is for:
-                # how much of a bin's lift is residual WITHIN-bin GC content? Positives
-                # stay enriched at the high-GC end of every bin (1.4-2.3x), so this is not
-                # zero, and it is the yardstick published Gnocchi's within-bin lift has to
-                # beat to be measuring constraint rather than GC.
-                gc = sub["GC_content"].to_numpy()
-                called = gc >= float(np.quantile(gc, 1.0 - target))
-            else:
-                called = sub[_score_column(key)].to_numpy() >= thresholds[key]
+            display, short = PR_SCORES[key][1], PR_SCORES[key][2]
+            called = sub[_score_column(key)].to_numpy() >= thresholds[key]
             n_called = int(called.sum())
             tp = int((called & y).sum())
             prec_lo, prec_hi = _wilson(tp, n_called)
@@ -1843,7 +1827,7 @@ def fpr_matched_lr(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
     df, drawn, thresholds, target = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
-        True, reference_score, False, call_rate=call_rate)
+        True, reference_score, call_rate=call_rate)
 
     print(f"  FPR-MATCHED CHECK: each score cut at the quantile of its bin's NEGATIVES "
           f"that accepts {100 * target:.3f}% of them, beside the calling-rate-matched")
@@ -1906,41 +1890,44 @@ def budget_comparison(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       min_n: int = DELTA_MIN_BIN_WINDOWS,
                       reference_score: str = "published") -> pl.DataFrame:
     """
-    The GENOME-WIDE comparison at a fixed calling budget, with GC content alone as a
-    baseline. Not a panel -- a table of four numbers that settles what the unconditional
-    precision-recall of this truth set is actually measuring.
+    The GENOME-WIDE comparison at a fixed calling budget. Not a panel -- a table of three
+    numbers that settles what the UNCONDITIONAL precision-recall of this truth set is
+    actually measuring, and in particular why published Gnocchi wins it.
 
     AT A FIXED BUDGET, PRECISION AND RECALL ARE THE SAME QUESTION. The number of calls is
     fixed by construction and the number of positives is a property of the truth set, so
     precision = TP/N_called and recall = TP/P are both monotone in TP. There is one
-    quantity to reason about, and the four arms below differ only in how they spend the
-    budget.
+    quantity to reason about, and the arms below differ only in how they spend the budget.
 
-    WHY GC ALONE IS THE ARM THAT MATTERS. At a fixed budget TP is maximised by ranking on
-    P(Y=1 | window), so adding any function of a covariate raises TP if and only if that
-    covariate carries information about the label beyond what the score already has. In
-    this truth set the base rate climbs about 7.7x with GC, so GC certainly does -- which
-    means published Gnocchi's GC bias is partly acting as a GC detector, and REMOVING it
-    must cost unconditional TP. That is not a defect of the correction. The way to show it
-    is not a defect is to rank on GC alone and see how far that gets: on the offline
-    stand-in GC alone reaches lift 1.84 against published Gnocchi's 1.77, i.e. it WINS. A
-    global precision-recall comparison on an enhancer-overlap truth set is therefore
-    substantially a GC-content contest, and cannot be the criterion by which a bias
-    correction is judged.
+    PUBLISHED WINS THIS TABLE, AND THAT IS THE BIAS BEING REWARDED. At a fixed budget TP is
+    maximised by ranking on P(Y=1 | window), so any covariate correlated with the label
+    raises TP. In this truth set the base rate climbs about 7.7x with GC -- GeneHancer
+    enhancers are GC-rich -- and published Gnocchi is precisely the score that calls GC-rich
+    sequence constrained. Its unconditional advantage is therefore its GC bias acting as an
+    enhancer detector, and REMOVING that bias must cost unconditional TP. The cost is real
+    and is reported (5,485 positives against 4,396 at a common budget); what it is not is
+    evidence against the correction, because the quantity it wins on is the one the
+    correction was built to remove. Judging a debiasing by a statistic the bias inflates is
+    circular.
+
+    THE SAME SKEW MAKES THE WITHIN-BIN COMPARISON CONSERVATIVE, which is the form of this
+    argument that belongs in a caption: positives stay enriched at the high-GC end of every
+    bin, so the truth set hands published a tailwind even after conditioning -- and the
+    decontaminated score wins in every bin anyway.
 
     Read this table beside Fig. 5F, never instead of it: what the correction buys is
     conditional (within a GC stratum, and threshold portability across strata), and a
     genome-wide average marginalises over exactly the variable being fixed.
 
-    Returns one row per arm (published / scored / gc_only / random): n_called, tp,
-    precision, recall, lift. `random` is the analytic expectation, budget x base rate.
+    Returns one row per arm (published / scored / random): n_called, tp, precision, recall,
+    lift. `random` is the analytic expectation, budget x base rate.
     """
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
     df, drawn, thresholds, _ = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
-        match_call_rate=True, reference_score=reference_score, include_gc_baseline=True)
+        match_call_rate=True, reference_score=reference_score)
 
     y = df[TRUTH_TARGET].to_numpy()
     n, n_pos = df.height, int(y.sum())
@@ -1959,8 +1946,7 @@ def budget_comparison(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
             n_called, tp = int(called.sum()), float(y[called].sum())
         rows.append({
             "score": key,
-            "display": (PR_SCORES[key][1] if key in PR_SCORES else
-                        "GC content alone" if key == GC_BASELINE else "random"),
+            "display": PR_SCORES[key][1] if key in PR_SCORES else "random",
             "n_called": n_called, "tp": tp,
             "precision": tp / n_called if n_called else float("nan"),
             "recall": tp / n_pos if n_pos else float("nan"),

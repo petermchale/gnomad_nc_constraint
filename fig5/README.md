@@ -232,18 +232,29 @@ it up as pending work. `data.pr_curves` still takes `truth_set` and still accept
 decision is ever revisited. Four reasons, in order of weight: the central result, Fig. 5F,
 uses **no truth set at all**, so swapping truth sets cannot move it; 4,933 windows against
 1,003,037 is underpowered for a published-vs-retrained gap that is +1.5% pooled on the lax
-set; it does not address the objection we actually have, which is that **GC content alone
-beats published Gnocchi** on the lax set (lift 2.15 against 1.77), and stringent positives
-are GC-rich essential-gene enhancers against AT-poor non-enhancer negatives, so plausibly
-*more* GC-separated; and it is not cheap — a third hand-supplied file, an interval-overlap
-join onto Chen's 1 kb grid, and new bootstrap builders that are not `pr_curves`.
+set; it would not escape the truth set's GC skew either, stringent positives being GC-rich
+essential-gene enhancers against AT-poor non-enhancer negatives, so plausibly *more*
+GC-separated; and it is not cheap — a third hand-supplied file, an interval-overlap join
+onto Chen's 1 kb grid, and new bootstrap builders that are not `pr_curves`.
 
-**What to do instead, at the same cost: a GC-matched control.** Sample negatives from the
-lax set to match the positives' GC distribution; GC-only lift is then 1 by construction and
-any score's lift above 1 is discrimination that cannot be GC in disguise. Buildable from
-data already in hand. And **say the limitation rather than omitting it** — a reviewer will
-notice the secondary analyses rest on the set McHale et al. themselves call lax; the strong
-form is a caption sentence carrying the power argument above, not silence.
+**A GC-matched negative set was recommended here until 2026-09-10 and is now rejected — do
+not build it.** The idea was to resample negatives to match the positives' GC distribution,
+pinning a GC-only classifier's lift at 1 so that any score above 1 was discriminating on
+something other than GC. It fails twice over: it repeats the very defect this figure cites
+when it declines to equalise prevalence between bins — discovery metrics computed on a
+genome that does not exist — and the GC-only classifier is not a comparator we want, since
+the claim is published against decontaminated, that comparison is paired and within-bin, and
+a score carrying no constraint information adjudicates nothing between two constraint
+scores. The whole GC-only arm was removed the same day; `data.py`'s `_score_column` keeps a
+note saying why, and the code is at `5ac14fa` if it is ever wanted back.
+
+**What replaces it is an argument, and a stronger one.** The truth set's GC skew hands
+*published* a tailwind — published is the GC-biased score and GeneHancer positives are
+GC-rich, between bins and still within them, where positives stay enriched at the high-GC
+end. The decontaminated score wins in all five bins anyway, so 8D is **conservative**. And
+**say the limitation rather than omitting it** — a reviewer will notice the secondary
+analyses rest on the set McHale et al. themselves call lax; the strong form is a caption
+sentence carrying this and the power argument above, not silence.
 
 Run the notebook top to bottom.
 
