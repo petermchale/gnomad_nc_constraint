@@ -1170,14 +1170,16 @@ threshold, label it constrained if it overlaps a GeneHancer enhancer, and read p
 |---|---|---|---|
 | **A** | *Published:* where do its calls **go**, and is a call worth more there? | recall and $\mathrm{LR}^{+}$ per bin | one global cutoff |
 | **B** | *Retrained:* the same two questions, same axes | recall and $\mathrm{LR}^{+}$ per bin | one global cutoff |
-| **C** | What cutoff would each score need to be applied *evenly*? | per-bin threshold calling 1% of that bin | — |
-| **D** | Does debiasing change ranking *where the score is used*? | $\mathrm{LR}^{+}$ ratio per bin | rate matched **within** each bin |
-| **E** | Does it change ranking *at all*? | auPRC / positive-class fraction | none |
+| **C** | Does it change ranking *at all*? | auPRC / positive-class fraction | none |
+| **D** | What cutoff would each score need to be applied *evenly*? | per-bin threshold calling the top 1% of that bin | — |
+| **E** | Does debiasing help at the **top** of the ranking? | $\mathrm{LR}^{+}$ ratio per bin | rate matched **within** each bin |
+| **F** | The same cutoff question at the **bottom** 1% | per-bin threshold calling the bottom 1% | — |
+| **G** | Does it help at the **bottom** of the ranking? | $\mathrm{LR}^{+}$ ratio per bin, mirrored | rate matched **within** each bin |
 
 **A and B are one panel per score, and the comparison is inside each** — two metrics on one
 score, recall on a log left axis and $\mathrm{LR}^{+}$ on a linear right axis, asking whether
-that score sends its calls where a call is worth anything. Both share both y ranges. **D** is
-where the two scores meet.
+that score sends its calls where a call is worth anything. Both share both y ranges. **E** and
+**G** are where the two scores meet.
 
 **$\mathrm{LR}^{+}$ and not lift, everywhere the reading is across bins.** Lift is
 $\text{precision}/r$ and $r$ climbs $7.7\times$ here, so lift carries a ceiling of $1/r$
@@ -1192,20 +1194,26 @@ translation a caption quotes.
 global cutoff per score — published at $z \ge 4$, retrained at $z \ge 3.140$, the value
 calling the same 1.00% of the population — and let each *bin*'s share fall where it may.
 **That freedom is the bias**; imposing a per-bin rate there would delete what A and B
-measure. C and D impose it — the top **1%** of every bin, `data.LAX_CALL_RATE` — which is
-what isolates ranking from threshold placement, C drawing the thresholds that construction
-requires and D the gain measured at them. So $z = 4$ appears twice: as A's actual cutoff, and
-as C's horizontal reference, the genome-wide number whose inadequacy C measures. It sets D's
-anchor only by rounding (published calls 1.002% at $z = 4.000$). Fig. 5F keeps it unmatched
+measure. D–G impose it — **1%** of every bin, `data.LAX_CALL_RATE`, at the top for D and E and
+at the bottom for F and G — which is what isolates ranking from threshold placement, D and F
+drawing the thresholds that construction requires and E and G the gain measured at them. So
+$z = 4$ appears only once here, as A's actual cutoff; it sets E's anchor by rounding alone
+(published calls 1.002% at $z = 4.000$), and the horizontal reference it once drew in D was
+removed on 2026-09-08, a rule crossing one row of a stacked pair reading as a gridline
+belonging to both. Fig. 5F keeps it unmatched
 and label-free, which is the third role.
 
-**Error bars differ accordingly.** D and E carry a 95% paired-bootstrap interval on the
+**Error bars differ accordingly.** C, E and G carry a 95% paired-bootstrap interval on the
 retrained curve relative to published — bars on one curve, not two, because independent
 intervals would describe the uncertainty of each *level* when the question is the *gap*, and
-would be wider, the two scores being columns of one table. A and B carry each level's own
-Wilson interval instead: their scores sit at different operating points by construction, so a
-gap *between* the panels is the confound D removes, and their claim is each curve's shape. C
-has no bars — a quantile of a million windows has no error worth drawing.
+would be wider, the two scores being columns of one table. **What makes it paired** is that
+each replicate draws ONE index vector for the bin and scores *both* models on it, so the
+variability in which windows a bin happens to contain cancels in the difference; the
+thresholds are held fixed across replicates, being quantiles of ~$10^6$ windows. A and B carry
+each level's own Wilson interval instead: their scores sit at different operating points by
+construction, so a gap *between* the panels is the confound E removes, and their claim is each
+curve's shape. D and F have no bars — a quantile of a million windows has no error worth
+drawing.
 
 ***Lax* is McHale et al.'s word, and it anticipates its opposite.** GeneHancer covers 18.4%
 of the noncoding genome while perhaps 4.51% is under human-specific selection, so the lax set
@@ -1216,12 +1224,11 @@ argument). The population is this notebook's own with one filter dropped —
 Note the asymmetry: the `scored` refit is **fit** on the neutral windows alone and
 **evaluated** here on both halves.
 
-> **C AND D'S NUMBERS ARE PENDING THE RERUN.** D moved from lift to the $\mathrm{LR}^{+}$
-> odds ratio on 2026-09-08, so its gains are a *different statistic* from the ones previously
-> quoted, not a refresh of them — expect each to **exceed** its lift counterpart, since the
-> odds ratio amplifies wherever precision is high and this truth set reaches 0.73 in the top
-> bin. C's were never computed. **A, B and E are exempt**; every figure quoted for them is
-> from the committed run.
+> **EVERY NUMBER BELOW IS FROM THE COMMITTED RUN.** E moved from lift to the
+> $\mathrm{LR}^{+}$ odds ratio on 2026-09-08, so its gains are a *different statistic* from
+> any quoted before that date, not a refresh of them — the old lift figures (+33.3, +4.0,
+> +4.2, +10.8, +2.2 per cent) must never be carried over. F and G were added and run on
+> 2026-09-10.
 
 ### A and B: the same budget of calls, sent somewhere else
 
@@ -1238,9 +1245,9 @@ worth least**. The retrained score's recall is flat instead, on the same fixed b
 | (0.50, 0.55] | 4.01% | 1.44 | 1,832 | 1.07% | 1.80 | 451 |
 | (0.55, 0.80] | 15.07% | 1.25 | 2,618 | 0.93% | 1.50 | 154 |
 
-B's $\mathrm{LR}^{+}$ still declines, $3.11 \to 1.50$, and **that residual is E's
+B's $\mathrm{LR}^{+}$ still declines, $3.11 \to 1.50$, and **that residual is C's
 signal-to-noise, not a remnant of the bias** — a reader who takes B as "still not fixed" has
-read E's quantity off B's axes.
+read C's quantity off B's axes.
 
 **Recall is redistributed across GC, not lost**, and the per-bin figures must never be quoted
 one bin at a time. The budget being fixed, debiasing spends elsewhere rather than less:
@@ -1250,7 +1257,7 @@ published puts **2,618** calls where its $\mathrm{LR}^{+}$ is **1.25** and **38*
 
 *Do not turn the two panels into one comparison.* Retrained $\mathrm{LR}^{+}$ is higher in
 four bins of five and marginally lower in the second (1.91 against 1.94) — but the scores are
-at different operating points in every bin, which is the confound D removes. And in absolute
+at different operating points in every bin, which is the confound E removes. And in absolute
 positives found the reallocation costs, 5,485 against 4,396, because the base rate itself
 climbs $7.7\times$; whether that is a real loss is not a question a GC-confounded truth set
 can answer.
@@ -1378,7 +1385,7 @@ being biased*. Which is why every panel is computed WITHIN a GC bin.
 The same skew cuts the other way once conditioned, and that is the form worth stating.
 Positives stay enriched at the high-GC end of *every* bin, so even within a bin the truth set
 hands published a tailwind — and the retrained score wins in all five bins anyway. Supporting
-Fig. 8D is conservative, not flattered.
+Fig. 8E is conservative, not flattered.
 
 **What Fig. 5F and this figure establish together:**
 
@@ -1387,8 +1394,9 @@ Fig. 8D is conservative, not flattered.
 > is worth — that is signal-to-noise, and it is a property of the data.
 
 **A and B** add that the calls taken out of GC-rich sequence go back where a call is worth
-roughly twice as much, at a fixed budget; **D**, that it also raises what a hit is worth in
-every stratum, without flattening that value's GC dependence.
+roughly twice as much, at a fixed budget; **E**, that it also raises what a hit is worth at the
+top of the ranking, without flattening that value's GC dependence — and **G**, that it costs
+exactly that at the bottom.
 """)
 
 code(r"""
@@ -1405,11 +1413,11 @@ if curves_s8 is None:
 """)
 
 code(r"""
-# PANEL E's ERROR BARS: the paired bootstrap. Its own cell because it is the one slow step
+# PANEL C's ERROR BARS: the paired bootstrap. Its own cell because it is the one slow step
 # in this figure -- ~500 resamples x one precision-recall pass per drawn bin, twice -- and
-# because re-running it should not mean rebuilding the other four panels. A couple of
+# because re-running it should not mean rebuilding the other six panels. A couple of
 # minutes.
-# ON PANEL E's OWN BINS AND BALANCING, because its output is drawn as E's error bars and
+# ON PANEL C's OWN BINS AND BALANCING, because its output is drawn as C's error bars and
 # an interval computed on a different population would belong to a different statistic
 # than the markers it sits on. That is why gc_bins/min_n/balance are passed explicitly
 # here and defaulted everywhere else.
