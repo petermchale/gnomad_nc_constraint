@@ -333,12 +333,10 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 # the territory outside is also DIFFERENT). One query, so the two rows cannot end up
 # describing different sites.
 #
-# Both rows count BOTH training classes, DNMs and background alike. The upper row counted
-# background sites only until 2026-08-14, on the reasoning that the background class is
-# what carries the covariate distribution in a case-control design; that is true of the
-# design but not of the fit, which minimizes its loss over the mixture. The mixture is
-# therefore the training distribution, and it is the training distribution that the panel
-# is comparing against the scored one.
+# Both rows count BOTH training classes, DNMs and background alike: the fit minimizes its
+# loss over the mixture, so the mixture is the training distribution, and it is the training
+# distribution the panel compares against the scored one. (Counting the background class
+# alone would describe the case-control DESIGN rather than the fit.)
 
 # The strata a training site can fall into, relative to the scored population.
 #
@@ -368,8 +366,8 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 #                   (enhancer-overlapping windows, plus their assembly-gap /
 #                   ENCODE-exclude / low-coverage exclusions; the file does not say
 #                   which, and this band does not need to).
-#                   NAMED FOR WHERE IT SITS, NOT FOR WHAT IT IS. It was `non_neutral`
-#                   until 2026-08-18, which asserted more than the data does: these
+#                   NAMED FOR WHERE IT SITS, NOT FOR WHAT IT IS, since a name like
+#                   `non_neutral` would assert more than the data does: these
 #                   windows are outside a set McHale et al. call putatively neutral,
 #                   which is not evidence that they are under selection. Whether they
 #                   differ from the scored population at all is the open question this
@@ -956,9 +954,8 @@ LAX_MIN_BIN_WINDOWS = 4_000
 # The two curves. NOT truth-set specific -- the same two scores are evaluated against
 # whichever truth set is in play, which is the whole point of having more than one.
 # key -> (expected-count column, long name, legend word). The long name is for a panel that
-# gives each score a whole axes -- only the retired panel_pr_curves does, so nothing draws
-# it today; the short word is what a shared legend has room for once each entry also
-# carries a pooled figure or a threshold. Both strings travel in the curve dicts, which is
+# gives each score a whole axes; the short word is what a shared legend has room for once
+# each entry also carries a pooled figure or a threshold. Both strings travel in the curve dicts, which is
 # what keeps panels.py from having to import this module.
 PR_SCORES = {
     "published": (W.PUBLISHED_EXPECTED_COL, "Gnocchi (published)", "published"),
@@ -1059,8 +1056,7 @@ def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
     measuring enhancer density and reporting it as performance, which is the opposite of
     the figure's claim. Each bin is thinned to the smallest positive:negative ratio
     present, negatives untouched, which pegs every bin to the same fraction and is what
-    makes ONE dashed random-classifier line valid for every GC bin's curve -- which the
-    retired panel_pr_curves drew, and which is why the balancing predates the panel cuts.
+    makes ONE dashed random-classifier line valid for every GC bin's curve.
 
     WHAT IT COSTS, AND WHAT IT DOES NOT. It discards roughly four fifths of the positives,
     because the peg is set by the GC-poorest bin. It does NOT cost any drawn GC bin: the
@@ -1342,16 +1338,30 @@ GNOCCHI_THRESHOLD = 4.0
 # 0.002 pp, about one window in five hundred.
 LAX_CALL_RATE = 0.01
 
+# THE THREE MATCHED CALLING RATES Supporting Fig. 8 reads the same comparison at, added
+# 2026-09-11 when the figure stopped asking about the left tail. Each is a fraction of a GC
+# BIN, matched between the scores within that bin, and in every one of them A CALL IS
+# z > t AND A HIT IS AN ENHANCER -- one hypothesis, one truth set, three points along the
+# recall axis:
+#
+#     0.01   the top 1% of a bin           low recall    the most constrained sequence
+#     0.50   the upper half of a bin       mid recall    where most of C's area lives
+#     0.99   all but the bottom 1%         high recall   precision pinned near prevalence
+#
+# WHICH IS A DECOMPOSITION OF 8C. auPRC integrates over the whole recall axis, so a wash
+# there is consistent with a gain at one end and a loss at another; reading one comparison
+# at three points says WHERE along that axis the two scores differ. The 99% point replaced
+# a bottom-1% construction that called z <= t and scored a NON-enhancer as the hit -- see
+# the note below for why that reading was retired.
+LAX_CALL_RATES = (LAX_CALL_RATE, 0.50, 0.99)
+
 # The column each score is ranked by, as _lax_labelled_windows built it.
 #
-# A THIRD ARM RANKING WINDOWS BY GC CONTENT ALONE lived here until 2026-09-10, with an
-# include_gc_baseline switch threading it through _threshold_setup, threshold_metrics and
-# budget_comparison. It measured how much of this truth set's precision-recall is a
-# GC-content contest (2.15 pooled, against published Gnocchi's 1.77) -- a true fact about
-# GeneHancer, and the wrong comparison to carry: the manuscript's claim is published
-# against decontaminated, that comparison is paired and computed within a GC bin, and a
-# score with no constraint information in it adjudicates nothing between two constraint
-# scores. What the truth set's GC skew actually does to the comparison is give PUBLISHED a
+# NO GC-ONLY ARM, DELIBERATELY. Ranking windows by GC content alone measures how much of
+# this truth set's precision-recall is a GC-content contest -- a true fact about GeneHancer,
+# and the wrong comparison to carry: the manuscript's claim is published against
+# decontaminated, that comparison is paired and computed within a GC bin, and a score with
+# no constraint information in it adjudicates nothing between two constraint scores. What the truth set's GC skew actually does to the comparison is give PUBLISHED a
 # tailwind, since published is the GC-biased one -- so Supporting Fig. 8D is conservative,
 # which is a sentence in the caption and needs no third classifier to support it.
 def _score_column(key: str) -> str:
@@ -1434,46 +1444,33 @@ def _odds_ratio(p: float, r: float) -> float:
     return (p / (1 - p)) / (r / (1 - r))
 
 
-# WHICH END OF THE SCORE IS BEING ASKED ABOUT. "upper" is the constrained tail every
-# panel of Supporting Fig. 8 reads -- a call is z >= t, and a hit is an enhancer. "lower"
-# is its mirror: a call is z <= t, and a hit is a NON-enhancer, since a low Gnocchi
-# predicts an unconstrained window. The mirror is implemented by flipping the LABEL vector
-# and the comparison, and by nothing else, so every statistic downstream -- precision,
-# recall, lift, skill, LR+, their Wilson bounds and the paired bootstrap -- is the same
-# code computing the same functional of a relabelled problem. That identity is the point:
-# a difference between the tails then cannot be an artefact of measuring them differently.
+# WHY THE LEFT TAIL IS NOT READ AS A DISCOVERY PROBLEM, recorded here because the code that
+# did read it that way was deleted on 2026-09-11 and the prose in fig5/captions.txt,
+# fig5/results.txt, fig5/README.md and the notebook all point at this note.
 #
-# WHY ASK. Supporting Fig. 8D finds the decontaminated score ahead at the top 1%, and 8E
-# finds a wash over the whole recall axis; _bin_thresholds' own docstring reconciles those
-# by saying the two scores' precision-recall curves CROSS. If they cross, the lower tail is
-# where published should be ahead, and the two effects cancel under an integral. This pair
-# of panels is that prediction made checkable.
-TAILS = ("upper", "lower")
+# Until then Supporting Fig. 8 reached the far end of the ranking by calling z <= t and
+# counting a NON-enhancer as the hit, on the grounds that a low Gnocchi claims a window is
+# unconstrained. IT DOES NOT. Gnocchi is a two-sided z against a neutral expectation, so
+# UNCONSTRAINED SEQUENCE SITS AT z ~ 0, which is most of the genome; the left tail is the
+# OPPOSITE anomaly, MORE variation than expected, whose leading explanations are
+# hypermutability or mutation-model misspecification rather than an absence of selection.
+# The repo's own numbers agree: under the neutral null the 1st percentile would be
+# z = -2.33, and published's bottom-1% cutoffs run -5.67, -6.04, -5.03, -4.14, -2.98, so
+# four of five bins are far heavier than sampling noise. A non-enhancer label is evidence
+# about ENHANCER STATUS, and there is no truth set for the left tail, so that construction
+# swapped one hypothesis for another. DO NOT REBUILD IT; a DNM-rate test would need no
+# labels at all.
+#
+# THE SWITCH COST NO EVIDENCE, ONLY MAGNITUDE, which is why the question survives intact at
+# call_rate = 0.99. With a = P(z <= t | enhancer) and b = P(z <= t | non-enhancer), the
+# retired reading was b/a and the kept one is (1 - a)/(1 - b); at a matched rate inside a bin
+# these are a monotone reparametrisation of one 2x2 table (see paired_deltas' one-free-count
+# note), so they order the scores identically in every bin and every bootstrap replicate.
+# Only the numbers compress: 42.2% of effect in the retired reading against 0.53% in the kept
+# one, 5/5 bins agreeing.
 
 
-def _tail_quantile(tail: str, target: float) -> float:
-    """The quantile that puts `target` of a distribution on the called side of a cut."""
-    if tail not in TAILS:
-        raise ValueError(f"tail={tail!r}: one of {TAILS}")
-    return (1.0 - target) if tail == "upper" else target
-
-
-def _tail_called(z: np.ndarray, t: float, tail: str) -> np.ndarray:
-    """The called mask: the extreme end of `tail`, at cutoff `t`."""
-    return z >= t if tail == "upper" else z <= t
-
-
-def _tail_labels(y: np.ndarray, tail: str) -> np.ndarray:
-    """
-    The class a call is TRYING to hit. Upper tail: enhancer-overlapping, as labelled.
-    Lower tail: its complement, because the claim being tested there is "this window is
-    unconstrained" and the truth set's negatives are what such a claim is right about.
-    """
-    return y if tail == "upper" else 1 - y
-
-
-def _bin_thresholds(sub: pl.DataFrame, keys, target: float,
-                    tail: str = "upper") -> dict:
+def _bin_thresholds(sub: pl.DataFrame, keys, target: float) -> dict:
     """
     Per-BIN thresholds: within this bin, each score's own quantile at 1 - target, so every
     score calls the same fraction OF THIS BIN.
@@ -1500,7 +1497,7 @@ def _bin_thresholds(sub: pl.DataFrame, keys, target: float,
     there. Supporting Fig. 8D says what the score CONTAINS; Fig. 5F says what happens when
     it is USED.
     """
-    q = _tail_quantile(tail, target)
+    q = 1.0 - target
     return {k: float(np.quantile(sub[_score_column(k)].to_numpy(), q)) for k in keys}
 
 
@@ -1513,7 +1510,7 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       reference_score: str = "published",
                       match_within_bin: bool = False,
                       call_rate: float | None = None,
-                      tail: str = "upper") -> pl.DataFrame:
+                      ) -> pl.DataFrame:
     """
     Precision, recall and calling rate at a FIXED Gnocchi threshold, per GC bin, for both
     scores. Feeds Fig. 5F and Supporting Fig. 8's A, B, C and D, and the numbers behind them.
@@ -1539,12 +1536,10 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                                                         is comparable BETWEEN bins
         skill(g)      = (precision - r) / (1 - r)     -- its ceiling-free companion
 
-    NOT ALL ARE DRAWN. Since 2026-09-08 the panels take recall and lr_pos (8A, 8B),
-    call_rate (Fig. 5F) and the per-bin thresholds (8C); precision, lift and skill are
-    computed and PRINTED as diagnostics and plotted nowhere. Keep computing them: precision
-    is the analyst's number and belongs in a caption, lift is the within-bin translation the
-    caption quotes. The function that drew any of them against GC, panel_threshold_metric, is
-    now in the gitignored fig5/panels_extra.py.
+    NOT ALL ARE DRAWN. The panels take recall and lr_pos (8A, 8B), call_rate (Fig. 5F) and
+    the per-bin thresholds (8D-8F); precision, lift and skill are computed and PRINTED as
+    diagnostics and plotted nowhere. Keep computing them: precision is the analyst's number
+    and belongs in a caption, lift is the within-bin translation the caption quotes.
 
     call_rate is where the bias lives undiluted -- with no GC bias the fraction clearing a
     fixed cutoff should not track GC -- and it is the ONE quantity here involving no labels,
@@ -1579,23 +1574,14 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     and reporting it per bin is what keeps the bins comparable. Intervals are Wilson, per
     curve -- see _wilson for why not a bootstrap.
 
-    `tail` PICKS WHICH END OF THE SCORE IS ASKED ABOUT, and "lower" mirrors the whole
-    problem: the call becomes z <= t and the hit becomes a NON-enhancer (see _tail_labels).
-    Every returned column then means its mirrored self -- `r` is the non-enhancer base rate,
-    `precision` is P(not an enhancer | called), `recall` is the fraction of non-enhancers
-    caught -- and the `tail` column records which. Requires match_within_bin=True, since the
-    globally matched thresholds in _threshold_setup are upper-tail quantiles and there is no
-    caller for a globally matched lower tail.
+    A CALL IS ALWAYS z >= t AND A HIT IS ALWAYS AN ENHANCER. The far end of the ranking is
+    reached by raising `call_rate` towards 1, not by mirroring the problem onto the left tail
+    -- see the note above LAX_CALL_RATES for why that reading has no truth set.
 
-    Returns one row per (GC bin, score): lo, hi, mid, score, tail, threshold_used, n, n_pos,
+    Returns one row per (GC bin, score): lo, hi, mid, score, threshold_used, n, n_pos,
     r, n_called, call_rate, precision, recall, lift, skill, lr_pos, the last six each with
     _lo/_hi bounds.
     """
-    if tail not in TAILS:
-        raise ValueError(f"tail={tail!r}: one of {TAILS}")
-    if tail == "lower" and not match_within_bin:
-        raise ValueError("tail='lower' needs match_within_bin=True -- the globally matched "
-                         "thresholds are upper-tail quantiles")
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
@@ -1614,12 +1600,12 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
         lo, hi = gc_bins[b]
         sub = df.filter(pl.col("gc_bin") == b)
         if match_within_bin:
-            thresholds = _bin_thresholds(sub, list(thresholds), target, tail=tail)
-        y = _tail_labels(sub[TRUTH_TARGET].to_numpy(), tail)
+            thresholds = _bin_thresholds(sub, list(thresholds), target)
+        y = sub[TRUTH_TARGET].to_numpy()
         n_pos = int(y.sum())
         for key in thresholds:
             display, short = PR_SCORES[key][1], PR_SCORES[key][2]
-            called = _tail_called(sub[_score_column(key)].to_numpy(), thresholds[key], tail)
+            called = sub[_score_column(key)].to_numpy() >= thresholds[key]
             n_called = int(called.sum())
             tp = int((called & y).sum())
             prec_lo, prec_hi = _wilson(tp, n_called)
@@ -1628,7 +1614,7 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
             r = n_pos / sub.height
             rows.append({
                 "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "score": key,
-                "display": display, "short": short, "tail": tail,
+                "display": display, "short": short,
                 "threshold_used": thresholds[key],
                 "n": sub.height, "n_pos": n_pos, "r": r,
                 "n_called": n_called, "call_rate": n_called / sub.height,
@@ -1662,6 +1648,16 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                 "lr_pos": ((tp / n_pos) / ((n_called - tp) / (sub.height - n_pos)))
                           if n_pos and (n_called - tp) and sub.height > n_pos
                           else float("nan"),
+                # AT A CALLING RATE NEAR 1, LR+ IS PINNED NEAR 1 BY ARITHMETIC, which is
+                # the one thing to know before reading Supporting Fig. 8G as a null. Calling
+                # 99% of a bin forces the precision p to the base rate r, and with e = 1 - k
+                # the uncalled fraction and a = 1 - recall,
+                #     LR+ = 1 + (e - a)/(1 - r) + O(e^2) = 1 + (recall - k)/(1 - r) + O(e^2),
+                # bounded by 1 + e/(1 - r). So a ratio of two LR+ values there lives within
+                # about a percent of 1.0 however sharp the scores are. THE SIGNIFICANCE IS NOT
+                # COMPRESSED WITH IT -- see the one-free-count argument in paired_deltas --
+                # only the magnitude. The notebook prints this check.
+                #
                 # LR+ IS AN ODDS RATIO, which is what makes its interval free. Writing
                 # p = tp/n_called and r = n_pos/n, the n_called in TPR and FPR cancels and
                 #     LR+ = [p / (1 - p)] / [r / (1 - r)],
@@ -1677,13 +1673,10 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                              else float("nan"),
             })
             e = rows[-1]
-            # The upper-tail line is unchanged from before `tail` existed, so every
-            # committed output keeps its format; the lower tail marks itself.
-            mark = "" if tail == "upper" else "  [lower tail]"
             print(f"  GC ({lo:.2f}, {hi:.2f}]  {short:<15} called {n_called:>7,} "
                   f"({100 * e['call_rate']:5.2f}%)  precision {e['precision']:.3f}  "
                   f"base rate {r:.3f}  lift {e['lift']:.2f}  skill {e['skill']:+.3f}  "
-                  f"LR+ {e['lr_pos']:.2f}  recall {100 * e['recall']:.2f}%{mark}")
+                  f"LR+ {e['lr_pos']:.2f}  recall {100 * e['recall']:.2f}%")
     return pl.DataFrame(rows)
 
 
@@ -1695,13 +1688,12 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                   reference_score: str = "published", n_bootstrap: int = 500,
                   seed: int = 0, call_rate: float | None = None,
                   match_within_bin: bool = False,
-                  metric: str = "lr_pos", tail: str = "upper") -> pl.DataFrame:
+                  metric: str = "lr_pos") -> pl.DataFrame:
     """
     The PAIRED difference between the two scores in one effect measure, per GC bin, with a
     bootstrap confidence interval. `metric` chooses the measure and DEFAULTS TO "lr_pos";
-    Supporting Fig. 8D plots the ratio as its curve and this interval as its error bars.
-    (Called lift_deltas until 2026-09-09, when the figure moved off lift and the name stopped
-    being true; anything older referring to lift_deltas means this function.)
+    Supporting Fig. 8G, 8H and 8I plot the ratio as their curves and this interval as their
+    error bars.
 
     LIFT IS THE RIGHT CONTROL WITHIN A BIN AND THE WRONG ONE ACROSS BINS.
 
@@ -1735,6 +1727,15 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     property of the measure, not evidence, which is why the choice rests on the cross-bin
     argument above and not on which yields larger numbers.
 
+    ONE FREE COUNT, WHICH IS WHY THE CHOICE OF EFFECT MEASURE CANNOT CHANGE THE VERDICT.
+    At a matched calling rate inside a bin, n, n_pos and n_called are all fixed and shared by
+    the two scores, so the 2x2 table has a single free count. Every measure here is a
+    monotone function of it -- precision, lift, skill and LR+ all increasing -- so they agree
+    on which score is ahead in a bin and in every bootstrap replicate, and differ only in
+    dynamic range and in whether they are comparable ACROSS bins. That is the whole content
+    of "the switch costs no evidence, only magnitude" in the note above LAX_CALL_RATES: the
+    reading the figure retired was another monotone function of the same count.
+
     PAIRED, for the reason in pr_curve_deltas: one index vector per replicate, both scores
     scored on it, so the variability in WHICH windows a bin contains cancels. Independent
     Wilson intervals -- correct where a panel shows two LEVELS, as Fig. 5F does -- would
@@ -1743,12 +1744,6 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     beside the per-bin counts, and re-matching within a bin would be wrong anyway, the
     matching being defined over the whole drawn population.
 
-    `tail` MIRRORS THE PROBLEM, exactly as in threshold_metrics: "lower" calls z <= t and
-    counts a NON-enhancer as the hit, so `delta` is then the ratio of the two scores' LR+ at
-    predicting an unconstrained window. Nothing else changes -- same bootstrap, same pairing,
-    same cancellation of the base rate -- which is what lets the two tails' deltas be set
-    side by side. Requires match_within_bin=True.
-
     Returns one row per drawn bin: lo, hi, mid, n, n_pos, r, ceiling (1/r), tail,
     threshold_published, threshold_scored, n_called_*, BOTH
     measures' observed levels regardless of `metric` (lift_published, lift_scored,
@@ -1756,27 +1751,21 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     itself, n_boot (surviving replicates), ci_lo, ci_hi, p_gt0.
 
     THE LEVEL COLUMNS ARE FOR INSPECTION; THE CODE PATH USES ONLY THE PAIR `metric` NAMES.
-    Nothing downstream reads lift_* -- 8E takes `delta` and the print line indexes
-    f"{metric}_published" -- the readers that named it directly having been retired on
-    2026-09-09 and 2026-09-10. So `delta`, `ci_lo` and `ci_hi` always belong to
-    `metric`, and a level column is only ever a level. Both pairs are kept because the
-    caption needs both: with the rate matched inside a bin, lift_scored / lift_published IS
+    Nothing downstream reads lift_* -- the panels take `delta` and the print line indexes
+    f"{metric}_published" -- so `delta`, `ci_lo` and `ci_hi` always belong to `metric`, and a
+    level column is only ever a level. Both pairs are kept because the caption needs both: with the rate matched inside a bin, lift_scored / lift_published IS
     the precision ratio (the analyst-legible "33% more likely to be an enhancer here") while
     `delta` on the lr_pos default is the larger odds ratio. 8D quotes both, so neither pair
     can go until those placeholders are filled.
     """
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
-    if tail not in TAILS:
-        raise ValueError(f"tail={tail!r}: one of {TAILS}")
-    if tail == "lower" and not match_within_bin:
-        raise ValueError("tail='lower' needs match_within_bin=True -- see threshold_metrics")
     gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
     df, drawn, thresholds, target = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
         match_call_rate, reference_score, call_rate=call_rate)
     if match_within_bin:
-        print(f"  MATCHING WITHIN EACH BIN at {100 * target:.3f}% ({tail} tail) "
+        print(f"  MATCHING WITHIN EACH BIN at {100 * target:.3f}% "
               "-- see _bin_thresholds")
 
     other = [k for k in PR_SCORES if k != reference_score]
@@ -1791,7 +1780,7 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     for b in drawn:
         lo, hi = gc_bins[b]
         sub = df.filter(pl.col("gc_bin") == b)
-        y = _tail_labels(sub[TRUTH_TARGET].to_numpy(), tail)
+        y = sub[TRUTH_TARGET].to_numpy()
         zr = sub[f"z_{reference_score}"].to_numpy()
         zo = sub[f"z_{other}"].to_numpy()
         r = float(y.mean())
@@ -1809,10 +1798,10 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                 return np.nan
             return (p_hi / (1 - p_hi)) / (p_lo / (1 - p_lo))
 
-        thr = _bin_thresholds(sub, [reference_score, other], target, tail=tail) \
+        thr = _bin_thresholds(sub, [reference_score, other], target) \
             if match_within_bin else thresholds
-        cr = _tail_called(zr, thr[reference_score], tail)
-        co = _tail_called(zo, thr[other], tail)
+        cr = zr >= thr[reference_score]
+        co = zo >= thr[other]
         p_ref, p_oth = _prec(cr, y), _prec(co, y)
 
         boot = np.empty(n_bootstrap)
@@ -1823,7 +1812,7 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
             boot[k] = (_ratio(a, c) - 1.0) if (a and np.isfinite(a) and np.isfinite(c)) \
                 else np.nan
         boot = boot[np.isfinite(boot)]
-        # A SATURATED PRECISION LEAVES NO ODDS RATIO, and the lower tail is where that can
+        # A SATURATED PRECISION LEAVES NO ODDS RATIO, and a high calling rate is where that can
         # actually happen: there the hit is a NON-enhancer, whose base rate reaches 91.7% in
         # the most AT-rich bin, so the bottom 1% of a bin -- 219 windows there -- can be
         # entirely negative. precision = 1 makes LR+ infinite and _ratio returns nan, and if
@@ -1839,7 +1828,7 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
             "lo": lo, "hi": hi, "mid": 0.5 * (lo + hi), "n": sub.height,
             "call_rate": call_rate if call_rate is not None else float("nan"),
             "n_pos": int(y.sum()), "r": r, "ceiling": 1.0 / r if r else np.nan,
-            "tail": tail, "threshold_published": thr[reference_score],
+            "threshold_published": thr[reference_score],
             "threshold_scored": thr[other],
             "n_called_published": int(cr.sum()), "n_called_scored": int(co.sum()),
             "lift_published": p_ref / r, "lift_scored": p_oth / r,
@@ -1938,58 +1927,3 @@ def budget_comparison(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
               f"precision {e['precision']:.3f}  recall {100 * e['recall']:5.2f}%  "
               f"lift {e['lift']:.2f}")
     return pl.DataFrame(rows)
-
-
-def paired_delta_sweep(call_rates=(0.01, 0.03, 0.10), truth_set: str = "lax",
-                       cache_dir: str = CACHE_DIR,
-                       neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
-                       refit_expected: str | None = None, gc_bins: list | None = None,
-                       min_n: int = DELTA_MIN_BIN_WINDOWS,
-                       reference_score: str = "published", n_bootstrap: int = 300,
-                       seed: int = 0) -> pl.DataFrame:
-    """
-    paired_deltas repeated across calling rates, so the per-bin comparison is reported as a
-    function of how much of the genome is called rather than at one arbitrary point.
-    (It was lift_delta_sweep until 2026-09-09; renamed with paired_deltas, for the reason
-    given there.)
-
-    IT DOES NOT PASS `metric`, SO IT INHERITS paired_deltas' DEFAULT, which since 2026-09-08
-    is "lr_pos" and not "lift". That is deliberate -- this is the robustness check beside
-    Supporting Fig. 8D, and a check reported in a different effect measure from the panel it
-    backs would not be one. The consequence to know when reading old output: every printed
-    line here said "lift" before that date and says LR+ after it, and the two are not the
-    same number (see paired_deltas, THE TWO MEASURES DISAGREE ON MAGNITUDE). The offline
-    stand-in figures quoted just below predate the change and are lift.
-
-    WHY SWEEP AT ALL. The threshold statistics are noise-limited by the number of CALLED
-    windows, which at Chen et al.'s z >= 4 is a few dozen in the GC-poorest bin. Loosening
-    the cutoff closes the intervals as sqrt(calls) -- and, measured on the offline stand-in,
-    costs almost nothing in effect size, because lift is remarkably flat in the calling
-    rate (1.67 -> 1.56 in (0.20, 0.30] over 1% -> 10%, against a CI half-width falling
-    17.2% -> 4.2%). A four-fold tightening for a seven percent erosion is a trade worth
-    making, and a sweep says whether a result is a knife-edge or holds along the whole
-    range.
-
-    IT IS A COMPLEMENT TO THE ANCHORED RESULT, NOT A REPLACEMENT. "The top q of the genome
-    by Gnocchi" is not "Gnocchi >= 4", and only the latter is the cutoff Chen et al. use
-    and therefore the score as people apply it. Fig. 5F and Supporting Fig. 8A/8B stay
-    anchored; this is the robustness check beside them, printed and not drawn.
-
-    IT ALSO MAKES A CONTINUUM VISIBLE that is otherwise implicit in this figure. As q rises
-    the statistic integrates over more of the ranking and converges toward what auPRC
-    already measures -- which is Supporting Fig. 8E, whose intervals are ~0.2% wide. So 8E
-    is the powerful-but-uninterpretable end of one axis and z >= 4 the
-    interpretable-but-noisy end; the sweep is the path between them.
-
-    Returns paired_deltas' columns with `call_rate` filled in, stacked over the rates.
-    """
-    frames = []
-    for q in call_rates:
-        print(f"\ncalling rate {100 * q:.2f}%")
-        frames.append(paired_deltas(
-            truth_set=truth_set, cache_dir=cache_dir,
-            neutral_windows_bed=neutral_windows_bed, refit_expected=refit_expected,
-            gc_bins=gc_bins, min_n=min_n, match_call_rate=True,
-            reference_score=reference_score, n_bootstrap=n_bootstrap, seed=seed,
-            call_rate=q))
-    return pl.concat(frames)

@@ -21,30 +21,12 @@ colour. Two exemptions, both deliberate:
   * PANEL B's applied pair, R_eff and its counterfactual, which share one colour and one
     marker and differ only in linestyle. They are the same quantity under two worlds and
     should read as a pair; the contrast between them IS that panel. See panel_r_eff.
-  * SUPPORTING FIGURE 8's precision-recall panel, whose curves are not categories at all
-    but one ORDERED variable, the GC bin. Its claim is that performance departs from the
-    pooled curve in OPPOSITE directions at the two ends of the GC axis, so a diverging
-    blue-to-red ramp is the reading of the panel rather than a way of enumerating lines --
-    and it is what McHale et al.'s published Fig. 4A does. See panel_pr_curves.
 
-EVERY PANEL IN THIS FILE IS DRAWN, AND THE RULE HAS NO EXCEPTIONS. Supporting Figure 8 was
-cut from nine panels to five over the 2026-09-04 to 2026-09-08 revisions (Supporting
-Figure 9 existed for a few hours and was merged back), and the four functions that stopped
-being drawn -- panel_pr_curves, panel_aupr_delta, panel_lift_vs_recall, with the _log_ticks
-helper only the last one used, and panel_threshold_metric -- moved to fig5/panels_extra.py,
-which is GITIGNORED. They were cut for composition rather than correctness and are worth
-having back if the figures change again, but they should not be in the file someone reviews
-to see what the manuscript draws. That file's docstring says what each was and where to
-recover it.
-
-panel_threshold_metric went last, on 2026-09-09, and it is the one whose absence changes how
-this file reads. It drew ONE metric for BOTH scores at a fixed threshold, and it was the
-figure's workhorse until the 2026-09-08 revision split that job in two: panels A and B now
-put BOTH metrics on ONE score and need twin axes (panel_recall_and_enrichment), and panel D
-plots a paired RATIO rather than two levels (panel_lr_ratio). Its "precision" and "skill"
-modes had already stopped being drawn; keeping the function for them would have left a
-six-mode dispatcher in the file to serve no caller. What survives here is _threshold_series,
-which the live panels share.
+EVERY PANEL IN THIS FILE IS DRAWN, AND THE RULE HAS NO EXCEPTIONS. Functions the figures
+stop drawing move to fig5/panels_extra.py, which is GITIGNORED: they are cut for composition
+rather than correctness and are worth having back if the figures change again, but they
+should not be in the file someone reviews to see what the manuscript draws. That file's
+docstring says what each was and where to recover it.
 
 The Supporting Figure follows the same rule. Its single-series rows are monochrome --
 one curve and no legend leaves a hue naming nothing -- and colour survives only in its
@@ -169,10 +151,9 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
                  "framealpha": 1.0} if legend_frame else {"frameon": False})
     if legend_handlelength is not None:
         frame_kw["handlelength"] = legend_handlelength
-    # ncol applies with or without a bbox. It used to be set only alongside one, because
-    # the only multi-column legend was an outside one; Supporting Fig. 8's panels A and B
-    # need a single-line legend INSIDE a half-height frame, where two stacked entries would
-    # eat a third of the artwork.
+    # ncol applies with or without a bbox: Supporting Fig. 8's panels A and B need a
+    # single-line legend INSIDE a half-height frame, where two stacked entries would eat a
+    # third of the artwork.
     if legend_ncol != 1:
         frame_kw["ncol"] = legend_ncol
     if legend_bbox is not None:
@@ -424,9 +405,8 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
 # grey band under it rather than as two unrelated bands; red on top, where it is the
 # thing that grows.
 #
-# This freed the panel from a constraint it used to be under -- avoiding hues that meant
-# something in A, B, D or E. Those panels are monochrome now (see the module docstring),
-# so no assignment here can collide with them.
+# Nothing here can collide with A, B, D or E, which are monochrome (see the module
+# docstring), so the hues are free to mean what this panel needs.
 #
 # No "Excluded:" prefix, though both lower strata are indeed outside the scored
 # population. The word needs an antecedent the legend does not supply, and it papers over
@@ -628,10 +608,9 @@ def panel_stratum_ratios(ax, ratios, xrange=(0.2, 0.73), show_xlabel: bool = Tru
 # vertically; see panel_dnm_probability_pairs.
 #
 # The size-matched random control (same NUMBER of sites as `scored`, drawn from the same
-# population as `full`) used to be a third pair here. It is not plotted any more: it lies
-# on top of the original pair, which is the whole of what it has to say, and saying it
-# cost two of the panel's six curves. It survives as a refit and is reported numerically
-# under panel E, where the same control lands at 0.162 against published Gnocchi's 0.168.
+# population as `full`) is NOT plotted: it lies on top of the original pair, which is the
+# whole of what it has to say. It survives as a refit and is reported numerically under
+# panel E, where it lands at 0.162 against published Gnocchi's 0.168.
 PAIR_STYLE = {
     "full": {"marker": "s", "dashes": None,
              "label": "Original training set"},
@@ -925,8 +904,8 @@ def panel_dnm_probability_pairs(ax_empirical, ax_fitted, binned: dict, min_n: in
         _gc_mean_line(ax, gc_mean)
         # "GC-averaged value", not "its own mean": the divisor is that curve's mean
         # ACROSS GC bins, site-weighted, so the label has to say which average was taken
-        # out. The row's own word -- Empirical or Fitted -- leads the label, since with
-        # the pair split that is the one thing the symbols no longer carry.
+        # out. The row's own word -- Empirical or Fitted -- leads the label, being the one
+        # thing the symbols do not carry.
         _finish(ax, f"{kind} P(DNM)\n{quantity}\n(non-CpG sites)", xrange,
                 show_xlabel and bottom, handles=handles[id(ax)],
                 legend_handlelength=3.2)
@@ -961,8 +940,7 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
 
     y = 1 is the random classifier by construction, and the only meaningful horizontal line:
     a curve at 1.4 finds enhancers 40% more precisely than guessing, averaged over the recall
-    axis. That axis is no longer drawn anywhere else (panel_pr_curves is retired), so this is
-    where the recall-averaged view survives.
+    axis. This is the figure's only recall-averaged view.
 
     `deltas` PUTS THE PAIRED INTERVAL ON THE RETRAINED CURVE, on ONE curve rather than both.
     Independent bars would be the wrong object twice over: they describe the uncertainty of
@@ -980,9 +958,8 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
 
     The legend sits BOTTOM RIGHT: both curves fall monotonically from the left edge, so the
     top left carries the content and the bottom right is empty by construction. It carries
-    the two NAMES and nothing else. The pooled value -- performance without conditioning on
-    GC, which has no place on axes conditional on GC everywhere -- travelled in the label
-    until 2026-09-10 and is now the caption's, alongside the interval's definition.
+    the two NAMES and nothing else -- the pooled value has no place on axes conditional on GC
+    everywhere, and belongs in the caption where it can be quoted.
     """
     # The relative gain is the same for auPRC and for auPRC/r, since within a bin both
     # scores are divided by the same base rate -- so the interval maps into this panel's
@@ -1008,11 +985,8 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
             hi = np.array([ci.get(round(v, 6), (y[i], y[i]))[1] - y[i]
                            for i, v in enumerate(x)])
             yerr = np.vstack([np.maximum(lo, 0), np.maximum(hi, 0)])
-        # NAME ONLY. The pooled value and the interval's identity used to travel here --
-        # two clauses per entry on a panel a third of the figure's width -- and both are
-        # better read elsewhere: the pooled numbers are in the caption, where they can be
-        # quoted, and the bars announce themselves as bars. What a legend has to do is tell
-        # the two curves apart, and the name alone does that.
+        # NAME ONLY. A legend has to tell the two curves apart, and the name alone does
+        # that; the pooled value and the interval's definition are the caption's.
         label = f"Gnocchi, {c['short']}"
         ax.errorbar(x, y, yerr=yerr,
                     marker=SCORE_MARKERS[key], color=MONO,
@@ -1157,12 +1131,29 @@ def panel_recall_and_enrichment(ax, tm, key: str, xrange=(0.2, 0.8),
     ax.patch.set_visible(False)
 
 
-def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
-                   tail: str = "upper") -> None:
+def panel_lr_ratio(ax, deltas, call_rate: float, xrange=(0.2, 0.8),
+                   show_xlabel: bool = True) -> None:
     """
-    Supporting Figure 8D. The retrained score's LR+ over published Gnocchi's, per GC bin,
-    with the 95% paired-bootstrap interval. `deltas` is data.paired_deltas() built with
-    metric="lr_pos", whose `delta` is that ratio minus one.
+    Supporting Figure 8G, 8H AND 8I -- one function drawn three times, at the three matched
+    calling rates in data.LAX_CALL_RATES, ordered 99% / 50% / 1% down the stack so the panels
+    scan the score from its left tail through its median to its right tail. The retrained score's LR+ over published
+    Gnocchi's, per GC bin, with the 95% paired-bootstrap interval. `deltas` is
+    data.paired_deltas() built with metric="lr_pos", whose `delta` is that ratio minus one,
+    and `call_rate` is the rate it was built at -- passed in only to label the axis, so a
+    panel cannot claim an operating point it was not given.
+
+    THE THREE TOGETHER DECOMPOSE 8C. auPRC integrates over the whole recall axis, so a wash
+    there is consistent with a gain at one end and a loss at another; these say WHERE. A
+    call is z > t and a hit is an enhancer in all three -- one hypothesis, one truth set --
+    so what varies down the column is only how much of the bin is called. EXPECT THE
+    MAGNITUDES TO COMPRESS as the rate rises: at 99% both scores' precision is within about
+    a percent of prevalence, so the ratio is pinned near 1.0 by arithmetic rather than by
+    the scores agreeing -- LR+ = odds(p)/odds(r), and a rate near 1 forces p to r. It is
+    NOT a weaker result: at a matched rate the 2x2 table has one free count and every
+    measure is monotone in it, so the significance carries over and only the numbers
+    shrink. See data.paired_deltas.
+    shrink. Each panel therefore keeps its OWN y range; three curves on one axis would draw
+    the 99% one as a flat line.
 
     A RATIO PANEL RATHER THAN TWO LEVELS, which is a different claim from D's and worth
     being clear about. Two level curves invite the reader to compare each curve with
@@ -1201,41 +1192,42 @@ def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
                 marker=SCORE_MARKERS["scored"], color=MONO, markerfacecolor=MONO,
                 markeredgewidth=1.2, markersize=6, linewidth=2, capsize=3,
                 elinewidth=1.2)
-    # NO LEGEND: ONE SERIES, AND THE YLABEL NAMES IT. See _finish's `legend=False` -- a
-    # two-entry legend here restated the ylabel in smaller type and took the only band of
-    # the panel the curve does not already occupy. What the entries used to carry now lives
-    # elsewhere: the ratio's direction in the ylabel, the 95% paired interval in the bars
-    # themselves and in the caption, and the null in the dashed line, which needs no entry
-    # because its height is 1.0 and the axis is labelled.
-    #
-    # HEADROOM, correspondingly reduced. The old +42% band existed to hold that legend --
-    # this panel has no empty corner by construction, the null line pinning the bottom and
-    # the curve running across the middle -- so with the legend gone it was dead space that
-    # flattened the curve into the lower half of the frame.
+    # NO LEGEND: ONE SERIES, and everything a legend would carry is placed better elsewhere
+    # -- the ratio's direction in the stack's group label, the 95% paired interval in the bars
+    # and in the caption, the null in the dashed line at a labelled 1.0. Headroom is tight
+    # accordingly: this panel has no empty corner by construction, the null pinning the bottom
+    # and the curve running across the middle.
     top = float(np.nanmax(1.0 + rows["ci_hi"].to_numpy()))
     bot = float(np.nanmin(np.append(1.0 + rows["ci_lo"].to_numpy(), 1.0)))
     ax.set_ylim(bot - 0.06 * (top - bot), top + 0.08 * (top - bot))
-    # BOTH TAILS NAME THEIR CUT, on a line of their own. Supporting Fig. 8's E and G are the
-    # same artwork and a reader meeting both has to tell them apart, so neither is left as
-    # the unmarked default -- E says Gnocchi > cutoff, G says Gnocchi < cutoff, which is the
-    # direction of the call in the reader's own vocabulary rather than in the code's.
+    # THE LABEL CARRIES ONLY THE CALLING RATE, which is what VARIES between G, H and I --
+    # they are the same artwork at three operating points and a reader meeting all three has
+    # to tell them apart. The rate is interpolated rather than written in, so a label cannot
+    # drift from the `deltas` it was built with.
     #
-    # ON ITS OWN LINE BECAUSE OF HOW A ROTATED LABEL IS MEASURED: it is as tall as its
-    # LONGEST LINE is wide, and these rows are half-height, so appending the phrase to
-    # "LR+ ratio" would have made that line the longest and pushed the label into the panel
-    # above. Split, the longest line stays "(decontaminated /" at 17 characters.
-    cut = ">" if tail == "upper" else "<"
-    _finish(ax, f"LR$^{{+}}$ ratio,\nGnocchi {cut} cutoff\n(decontaminated /\npublished)",
+    # TWO LINES, BECAUSE A ROTATED LABEL IS AS TALL AS ITS LONGEST LINE IS WIDE and at three
+    # panels to a row these rows are third-height: 119 px of axes height against 9 characters
+    # for the longest line here ("LR+ ratio"). "decontaminated / published" therefore lives in
+    # ONE GROUP LABEL for the whole stack, drawn in the notebook's figure cell -- it has to
+    # stay somewhere in the artwork, this panel carrying no legend. Measured, not guessed: the
+    # check is a draw() plus yaxis.label.get_window_extent().
+    _finish(ax, f"LR$^{{+}}$ ratio\n(top {100 * call_rate:g}%)",
             xrange, show_xlabel, legend=False)
+    # PINNED for the same reason as panel_bin_thresholds' -- see the note there. This stack's
+    # tick labels vary even more between its panels (0.995 against 1.10), so a floating label
+    # would sit at a different x in each of the three.
+    ax.yaxis.set_label_coords(-0.20, 0.5)
 
 
 def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
-                         show_xlabel: bool = True, reference_threshold: float | None = None,
-                         gc_mean: float | None = None,
-                         legend_loc: str = "upper left",
-                         tail: str = "upper") -> None:
+                         show_xlabel: bool = True, gc_mean: float | None = None,
+                         legend_loc: str = "upper left") -> None:
     """
-    Supporting Figure 8C. The Gnocchi threshold that calls the SAME fraction of every GC
+    Supporting Figure 8D, 8E and 8F -- drawn three times, at the three matched calling rates
+    in data.LAX_CALL_RATES, so the stack reads as three quantiles of one distribution: the
+    left tail at 99%, the median at 50%, the right tail at 1%. (It was panel C when the figure
+    drew one threshold, and D and F when it drew two.) The Gnocchi threshold that calls the
+    SAME fraction of every GC
     bin, per bin, one curve per score. `tm` is data.threshold_metrics() built with
     match_within_bin=True, whose `threshold_used` is then per (bin, score).
 
@@ -1258,12 +1250,9 @@ def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
     x-axis made visible, and a reader who finds D's matching artificial should be able to
     see how far it had to reach.
 
-    NO REFERENCE LINE BY DEFAULT. `reference_threshold` draws a horizontal at Chen et al.'s
-    z = 4 -- the single genome-wide number, correct at exactly one GC content and too
-    strict or too lax on either side -- and the panel carried one until 2026-09-08. It was
-    dropped because the panel is now read directly beneath D, which shares its x axis, and
-    a horizontal rule crossing one row of a stacked pair reads as a gridline belonging to
-    both. What the line said, the published curve already says by being a curve.
+NO REFERENCE LINE. A horizontal at Chen et al.'s z = 4 would be the obvious addition, but a
+    rule crossing one row of a stack reads as a gridline belonging to all of them -- and what
+    the line would say, the published curve already says by being a curve.
     """
     for key in ("published", "scored"):
         rows = _threshold_series(tm, key)
@@ -1275,32 +1264,31 @@ def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
                 markeredgewidth=1.2, markersize=6, linewidth=2,
                 label=f"Gnocchi, {rows['short'][0]}")
 
-    if reference_threshold is not None:
-        ax.axhline(reference_threshold, **MATCHED_RATE_LINE_KW,
-                   label=f"Single genome-wide cutoff ($z = {reference_threshold:g}$)",
-                   zorder=1.5)
     _gc_mean_line(ax, gc_mean)
 
-    # WRAPPED, and the wrap points are not free: a rotated label is measured against the
-    # axes' HEIGHT, and this row is half of one, so no line may run much past twenty
-    # characters. The rate is interpolated rather than written in, so the label cannot
-    # drift from the `call_rate` the panel was actually built with.
-    # `tail` only changes the word: the quantity is the cutoff isolating `call_rate` of the
-    # bin at whichever end, and data._bin_thresholds has already picked the end.
-    #
-    # THE WRAP IS CHOSEN TO SHORTEN THE LONGEST LINE, not to save a line. A rotated label is
-    # as tall as its LONGEST LINE is wide (_finish says so, and it is easy to misapply):
-    # dropping "in GC bin" onto the line above changed the height by 12 px, because
-    # "(bottom 1% of windows" and "(bottom 1% of GC bin)" are both 21 characters. Breaking
-    # after the percentage is what works -- the longest line becomes "Gnocchi cutoff" at 14
-    # -- and it matters here because these rows are half-height and the label collided with
-    # the ratio panel's below it once the two stacks sat side by side ("bottom" being three
-    # characters longer than "top", the lower-tail column overlapped by 34 px, and no
-    # hspace within reach of the layout cleared it).
-    end = "top" if tail == "upper" else "bottom"
-    _finish(ax, f"Gnocchi cutoff\n({end} {100 * call_rate:g}%\nof GC bin)",
+    # WRAPPED AFTER THE PERCENTAGE, and the wrap point is not free: a rotated label is as
+    # tall as its LONGEST LINE is wide, and at three panels to a row no line may run much past
+    # fourteen characters, which is what "Gnocchi cutoff" costs. The rate is interpolated
+    # rather than written in, so the label cannot drift from the `call_rate` the panel was
+    # actually built with.
+    _finish(ax, f"Gnocchi cutoff\n(top {100 * call_rate:g}%)",
             xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
+    # THE Y LABEL IS PINNED, NOT LEFT TO FLOAT. Matplotlib places a y label just outside the
+    # widest tick label, so its x depends on the DATA: in the three-panel stack this draws,
+    # the median panel's ticks ("-0.5") are wider than the tail panels' ("-6", "2"), which put
+    # its label 17 px further left than its neighbours' and 10 px INSIDE the bold panel letter
+    # at x = -0.34. Measured, not guessed -- draw() then compare yaxis.label and the letter's
+    # window extents. Pinning also aligns the three labels down the stack, which floating
+    # placement cannot do, and makes the clearance independent of whatever range a rerun
+    # produces. THE COST OF PINNING is that a wider tick label than today's now runs INTO the
+    # y label instead of pushing it aside, so the clearance is left generous: at -0.20, with
+    # the panel letters at x = -0.40, the measured gaps are +20.7 px from the letter and
+    # +13.3 px from the widest tick label, about one extra character of room. The label is two
+    # lines for the same fit -- three needs 0.205 of the axes width against the 0.25 available
+    # between ticks and letters.
+    ax.yaxis.set_label_coords(-0.20, 0.5)
+
 
 
 # ------------------------------------------------------------------- panel F
@@ -1322,7 +1310,7 @@ def panel_calling_rate(ax, binned, thresholds: dict,
     markers so a reader carries the two scores across all three.
 
     ONE z PER SCORE, APPLIED UNCHANGED IN EVERY BIN, which is what makes the panel mean
-    anything and is the INVERSE of Supporting Fig. 8C (which fixes the rate and reads off
+    anything and is the INVERSE of Supporting Fig. 8D-8F (which fix the rate and read off
     the threshold). data.calling_rate_by_gc fixes both cutoffs once on the whole population
     -- published at 4, the retrained score at the global quantile matching its overall
     calling rate -- then counts per bin, so the curve's slope is the score moving underneath

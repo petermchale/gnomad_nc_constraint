@@ -125,7 +125,7 @@ barely heavier than the dotted gridlines it sits among and can be painted over b
 is a deliberate divergence from the `rank = 0.5` and `r = 1` references in Fig. 5A, B and E,
 which keep the lighter style — there the line is context for a curve read on its own.
 
-**8D — the per-bin threshold that calls 1% of that bin**, one curve per score:
+**8F — the per-bin threshold that calls 1% of that bin**, one curve per score:
 the same `withinbin_s8` table D uses, through `panels.panel_bin_thresholds`. This is the
 bias in the score's own units and it uses **no labels at all**, so like Fig. 5F it rests on
 neither GeneHancer nor the laxness of an enhancer proxy. Published Gnocchi answers with a
@@ -138,7 +138,7 @@ measured at C's cutoff for that GC. It carried a dashed `z = 4` horizontal until
 dropped because a rule crossing one row of a stacked pair reads as a gridline belonging to
 both. No error bars: a quantile of a million windows has none worth drawing.
 
-**8E — the `LR+` RATIO per GC bin with the calling rate matched *within* each bin** (the
+**8I — the `LR+` RATIO per GC bin with the calling rate matched *within* each bin** (the
 panel that was 8B until 2026-09-08), which is what separates ranking from threshold
 placement: `data.threshold_metrics(match_within_bin=True)` and
 `data.paired_deltas(match_within_bin=True, metric="lr_pos")` through `panels.panel_lr_ratio`.
@@ -251,55 +251,89 @@ note saying why, and the code is at `5ac14fa` if it is ever wanted back.
 **What replaces it is an argument, and a stronger one.** The truth set's GC skew hands
 *published* a tailwind — published is the GC-biased score and GeneHancer positives are
 GC-rich, between bins and still within them, where positives stay enriched at the high-GC
-end. The decontaminated score wins in all five bins anyway, so 8E is **conservative**. And
+end. The decontaminated score wins in all five bins anyway, so 8I is **conservative**. And
 **say the limitation rather than omitting it** — a reviewer will notice the secondary
 analyses rest on the set McHale et al. themselves call lax; the strong form is a caption
 sentence carrying this and the power argument above, not silence.
 
-**8F and 8G — the same construction at the OTHER end of the score**, added and run
-2026-09-10. 8F is the cutoff calling the **bottom** 1% of each bin and 8G the paired `LR+`
-ratio measured there, stacked and sharing an x axis exactly as 8D over 8E.
+**8D, 8E, 8F and 8G, 8H, 8I — one comparison at THREE matched calling rates**, which replaced
+a bottom-1% construction on 2026-09-11. Two parallel stacks, row-aligned by rate and ordered
+**left tail → median → right tail** top to bottom, so the rate *descends*: 8D/8G at **99%** of
+each bin, 8E/8H at **50%**, 8F/8I at **1%**. `data.LAX_CALL_RATES`. A call is `z > t` and a hit
+is a GeneHancer enhancer in **all six** — one hypothesis, three operating points.
 
-**The result is the figure's conclusion.** The ratio falls **below 1.0 in all five bins** —
-−34.3% [−67.4, +0.0], −22.9% [−28.8, −15.1], −23.3% [−28.4, −18.2], −42.1% [−51.1, −31.1],
-−41.5% [−56.9, −22.0] — four of five clear of 1.0, **exactly reversing 8E**, where the
-retrained score leads in all five. So the two scores' precision-recall curves do cross, 8C's
-wash is the average of a gain at one end and a loss at the other, and the figure's claim is a
-**trade**: debiasing improves discovery of the most constrained sequence and costs discovery
-of the least.
+*Reading down the left stack* gives three quantiles of each score's own distribution, so a
+published cutoff climbing with GC at all three means the bias is a shift of the **whole** score
+within a bin rather than a stretched tail. **8E is a calibration check needing no truth set**:
+the cutoff calling the top 50% of a bin *is* that bin's median `z`, and a score whose null is
+`N(0,1)` on these windows has its median near 0 in every bin. *Reading down the right stack*
+sweeps 8C's recall axis, which is what localises whatever 8C averages.
 
-*Read the levels as well as the ratio.* Published's `LR+` here is **3.23–5.45**, against the
-1.32–1.95 it manages in 8E. On this truth set both scores identify *un*constrained sequence
-far more sharply than constrained, so the tail debiasing costs is the informative one.
+**Letters moved for the third time.** old 8D → **8F**; old 8E → **8I**; old 8F → **8D**, reread
+as the cutoff calling the top 99% (*the same five numbers*); old 8G → **8G**, but recomputed,
+and **its numbers do not carry over**; **8E** and **8H** are new. Anything written before
+2026-09-11 means the old letters.
 
-*What the gap cannot be — the load-bearing caveat.* Within a bin the GC bias is nearly a
-constant shift, and a constant shift cannot reorder a ranking, so this difference is **not the
-bias**. It is within-bin variation in the regional adjustment: information the published model
-carries and the retrained one discards along with the bias. Whether that is genuine signal
-about local mutation rate or a second artefact of the same fit **is not settled here**, and
-the prose says so. Do not let it drift into a claim.
+**The left tail has no truth set, and that is why the old 8F/8G went.** Until then the figure
+called `z ≤ t` and counted a **non**-enhancer as the hit, justified by saying a low Gnocchi
+claims a window is unconstrained. It does not. Gnocchi is a two-sided `z` against a neutral
+expectation, so **unconstrained sequence sits at `z ≈ 0`** — most of the genome — and the left
+tail is the *opposite* anomaly, **more** variation than expected, whose leading explanations are
+hypermutability or mutation-model misspecification. The repo's own numbers agree: under the
+neutral null the 1st percentile would be `z = −2.33`, and published's bottom-1% cutoffs run
+−5.67, −6.04, −5.03, −4.14, −2.98, so four of five bins are far heavier than sampling noise. A
+non-enhancer label is evidence about **enhancer status**, so the mirror swapped one hypothesis
+for another. the note above `data.LAX_CALL_RATES` records it. **Do not
+reinstate it.** The `tail` parameter survives, correct and callerless.
 
-*Mechanics.* `tail="lower"` on `threshold_metrics` and `paired_deltas` flips the call to
-`z ≤ t` and the hit to a **non**-enhancer — a low Gnocchi predicts an unconstrained window,
-and the truth set's negatives are what that claim is right about — via `data._tail_labels` and
-`data._tail_called`, and changes nothing else, so a difference between the tails cannot be an
-artefact of measuring them differently. Both require `match_within_bin=True`.
+**The switch costs no evidence, only magnitude** — worth knowing before anyone calls 8G a null.
+With `a = P(z ≤ t | enhancer)` and `b = P(z ≤ t | non-enhancer)`, the retired reading was `b/a`
+and the kept one is `(1−a)/(1−b)`. At a matched rate inside a bin the contingency table has
+**one free count**, and every effect measure here is monotone in it, so they order the scores
+identically in every bin *and every bootstrap replicate*. Only the numbers compress: on the
+reconstructed values, **42.2%** of effect in the retired reading against **0.53%** in the kept
+one, 5/5 bins agreeing. `data.paired_deltas` has the argument.
 
-*Two predictions, both borne out.* Lift is useless on this tail — its ceiling is `1/r` on the
-**non**-enhancer rate, and the run gives 1.1 in the most AT-rich bin. And the odds ratio can
-saturate: the guard fired **once**, one replicate of 500 in that same bin, so `n_boot` held at
-499 and the Haldane–Anscombe correction is not needed.
+**8G is pinned near 1.0 by arithmetic.** `LR+ = odds(p)/odds(r)` at any rate, and a rate near 1
+forces `p` to `r`: at `k = 0.99`, `LR+ = 1 + (recall − k)/(1 − r) + O((1−k)²)`. The notebook
+prints that check. **So read 8G for sign, 8H and 8I for magnitude** — and 50% is where most of
+8C's area lives, so 8H is the panel that can account for 8C's wash where 8G cannot.
 
-*8F's published curve is not monotonic*: −5.67, −6.04, −5.03, −4.14, −2.98, rising 3.05 in `z`
-over its **last four** bins rather than across all five. The retrained score's stays within
-0.79 of itself. 8D's published curve *is* monotonic, 2.83 → 6.38.
+**What survives numerically.** 8I is the old 8E, so **+37.7% [+1.7, +93.8], +6.3% [+0.8, +12.3],
++8.5% [+2.3, +15.9], +33.0% [+8.8, +66.4], +8.4% [−27.5, +58.6]** stand, as do 8A, 8B and 8C's
+numbers and the old 8F's five cutoffs (now 8D's, 8D's published curve being non-monotonic:
+−5.67, −6.04, −5.03, −4.14, −2.98, rising 3.05 in `z` over its last four bins; 8F's *is*
+monotonic, 2.83 → 6.38). **What does not**: every number attached to the old 8G — the
+−34.3/−22.9/−23.3/−42.1/−41.5 per cent reversal and published's 3.23–5.45 `LR+` levels. Those
+measured the retired hypothesis. **8G and 8H have never been run**, and the **"trade"
+conclusion is withdrawn** with them: it read the left tail as the least-constrained sequence,
+which it is not. What stands is the gain at the top and the wash overall.
+
+*What a gap at any of these points cannot be — the load-bearing caveat.* Within a bin the GC
+bias is nearly a constant shift, and a constant shift cannot reorder a ranking, so a difference
+at a matched rate is **not the bias**. It is within-bin variation in the regional adjustment:
+information the published model carries and the retrained one discards along with the bias.
+Whether that is genuine signal about local mutation rate or a second artefact **is not settled
+here**, and the thirteen features include `CpG_island` and `Nucleosome`, which correlate with
+regulatory annotation and so are not independent of a GeneHancer truth set. Do not let it drift
+into a claim.
+
+*Lift is useless at the 99% end* — its ceiling is `1/r`, and at a 99% calling rate the
+precision is within a percent of `r` by construction, so the ceiling binds immediately. This is
+why `LR+` is the measure everywhere the reading is across bins.
+
+*The label-free test for what is actually in the left tail* is a DNM one, not a truth-set one:
+hypermutable windows should carry an elevated de novo rate, which `gnocchi_bias/dnm_model.py`'s
+per-stratum machinery already measures. Circular against the retrained score — the DNM set is
+what `r` is fit on — so it wants the held-out split listed under optional hardening. **Not
+built.**
 
 **There is no FPR-matched check any more.** It recomputed `LR+` with each score cut at the
 quantile of its bin's *negatives*, so every bin sat at an identical false-positive rate rather
 than an identical calling rate, and it agreed with the panels in shape and ordering. Removed
 2026-09-10 with its prose: it was a second operating-point convention for a reader to keep
 straight, in service of a residual the panels bound anyway, and it needed the labels to set a
-threshold that 8D and 8F deliberately set without them. `data.fpr_matched_lr` is at `8598716`.
+threshold that 8D-8F deliberately set without them. `data.fpr_matched_lr` is at `8598716`.
 
 Run the notebook top to bottom.
 

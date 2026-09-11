@@ -278,8 +278,18 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    caller). Again no number changed, and `captions.txt`/`methods.txt` are updated.
    **Fig. 5F's axis became a percentile on 2026-09-05** -- detail below, and again no number
    changed, only which end of one is labelled.
-   **The notebook is 37 cells, ALL of them executed on the HPC path and committed with
-   outputs at `3a77e4c` (2026-09-09), so every number in it is real.** That run cleared the
+   **The notebook is 41 cells, and 19 of the code cells still carry real committed
+   outputs.** Those were executed on the HPC path at `3a77e4c` (2026-09-09), so every number
+   in them is real. The count read 37 here until 2026-09-11 and was stale by two even then.
+   **FOUR CODE CELLS HAVE NO OUTPUT AND MUST BE RUN** -- the three-rate computation, the
+   two-readings diagnostic, the figure build and the three-rate summary table (cells 29, 31,
+   32, 33). They are the cells the 2026-09-11 rework rewrote; their old outputs measured the
+   retired left-tail hypothesis and were dropped deliberately rather than left to be quoted.
+   Every other cell's output was carried across unchanged by matching on cell SOURCE, which
+   is the reliable way to edit this notebook: regenerate into a scratch directory, then copy
+   `outputs`/`execution_count`/`id` onto every cell whose source is byte-identical. Running
+   `make_fig5_nb.py` over `fig5.ipynb` directly would have discarded all 19.
+   The generator and the notebook have been verified to agree cell-for-cell. That run cleared the
    rebuild the TWO 2026-09-08 revisions had left outstanding (Supporting Fig. 8, two panels
    -> four -> five, the last moving every cross-bin reading onto LR+); see WHAT THE RERUN
    SETTLED below for what it did and did not fill. The 37 count is after THREE cells were
@@ -296,14 +306,14 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
        `data.paired_deltas(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax", n_bootstrap=500,
        seed=0)`;
      * `sweep_s8`, the same comparison swept across calling rates (1%, 3%, 10%), printed and
-       never drawn. Restore with `data.paired_delta_sweep(call_rates=(0.01, 0.03, 0.10),
-       truth_set="lax", n_bootstrap=500, seed=0)`.
-   **`data.paired_delta_sweep` NOW HAS NO CALLER ANYWHERE** and is the only public builder in
-   `fig5/data.py` in that position -- the audit that finds it is "any public def with no
-   `D.<name>` in make_fig5_nb.py and no internal use". It was kept rather than deleted
-   because its argument is still good (it says whether a result is a knife-edge or holds
-   along the whole calling-rate range) and, unlike an undrawn PANEL function, an unused data
-   builder costs a reader nothing to skip. Delete it if that stops being persuasive.
+       never drawn. Its builder was deleted 2026-09-11 (see below), so restoring it means
+       recovering `paired_delta_sweep` from `5865e5d` first.
+   **`data.paired_delta_sweep` WAS DELETED 2026-09-11.** It had no caller and was kept
+   because its argument was still good -- it swept the comparison across calling rates (1%,
+   3%, 10%) and so said whether a result was a knife-edge or held along the range. Supporting
+   Fig. 8 now DOES that, at 1% / 50% / 99% and in the figure itself, so the function's whole
+   purpose is served by drawn panels. That is exactly the condition this entry named for
+   deleting it. At `5865e5d` if ever wanted.
    **WHAT THE RERUN SETTLED (2026-09-09, commit `3a77e4c`).** The three cells that had no
    output all ran -- the C/D table (`withinbin_s8` / `gains_wb_s8`, whose matched rate moved
    from 1.002% to a flat 1% and whose `metric` moved to `lr_pos`) and the Supporting Fig. 8
@@ -484,33 +494,124 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         (93.15 rather than 99.34) -- the caveat is the weighting, not the
                         transform.
                           ONE z PER SCORE, APPLIED UNCHANGED IN EVERY BIN. This is the
-                        OPPOSITE convention to Supporting Fig. 8's C and D, which fix the
+                        OPPOSITE convention to Supporting Fig. 8's D-I, which fix the
                         RATE per bin and let the threshold move, and the two are easy to
                         confuse. (Supporting Fig. 8's A and B share 5F's convention, one
-                        fixed global cutoff per score; it is C and D that invert it.)
+                        fixed global cutoff per score; it is D-I that invert it.)
                         `calling_rate_by_gc` fixes both thresholds ONCE on the
                         whole population, then counts per bin; so the legend reads `z =`
                         rather than `z >=` on the percentile axis, a percentile being a
                         property of a value and not of the set above it.
-     Supporting Fig. 8  SEVEN panels in FOUR SLOTS, two rows of two (13 x 10 in) -- what
+     Supporting Fig. 8  NINE panels in FOUR SLOTS, two rows of two (13 x 11.5 in) -- what
                         debiasing does to DISCOVERY, which unlike Fig. 5 needs a truth set.
-                        RELAID OUT 2026-09-10 and now SEVEN panels: two
-                        rows of two SLOTS, a slot being either a stacked pair or one
-                        full-height panel --
+                        RELAID OUT 2026-09-11, when the LEFT-TAIL CONSTRUCTION WAS RETIRED
+                        (read that block below before anything else here) and the figure
+                        became ONE comparison at THREE matched calling rates. A slot is
+                        either a stack or one full-height panel --
 
-                          row 1   A over B   where each score sends its calls
-                                  C          the threshold-free verdict, full height
-                          row 2   D over E   the gain at the TOP 1%
-                                  F over G   the same at the BOTTOM 1%
+                          row 1   A over B          where each score sends its calls
+                                  C                 the threshold-free verdict, full height
+                          row 2   D over E over F   the cutoff at 99 / 50 / 1% of a bin
+                                  G over H over I   the gain at 99 / 50 / 1%
 
                         -- so a reader meets the operating-point picture, then the verdict
-                        over all thresholds, then the two ends of the ranking that verdict
-                        averages over. EVERY LETTER BEFORE 2026-09-10 HAS MOVED: what was C
-                        is now D, what was D is now E, and what was E is now C. Anything
-                        written before that date means the old letters. The column gap is a
-                        SPACER COLUMN at the same 3.58 in the old 3-column layout was tuned
-                        to, `width_ratios=[1.0, 0.76, 1.0]` on 13 in; the stacked pairs went
-                        to `hspace=0.35` because their rotated labels collided at 0.16.
+                        over all thresholds, then WHERE along the ranking that verdict is
+                        averaging. The two row-2 stacks are ROW-ALIGNED BY CALLING RATE (D
+                        with G, E with H, F with I) and ordered LEFT TAIL -> MEDIAN -> RIGHT
+                        TAIL top to bottom, which is why the rate DESCENDS: the cutoff
+                        isolating the top 99% of a bin sits at z ~ -5, the top 50% IS the
+                        median, the top 1% is z ~ +3 to +6. Reading down the left stack gives
+                        three quantiles of one distribution (so a published cutoff climbing
+                        at all three means the bias is a shift of the WHOLE score, not a
+                        stretched tail, and E is a CALIBRATION CHECK needing no truth set --
+                        a well-calibrated z has its median near 0 in every bin); reading down
+                        the right stack sweeps C's recall axis.
+                        EVERY LETTER HAS MOVED AGAIN, third time. The map:
+                        old D (cutoff, top 1%) -> F; old E (ratio, top 1%) -> I; old F
+                        (cutoff, bottom 1%) -> D, reread as the cutoff calling the top 99%,
+                        SAME FIVE NUMBERS; old G (ratio, bottom-1% mirror) -> G but
+                        RECOMPUTED, ITS NUMBERS DO NOT CARRY OVER; new E (median) and new H
+                        (mid-recall ratio). Anything written before 2026-09-11 means the old
+                        letters. The column gap is a SPACER COLUMN at the same 3.58 in the
+                        old 3-column layout was tuned to, `width_ratios=[1.0, 0.76, 1.0]` on
+                        13 in; `height_ratios=[1.0, 1.35]` favours row 2, which carries
+                        three-panel stacks, and both stacks are at `hspace=0.42` because a
+                        rotated label on a third-height row collides at 0.35.
+                          THE LEFT TAIL HAS NO TRUTH SET, AND THAT IS WHY THE OLD F AND G
+                        WENT (2026-09-11, Peter's objection; the note above
+                        `data.LAX_CALL_RATES` records it). Until then the figure read the
+                        BOTTOM 1% with the call at z <= t and a NON-enhancer as the hit,
+                        justified by saying a low Gnocchi claims a window is unconstrained.
+                        IT DOES NOT. Gnocchi is a two-sided z against a neutral expectation,
+                        so UNCONSTRAINED SEQUENCE SITS AT z ~ 0 -- most of the genome -- and
+                        the left tail is the OPPOSITE anomaly, MORE variation than expected,
+                        whose leading explanations are hypermutability or mutation-model
+                        misspecification. The repo's own numbers agree: under the neutral null
+                        the 1st percentile would be z = -2.33, and published's bottom-1%
+                        cutoffs run -5.67, -6.04, -5.03, -4.14, -2.98, so four of five bins
+                        are far heavier than sampling noise. A non-enhancer label is evidence
+                        about ENHANCER STATUS, so the mirror swapped one hypothesis for
+                        another. DO NOT REINSTATE IT. The question it was built to answer --
+                        where does C's wash come from -- survives, and is now asked with the
+                        call at z > t and an enhancer as the hit at every rate.
+                          THE SWITCH COSTS NO EVIDENCE, ONLY MAGNITUDE, and this is worth
+                        knowing before anyone calls the new panel G a null. With
+                        a = P(z <= t | enhancer) and b = P(z <= t | non-enhancer), the retired
+                        reading was b/a and the kept one is (1 - a)/(1 - b). At a matched rate
+                        inside a bin they are a MONOTONE REPARAMETRISATION of one 2x2 table,
+                        so they order the scores identically in every bin AND every bootstrap
+                        replicate; the sign test and the significance calls carry over, and
+                        only the numbers compress, by a factor of order k. On the reconstructed
+                        numbers: 42.2% of effect in the retired reading against 0.53% in the
+                        kept one, 5/5 bins agreeing. So READ G FOR SIGN AND H AND I FOR
+                        MAGNITUDE -- and 50% is where most of C's area lives, so H is the
+                        panel that can actually account for C's wash, which the 99% one
+                        cannot (there both scores' precision is within ~1% of prevalence).
+                          PANEL G IS PINNED NEAR 1.0 BY ARITHMETIC, AND THAT IS NOT A NULL.
+                        LR+ = odds(p)/odds(r) at ANY calling rate, so a rate near 1 -- which
+                        forces the precision p to the base rate r -- drives it to 1: at
+                        k = 0.99, LR+ = 1 + (recall - k)/(1 - r) + O((1-k)^2), bounded by
+                        1 + (1-k)/(1-r). Cell 31 prints that check against the exact values.
+                        THE EVIDENCE IS NOT COMPRESSED WITH THE MAGNITUDE: at a matched rate
+                        inside a bin, n, n_pos and n_called are fixed and shared, so the 2x2
+                        table has ONE FREE COUNT and precision, lift, skill and LR+ are all
+                        monotone in it -- they agree on which score is ahead in a bin and in
+                        every bootstrap replicate. So read G for SIGN and H and I for
+                        MAGNITUDE, and note that 50% is where most of C's area lives, so H is
+                        the panel that can account for C's wash where G cannot.
+                          NO LR- MATERIAL SURVIVES, 2026-09-11, and do not reintroduce it. An
+                        `lr_neg` column, a `_neg_likelihood_ratio` helper and a two-readings
+                        diagnostic cell existed for part of that day, to show that switching
+                        from b/a to (1 - a)/(1 - b) cost no evidence. The argument is right
+                        and is kept -- it is the one-free-count paragraph in
+                        `data.paired_deltas` -- but it needs no second statistic, and printing
+                        b/a resurrected the retired hypothesis every time the cell ran. The
+                        LR- contrast had ALREADY been cut from the prose once, at `5865e5d`.
+                          WHAT SURVIVES NUMERICALLY: panel I is the old E, so its
+                        +37.7% [+1.7, +93.8], +6.3% [+0.8, +12.3], +8.5% [+2.3, +15.9],
+                        +33.0% [+8.8, +66.4], +8.4% [-27.5, +58.6] STAND, as do A, B and C's
+                        numbers and the old F's five cutoffs (now D's). WHAT DOES NOT: every
+                        number attached to the old G -- the -34.3 / -22.9 / -23.3 / -42.1 /
+                        -41.5 per cent reversal and published's 3.23-5.45 LR+ levels. Those
+                        measured the retired hypothesis. G and H HAVE NEVER BEEN RUN.
+                        THE "TRADE" CONCLUSION IS WITHDRAWN with them: it read the left tail
+                        as the least-constrained sequence, which it is not. What stands is
+                        the gain at the top and the wash overall; where the offset lies is
+                        open until G and H run.
+                          STILL TRUE OF ANY OF THESE PANELS: within a bin the GC bias is
+                        nearly a CONSTANT SHIFT, which cannot reorder a ranking, so a gap at
+                        a matched rate is NOT the bias but within-bin variation in the
+                        regional adjustment -- information published carries and the
+                        retrained score discards along with the bias. Unsettled, and the
+                        13-feature panel includes `CpG_island` and `Nucleosome`, which
+                        correlate with regulatory annotation, so that component is not
+                        independent of a GeneHancer truth set.
+                          THE LABEL-FREE TEST FOR WHAT IS ACTUALLY IN THE LEFT TAIL is a DNM
+                        one, not a truth-set one: if those windows are hypermutable their de
+                        novo rate is elevated, which `gnocchi_bias/dnm_model.py`'s
+                        per-stratum machinery already measures. Circular against the
+                        retrained score (the DNM set is what r is fit on), so it wants the
+                        held-out split already listed as optional hardening. NOT BUILT.
                                                   LR+ EVERYWHERE THE READING IS ACROSS BINS, AND THIS IS THE CHANGE
                         THAT MATTERS MOST. Lift is precision/r, r climbs 7.7x across these
                         bins, and the ceiling 1/r falls 12.0 -> 1.57 -- so a declining lift
@@ -521,6 +622,10 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         both sides and r cancels outright. Lift survives ONLY as the
                         within-bin translation a caption quotes. Do not put it back into any
                         panel.
+                          THE PER-PANEL PARAGRAPHS BELOW PREDATE 2026-09-11 AND EACH NOW
+                        CARRIES ITS NEW LETTER IN ITS HEADING. Where the body text of one
+                        refers to another panel by letter, apply the map in the header block
+                        above. A, B and C did not move.
                           A and B: ONE PANEL PER SCORE -- A published, B retrained -- each
                         carrying RECALL AND LR+ TOGETHER on twin y axes (recall left and
                         logarithmic, LR+ right and linear), `panels.panel_recall_and_
@@ -547,7 +652,7 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         the second (1.91 against 1.94), but that comparison is D's, cleanly.
                         Recall earns a place here and nowhere else, because Bayes gives
                         lift = recall / k and only here does k vary (45.7x).
-                          D: the per-bin threshold calling 1% of that bin, one curve per
+                          F (WAS D): the per-bin threshold calling 1% of that bin, one curve per
                         score (`panels.panel_bin_thresholds`, new). The bias in the score's
                         own units, and like Fig. 5F it uses NO LABELS at all. It is 5F's
                         INVERSE, not its repetition -- 5F fixes the threshold and reads the
@@ -558,7 +663,8 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         dropped because a rule crossing one row of a stacked pair reads as
                         a gridline belonging to both. NO error bars: a quantile of a
                         million windows has none worth drawing.
-                          E: the former panel B, now directly beneath D, and since the
+                          I (WAS E, AND BEFORE THAT B): the ratio panel, now the BOTTOM of the
+                        right-hand stack rather than beneath the 1% threshold panel; since the
                         second 2026-09-08 revision it is a RATIO CURVE rather than two
                         levels (`panels.panel_lr_ratio`, new): the retrained score's LR+ over
                         published's, per GC bin, against a reference line at 1.0, with the
@@ -631,51 +737,33 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         references in Fig. 5A, B and E, which keep REF_LINE_KW -- there the
                         line is context for a curve read alone, here it is the frame a
                         comparison is made in.
-                          F AND G: THE LOWER TAIL, added and RUN 2026-09-10. D and E's
-                        construction pointed at the BOTTOM 1% of each bin. THE RESULT IS THE
-                        FIGURE'S CONCLUSION, so do not re-derive it: the LR+ ratio falls
-                        BELOW 1 in ALL FIVE bins -- -34.3% [-67.4, +0.0], -22.9%
-                        [-28.8, -15.1], -23.3% [-28.4, -18.2], -42.1% [-51.1, -31.1],
-                        -41.5% [-56.9, -22.0] -- four of five clear of 1.0, EXACTLY
-                        REVERSING E, where the retrained score leads in all five. So the two
-                        scores' PR curves DO cross, C's wash is the average of a gain at one
-                        end and a loss at the other, and the figure's claim is a TRADE:
-                        debiasing improves discovery of the most constrained sequence and
-                        costs discovery of the least.
-                          READ THE LEVELS TOO. Published's LR+ here is 3.23-5.45 against the
-                        1.32-1.95 it manages in E, so on this truth set BOTH scores identify
-                        unconstrained sequence far more sharply than constrained, and the
-                        tail debiasing costs is the informative one.
-                          WHAT THE GAP CANNOT BE, and this is the load-bearing caveat: within
-                        a bin the GC bias is nearly a CONSTANT SHIFT, and a constant shift
-                        cannot reorder a ranking, so the difference here is NOT the bias. It
-                        is within-bin variation in the regional adjustment -- information the
-                        published model carries and the retrained one discards along with the
-                        bias. Whether that is real signal about local mutation rate or a
-                        second artefact of the same fit IS NOT SETTLED by this figure, and
-                        the prose says so explicitly. Do not let it drift into a claim.
-                          MECHANICS. The mirror is ONE KEYWORD -- `tail="lower"` flips the
-                        call to z <= t and the hit to a NON-enhancer (`data._tail_labels`,
-                        `_tail_called`) and changes nothing else -- so a tail difference
-                        cannot be an artefact of two constructions. Requires
-                        match_within_bin=True. Lift is useless on this tail (ceiling 1/r on
-                        the NON-enhancer rate, so 1.1 in the AT-rich bin, which the run
-                        confirms). The saturation guard fired ONCE -- one replicate of 500 in
-                        the most AT-rich bin -- so `n_boot` stayed at 499 there and
-                        Haldane-Anscombe is NOT needed.
-                          F'S OWN CURVE IS NOT MONOTONIC. Published's bottom-1% cutoff runs
-                        -5.67, -6.04, -5.03, -4.14, -2.98; it rises 3.05 in z over its LAST
-                        FOUR bins, not across all five. The retrained score's stays within
-                        0.79 (-4.85, -5.64, -5.56, -5.55, -5.20). D's published curve IS
-                        monotonic, 2.83 -> 6.38.
-                          TWO OPERATING POINTS, AND CONFUSING THEM IS THE WAY TO MISREAD
-                        THIS FIGURE. A and B are one fixed global cutoff; C and D match the
-                        rate within each bin at a flat 1% (`data.LAX_CALL_RATE`, new). Since
-                        2026-09-08 that 1% is NOT inherited from z >= 4 -- it used to be
-                        1.002%, the fraction published calls at that cutoff -- so z = 4 now
-                        enters this figure only as A's actual cutoff and as C's reference
-                        line. `data.threshold_metrics` gained a `call_rate` parameter to
-                        make that possible.
+                          THE RETIRED BLOCK THAT STOOD HERE described the old F and G (the
+                        bottom-1% mirror) at length: its result, its levels, its mechanics,
+                        the LR- contrast and the "do not restore the LR- passage" note. All
+                        of it is superseded by the header block above and was deleted
+                        2026-09-11 rather than marked, because its numbers measured a
+                        hypothesis the figure no longer makes and a reader skimming would
+                        have quoted them. Recover it from git history if the reasoning is
+                        wanted; the note above `data.LAX_CALL_RATES` keeps the part that still matters.
+                        TWO THINGS FROM IT ARE STILL LIVE AND ARE WORTH RESTATING. First,
+                        the MIRROR WAS ONE KEYWORD -- `tail="lower"` flipped the call and the
+                        label and nothing else -- so a tail difference could not have been an
+                        artefact of two constructions; the machinery itself is deleted.
+                        Second, LIFT IS
+                        USELESS ON A LOW-TAIL READING (its ceiling is 1/r on the NON-enhancer
+                        rate, 1.1 in the AT-rich bin), which is part of why LR+ is the measure
+                        everywhere the reading is across bins.
+                          THREE OPERATING POINTS NOW, AND CONFUSING THEM WITH A AND B IS THE
+                        WAY TO MISREAD THIS FIGURE. A and B are ONE FIXED GLOBAL CUTOFF per
+                        score, each score read at its own; D-I match the rate WITHIN each bin,
+                        at 1%, 50% and 99% (`data.LAX_CALL_RATES`, new 2026-09-11 --
+                        `LAX_CALL_RATE` remains the 1% one and is still what the old callers
+                        pass). Since 2026-09-08 that 1% is NOT inherited from z >= 4 -- it
+                        used to be 1.002%, the fraction published calls at that cutoff -- so
+                        z = 4 now enters this figure only as A's actual cutoff.
+                        `data.threshold_metrics` gained a `call_rate` parameter to make that
+                        possible, and `panels.panel_lr_ratio` now takes the RATE (to label
+                        the axis) where it took a `tail`.
                           RECALL IS DRAWN ONLY IN A AND B, AND PRECISION NOWHERE. A recall
                         panel beside D would be D rescaled by a constant -- that is why the
                         one numbered 8D on 2026-09-05 was cut the same day. THE IDENTITY
