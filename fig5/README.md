@@ -285,11 +285,6 @@ and the truth set's negatives are what that claim is right about — via `data._
 `data._tail_called`, and changes nothing else, so a difference between the tails cannot be an
 artefact of measuring them differently. Both require `match_within_bin=True`.
 
-*It is not `LR−`.* The likelihood ratio of a negative **test** is pinned near 1 at a 1% calling
-rate — failing the cutoff is 99% of windows. Its retrained-to-published ratios span **0.9939
-to 0.9993**, against **1.06 to 1.38** for `LR+`. 8G reports the likelihood ratio of the rare
-**low-tail event** instead, which has room to move.
-
 *Two predictions, both borne out.* Lift is useless on this tail — its ceiling is `1/r` on the
 **non**-enhancer rate, and the run gives 1.1 in the most AT-rich bin. And the odds ratio can
 saturate: the guard fired **once**, one replicate of 500 in that same bin, so `n_boot` held at

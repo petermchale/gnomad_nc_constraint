@@ -658,11 +658,7 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         call to z <= t and the hit to a NON-enhancer (`data._tail_labels`,
                         `_tail_called`) and changes nothing else -- so a tail difference
                         cannot be an artefact of two constructions. Requires
-                        match_within_bin=True. IT IS NOT LR-: the likelihood ratio of a
-                        negative TEST sits within 1% of 1.0 at a 1% calling rate (ratios
-                        0.9939-0.9993 against 1.06-1.38 for LR+), because failing the cutoff
-                        is 99% of windows; G reports the likelihood ratio of the rare
-                        LOW-tail event instead. Lift is useless on this tail (ceiling 1/r on
+                        match_within_bin=True. Lift is useless on this tail (ceiling 1/r on
                         the NON-enhancer rate, so 1.1 in the AT-rich bin, which the run
                         confirms). The saturation guard fired ONCE -- one replicate of 500 in
                         the most AT-rich bin -- so `n_boot` stayed at 499 there and
