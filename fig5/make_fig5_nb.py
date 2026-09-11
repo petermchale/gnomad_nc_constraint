@@ -1218,13 +1218,11 @@ population is this notebook's own with one filter dropped — `keep_enhancer_win
 enhancer-overlapping windows are kept as the positive class. Note the asymmetry: the `scored`
 refit is **fit** on the neutral windows alone and **evaluated** here on both halves.
 
-> **WHICH NUMBERS ARE REAL.** A, B, C, I and D's and F's cutoffs are from the committed run.
-> **E, G and H have never been run** — they were added on 2026-09-11, when the figure stopped
-> asking about the left tail (see the note below). Two further traps in the older numbers: I
-> moved from lift to the $\mathrm{LR}^{+}$ odds ratio on 2026-09-08, so the old lift figures
-> (+33.3, +4.0, +4.2, +10.8, +2.2 per cent) are a *different statistic* and must never be
-> carried over; and every number once attached to a bottom-1% panel measured the retired
-> hypothesis.
+> **EVERY NUMBER BELOW IS FROM THE COMMITTED RUN**, all nine panels. Two traps in *older*
+> numbers, though: I moved from lift to the $\mathrm{LR}^{+}$ odds ratio on 2026-09-08, so the
+> old lift figures (+33.3, +4.0, +4.2, +10.8, +2.2 per cent) are a *different statistic* and
+> must never be carried over; and every number once attached to a bottom-1% panel measured the
+> retired hypothesis (see the note on the left tail below).
 
 ### A and B: the same budget of calls, sent somewhere else
 
@@ -1329,9 +1327,26 @@ Gnocchi answers with a **curve** at all three depths and the retrained score wit
 close to a **constant** — which is the point of stacking them: a bias that moves the top 1%
 cutoff, the median and the top 99% cutoff alike is a shift of the **whole** score within a bin,
 not a stretched tail. At the top 1%, published climbs **2.83 → 6.38** (2.26-fold) against
-**3.01 → 3.16** (1.05-fold); in the left tail it runs **−5.67, −6.04, −5.03, −4.14, −2.98**,
-rising 3.05 in $z$ over its last four bins, against a retrained curve staying within **0.79** of
-itself. Like Fig. 5F and unlike everything else here, **these use no labels at all**.
+**3.01 → 3.16** (1.05-fold); at the median, **−0.96 → +2.32**, a monotonic swing of **3.28 in
+$z$**, against a retrained curve staying within **0.54** of itself (−0.22 to +0.32); and in the
+left tail **−5.67, −6.04, −5.03, −4.14, −2.98**, rising 3.05 over its last four bins, against a
+retrained **0.79**. Like Fig. 5F and unlike everything else here, **these use no labels at
+all**.
+
+**E is the cheapest result in the figure, and the most quotable.** The cutoff calling the top
+half of a bin *is* that bin's median $z$, so in the most GC-rich sequence **half of published
+Gnocchi's windows already sit above $z = 2.3$** — with Chen et al.'s cutoff only 1.7 further on
+— while in the most AT-rich its median sits *below* zero.
+
+**Read E's swing, not its offset from zero.** A score whose null were standard normal on a
+putatively neutral population would have its median near 0 in every bin, and this population is
+**not** putatively neutral: it deliberately retains the enhancer-overlapping windows it
+classifies, 30.9% of it overall and 63.9% of the most GC-rich bin. A median displaced from zero
+is therefore not purely calibration error — genuine constraint in the positive class displaces
+it too, and so does the truth set's GC skew. What those confounders cannot produce is the
+**difference between the two curves**, scored on identical windows: $+2.32$ against $+0.32$ in
+the top bin is the bias and nothing else. By the same token the retrained score's residual
+$+0.3$ is a level common to every bin, not a GC dependence, and so not a residual bias.
 
 F is Fig. 5F's inverse, not its repetition: 5F fixes the threshold and reads the calling rate, F
 fixes the rate and reads the threshold, each natural for a different reader. The three sit here
@@ -1394,8 +1409,9 @@ conservative, not flattered.**
 
 **A and B** add that the calls taken out of GC-rich sequence go back where a call is worth
 roughly twice as much, at a fixed budget; **I**, that it also raises what a hit is worth at the
-top of the ranking, without flattening that value's GC dependence. Whether it costs anything
-further down is **G and H's question, and they have not been run**.
+top of the ranking, without flattening that value's GC dependence. **G and H** add the price:
+a deficit of a few per cent through the middle and the far end of the ranking, in a region where
+neither score carries much signal to begin with.
 """)
 
 code(r"""
@@ -1525,9 +1541,17 @@ can locate a crossing but cannot account for much of the wash. **$50\%$ is where
 area is**, and so the middle panel of the column is the one to read for magnitude rather than
 for sign.
 
-**Not yet run.** I's numbers are from the 2026-09-09 execution and stand. G and H are new,
-and the cells below print them; the prose above states what is expected to be true of them by
-construction, and nothing about which way they come out.
+**And they do cross.** The retrained score leads in **all five** bins at the top 1% and trails
+in **four of five** at both the median and the far end — $+0.1$, $-1.3$, $-3.1$, $-3.0$, $-3.0$
+per cent at $50\%$ and $-0.2$, $-0.1$, $-0.2$, $-0.4$, $-0.5$ at $99\%$ — so the crossing sits
+**between the 1st and 50th percentile**, and the gain at the extreme top is paid for by a small,
+significant deficit through the rest of the ranking. Two things keep that in proportion. The
+loss is slight exactly where the gain is not: at the median neither score discriminates much,
+$\mathrm{LR}^{+}$ running $1.19$–$1.39$ for both, so the largest deficit is $1.23 \to 1.19$, a
+loss of $0.04$, against $1.95 \to 2.69$ at the top. And G is pinned near 1.0 by arithmetic, so
+its five negatives are a **sign** and not a size. The deficit grows with GC at both depths,
+which locates whatever the retrained model discards in GC-rich sequence — where the regional
+adjustment varies most.
 
 **What a difference at any of these points cannot be.** Within a bin the GC bias is nearly a
 *constant shift*, and a constant shift cannot reorder a ranking — so a gap between the scores
