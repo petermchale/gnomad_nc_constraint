@@ -1322,9 +1322,9 @@ everywhere, B at a near-constant top 1%, A at a depth that itself varies 82-fold
 ### D: the cutoff each score would need, bin by bin
 
 To call the same 1% of every GC bin, what threshold would each score require? Published
-Gnocchi answers with a **curve**, climbing from `[8D-PUB-LO]` in the most AT-rich bin to
-`[8D-PUB-HI]` in the most GC-rich, a swing of `[8D-PUB-FOLD]`; the retrained score with
-something close to a **constant**, `[8D-RETRAINED-RANGE]`. That is the bias in the score's
+Gnocchi answers with a **curve**, climbing monotonically from **2.83** in the most AT-rich bin
+to **6.38** in the most GC-rich, a swing of **2.26-fold**; the retrained score with something
+close to a **constant**, **3.01 to 3.16**, a swing of 1.05-fold. That is the bias in the score's
 own units, and — like Fig. 5F and unlike everything else here — **it uses no labels at all**.
 
 It is Fig. 5F's inverse, not its repetition: 5F fixes the threshold and reads the calling
@@ -1475,7 +1475,7 @@ if withinbin_s8 is not None:
 
 
 md(r"""
-## The other tail: where do the two scores' precision-recall curves cross?
+## The other tail: the curves DO cross, and that is the figure's conclusion
 
 Supporting Fig. 8E finds the decontaminated score ahead at the **top** 1% of every GC bin,
 and 8C finds a **wash** once the threshold is integrated out — one significant bin, and that
@@ -1483,9 +1483,9 @@ one negative. `data._bin_thresholds`' docstring reconciles those by asserting th
 scores' precision-recall curves **cross**: a gain at the top of the ranking coexists with no
 gain overall only if the advantage is given back somewhere else.
 
-That is a prediction, and until now an untested one. If it is right, the **bottom** tail is
-where published should be ahead — the windows each score is most confident are *un*constrained
-— and 8E's gains should reverse there.
+That was a prediction, and it is now measured: the **bottom** tail is where published is
+ahead — the windows each score is most confident are *un*constrained — and 8E's gains reverse
+there in **every bin**.
 
 Panels F and G are 8D and 8E's construction applied to that end of the distribution, and
 nothing else changes. A call is $z \le t$ rather than $z \ge t$; the class a call is trying to
@@ -1496,12 +1496,25 @@ lift, LR$^+$, their Wilson bounds and the paired bootstrap are the *same code* c
 same functional of a relabelled problem — which is what makes a difference between the tails
 readable as a difference in the scores rather than in the measurement.
 
-**Read G against 1.0, and read it against E.** A ratio above 1 says the
-decontaminated score is the better detector of unconstrained sequence in that bin, below 1
-says published is. If E's five gains are positive and G's five are negative, the crossing
-is confirmed and C's wash is explained. If both are positive, it is not, and C's wash needs
-another explanation — the more interesting outcome, since it would mean the gain at the top
-is offset somewhere in the middle of the ranking rather than at the far end.
+**The result.** G's ratio is below 1.0 in **all five bins** — $-34.3\%$ $[-67.4, +0.0]$,
+$-22.9\%$ $[-28.8, -15.1]$, $-23.3\%$ $[-28.4, -18.2]$, $-42.1\%$ $[-51.1, -31.1]$ and
+$-41.5\%$ $[-56.9, -22.0]$, four of five clear of 1.0 — exactly reversing E, where the
+retrained score leads in all five. So the curves cross, C's wash is the average of a gain at
+one end and a loss at the other, and **the figure's claim is a trade**: debiasing improves
+discovery of the most constrained sequence and costs discovery of the least.
+
+**Read the levels, not only the ratio.** Published's LR$^+$ here is $3.23$–$5.45$ against the
+$1.32$–$1.95$ it manages in E. On this truth set *both* scores identify unconstrained sequence
+far more sharply than constrained — so the tail debiasing costs is the informative one, which
+makes the trade sharper rather than softer.
+
+**What the gap cannot be, and this is the caveat that matters.** Within a bin the GC bias is
+nearly a *constant shift*, and a constant shift cannot reorder a ranking — so the difference
+between the two scores at either extreme is **not the bias**. It is within-bin variation in
+the regional adjustment: information the published model carries and the retrained one
+discards along with the bias. Whether that is genuine signal about local mutation rate or a
+second artefact of the same fit **is not settled by these data**, and the prose says so rather
+than implying either. It is the obvious thing for a reader to over-read.
 """)
 
 code(r"""
@@ -1667,8 +1680,11 @@ if curves_s8 is not None:
 
 code(r"""
 # THE TWO TAILS SIDE BY SIDE, which is the whole point and is easier to read as a table than
-# off two figures. Sign agreement across the two columns means NO crossing at the extremes;
-# opposite signs confirm it.
+# off two figures. Sign agreement across the two columns would mean NO crossing at the
+# extremes; opposite signs confirm it, and that is what the run gives -- 5/5 favouring the
+# decontaminated score at the top and 0/5 at the bottom. The printed legend below is kept in
+# its conditional form on purpose: it tells a reader how to READ the table rather than what
+# the table happens to say, and it is the same text whichever way a rerun comes out.
 if gains_wb_s8 is not None and gains_wb_lo is not None:
     print("  LR+ ratio (decontaminated / published), per GC bin, at 1% of each bin")
     print(f"  {'GC bin':<16}{'upper tail':>28}{'lower tail':>28}")
