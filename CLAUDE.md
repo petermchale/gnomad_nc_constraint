@@ -306,8 +306,8 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    builder costs a reader nothing to skip. Delete it if that stops being persuasive.
    **WHAT THE RERUN SETTLED (2026-09-09, commit `3a77e4c`).** The three cells that had no
    output all ran -- the C/D table (`withinbin_s8` / `gains_wb_s8`, whose matched rate moved
-   from 1.002% to a flat 1% and whose `metric` moved to `lr_pos`), the FPR-matched LR+
-   check, and the Supporting Fig. 8 build -- and `fig5/output/supp_fig8.neutral.{pdf,png}`
+   from 1.002% to a flat 1% and whose `metric` moved to `lr_pos`) and the Supporting Fig. 8
+   build -- and `fig5/output/supp_fig8.neutral.{pdf,png}`
    are now the FIVE-panel 20 x 5 in version. Every committed output was current as of that
    commit. No `refit.py` rerun was needed and none is (no training population changed).
    **SINCE THEN, Fig. 5F AND Supporting Fig. 8D were restyled (2026-09-10), so
@@ -351,12 +351,10 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    the most GC-rich** (from the printed per-bin lifts 1.81 -> 2.36, 1.53 -> 1.59,
    1.28 -> 1.34, 1.13 -> 1.25, 1.12 -> 1.15; the base rate cancels, so the lift ratio IS the
    precision ratio). Note it FALLS across GC while the odds ratio does not, so the caption
-   sentence that once read "rising to" was corrected when it was filled. The FPR-matched
-   check agrees in shape and ordering (published LR+ 2.03 -> 1.33, retrained 2.74 -> 1.48,
-   against rate-matched 1.95 -> 1.44 and 2.69 -> 1.56). A, B and E's numbers were already
-   final before the rerun, from `tm_s8`'s committed output.
-   **WHAT THE RERUN DID NOT FILL**: panel C's four placeholders (`[8C-PUB-LO]`,
-   `[8C-PUB-HI]`, `[8C-PUB-FOLD]`, `[8C-RETRAINED-RANGE]`) and Fig. 5F's three (`[F-LO]`,
+   sentence that once read "rising to" was corrected when it was filled. A, B and E's numbers
+   were already final before the rerun, from `tm_s8`'s committed output.
+   **WHAT THE RERUN DID NOT FILL**: panel D's four placeholders (`[8D-PUB-LO]`,
+   `[8D-PUB-HI]`, `[8D-PUB-FOLD]`, `[8D-RETRAINED-RANGE]`) and Fig. 5F's three (`[F-LO]`,
    `[F-PCTL-LO]`, `[F-FLAT]`). Both groups are PER-BIN values that their cells COMPUTED but
    did not PRINT -- C's live in `withinbin_s8`'s `threshold_used` column, F's in
    `data.calling_rate_by_gc`'s returned frame, whose cell printed only the min/max across
@@ -494,18 +492,26 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         whole population, then counts per bin; so the legend reads `z =`
                         rather than `z >=` on the percentile axis, a percentile being a
                         property of a value and not of the set above it.
-     Supporting Fig. 8  FIVE panels in THREE COLUMNS (20 x 5 in), one question -- what
+     Supporting Fig. 8  SEVEN panels in FOUR SLOTS, two rows of two (13 x 10 in) -- what
                         debiasing does to DISCOVERY, which unlike Fig. 5 needs a truth set.
-                        REVISED TWICE ON 2026-09-08: first from two panels to four, then
-                        again onto LR+ with the auPRC panel moved last. LETTERS FOLLOW
-                        READING ORDER, so they have all moved -- what was A is now E, and
-                        what was B is now A and B. A over B is one score per panel; C over D
-                        share an x axis, so a vertical dropped through both shows that D's
-                        gain at a given GC is measured at C's cutoff for that GC; E stands
-                        alone in the third column and keeps full height, since auPRC/r spans
-                        only ~1.2-1.6 and a wide short panel would flatten the decline that
-                        is the point of drawing it.
-                          LR+ EVERYWHERE THE READING IS ACROSS BINS, AND THIS IS THE CHANGE
+                        RELAID OUT 2026-09-10 and now SEVEN panels: two
+                        rows of two SLOTS, a slot being either a stacked pair or one
+                        full-height panel --
+
+                          row 1   A over B   where each score sends its calls
+                                  C          the threshold-free verdict, full height
+                          row 2   D over E   the gain at the TOP 1%
+                                  F over G   the same at the BOTTOM 1%
+
+                        -- so a reader meets the operating-point picture, then the verdict
+                        over all thresholds, then the two ends of the ranking that verdict
+                        averages over. EVERY LETTER BEFORE 2026-09-10 HAS MOVED: what was C
+                        is now D, what was D is now E, and what was E is now C. Anything
+                        written before that date means the old letters. The column gap is a
+                        SPACER COLUMN at the same 3.58 in the old 3-column layout was tuned
+                        to, `width_ratios=[1.0, 0.76, 1.0]` on 13 in; the stacked pairs went
+                        to `hspace=0.35` because their rotated labels collided at 0.16.
+                                                  LR+ EVERYWHERE THE READING IS ACROSS BINS, AND THIS IS THE CHANGE
                         THAT MATTERS MOST. Lift is precision/r, r climbs 7.7x across these
                         bins, and the ceiling 1/r falls 12.0 -> 1.57 -- so a declining lift
                         curve is partly the ceiling coming down. Not a matter of degree: on
@@ -541,7 +547,7 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         the second (1.91 against 1.94), but that comparison is D's, cleanly.
                         Recall earns a place here and nowhere else, because Bayes gives
                         lift = recall / k and only here does k vary (45.7x).
-                          C: the per-bin threshold calling 1% of that bin, one curve per
+                          D: the per-bin threshold calling 1% of that bin, one curve per
                         score (`panels.panel_bin_thresholds`, new). The bias in the score's
                         own units, and like Fig. 5F it uses NO LABELS at all. It is 5F's
                         INVERSE, not its repetition -- 5F fixes the threshold and reads the
@@ -552,7 +558,7 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         dropped because a rule crossing one row of a stacked pair reads as
                         a gridline belonging to both. NO error bars: a quantile of a
                         million windows has none worth drawing.
-                          D: the former panel B, now directly beneath C, and since the
+                          E: the former panel B, now directly beneath D, and since the
                         second 2026-09-08 revision it is a RATIO CURVE rather than two
                         levels (`panels.panel_lr_ratio`, new): the retrained score's LR+ over
                         published's, per GC bin, against a reference line at 1.0, with the
@@ -574,15 +580,15 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         COLUMNS DO: `lift_*` and `lr_pos_*` are BOTH always populated with
                         the observed levels whatever `metric` says, and only `delta` and its
                         interval follow `metric`. That is a convenience and NOT a trap --
-                        nothing downstream reads `lift_*` any more (panel 8D takes `delta`,
-                        `fpr_matched_lr` takes `lr_pos_*`, and the function's own print line
+                        nothing downstream reads `lift_*` any more (panel 8E takes `delta`,
+                        the function's own print line
                         indexes `f"{metric}_published"`), the one reader that named it
                         directly having been retired on 2026-09-09 with `gains_s8`. KEEP
                         BOTH PAIRS ANYWAY: with the rate matched inside a bin,
                         `lift_scored / lift_published` IS the precision ratio, which is the
                         caption's analyst-legible translation, while `delta` on the lr_pos
-                        default is the ODDS ratio and larger. `[8D-PREC-LO]` and
-                        `[8D-PREC-HI]` come from the first pair and `[8D-GAINS]` from the
+                        default is the ODDS ratio and larger. `[8E-PREC-LO]` and
+                        `[8E-PREC-HI]` come from the first pair and `[8E-GAINS]` from the
                         second, so neither can be dropped before those are filled.
                         NO LEGEND SINCE 2026-09-10, and the YLABEL IS NOW THE ONLY THING
                         NAMING THE CURVE: "LR+ ratio (decontaminated / published)", where it
@@ -604,7 +610,7 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         truth set reaches 0.73 in the top bin -- those old figures are a
                         DIFFERENT STATISTIC and must never be quoted for these. Carries the
                         paired interval.
-                          E: auPRC / positive-class fraction vs GC, LAST because it is the
+                          C: auPRC / positive-class fraction vs GC, THIRD because it is the
                         figure's CAVEAT and not its premise. Threshold-free and therefore
                         nearly blind to the bias, since a GC-dependent shift is a common
                         shift within a narrow bin and cancels from a ranking; its finding is
@@ -625,6 +631,33 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         references in Fig. 5A, B and E, which keep REF_LINE_KW -- there the
                         line is context for a curve read alone, here it is the frame a
                         comparison is made in.
+                          F AND G: THE LOWER TAIL, added 2026-09-10, NOT YET RUN. D and
+                        E's construction pointed at the BOTTOM 1% of each bin. They test an
+                        assertion the figure already makes and had never checked:
+                        `_bin_thresholds`' docstring reconciles E's gains with C's wash by
+                        saying the two scores' PR curves CROSS, which predicts published
+                        ahead at the other extreme. OPPOSITE SIGNS in E and G confirm that
+                        and explain C; SAME signs refute it and are the more interesting
+                        outcome, putting the offset in the MIDDLE of the ranking where
+                        nothing looks. The mirror is ONE KEYWORD -- `tail="lower"` flips the
+                        call to z <= t and the hit to a NON-enhancer (`data._tail_labels`,
+                        `_tail_called`) and changes nothing else -- so a tail difference
+                        cannot be an artefact of two constructions. Requires
+                        match_within_bin=True. IT IS NOT LR-: the likelihood ratio of a
+                        negative TEST sits within 1% of 1.0 at a 1% calling rate (ratios
+                        0.9939-0.9993 against 1.06-1.38 for LR+), because failing the cutoff
+                        is 99% of windows; G reports the likelihood ratio of the rare
+                        LOW-tail event instead. TWO THINGS TO EXPECT: lift is useless there
+                        (ceiling 1/r on the NON-enhancer rate, so 1.09 in the AT-rich bin),
+                        and the odds ratio can SATURATE, the hit now being the majority class
+                        -- `paired_deltas` returns `n_boot` and a missing interval instead of
+                        raising. A synthetic frame lost EVERY replicate in one bin; expect it
+                        in at most the two smallest real bins, and if it bites the fix is
+                        Haldane-Anscombe, NOT applied now because it would move E's committed
+                        numbers. Verified offline on the shipped code path (synthetic frame
+                        substituted for `_lax_labelled_windows`; every threshold and LR+
+                        matches a hand formula in both tails, and 1 + delta equals the LR+
+                        ratio to machine precision) -- only the DATA is unverified.
                           TWO OPERATING POINTS, AND CONFUSING THEM IS THE WAY TO MISREAD
                         THIS FIGURE. A and B are one fixed global cutoff; C and D match the
                         rate within each bin at a flat 1% (`data.LAX_CALL_RATE`, new). Since
@@ -635,7 +668,7 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         make that possible.
                           RECALL IS DRAWN ONLY IN A AND B, AND PRECISION NOWHERE. A recall
                         panel beside D would be D rescaled by a constant -- that is why the
-                        one numbered 8C on 2026-09-05 was cut the same day. THE IDENTITY
+                        one numbered 8D on 2026-09-05 was cut the same day. THE IDENTITY
                         CELL THAT VERIFIED recall = lift x k WAS RETIRED 2026-09-09, and the
                         reason is worth keeping: once D plotted the ODDS ratio, "a recall
                         panel would be D in other units" stopped being true, because recall
@@ -655,9 +688,37 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         bin -- panel C is that movement drawn -- and equals 4 nowhere in
                         particular, far above it in the top GC bin where an unmatched 4
                         calls 13.97%. Contrast A, B and Fig. 5F, one fixed z everywhere.
-                        THERE IS NO SUPPORTING FIG. 9; it existed for a few hours on
+                        THE LOWER TAIL, ADDED 2026-09-10 AND NOT YET RUN, is C and D's
+                        construction pointed at the BOTTOM 1% of each bin
+                        (`output/lower_tail.{pdf,png}`, four new notebook cells). It tests
+                        an assertion this figure already makes and had never checked:
+                        `_bin_thresholds`' docstring reconciles D's gains with E's wash by
+                        saying the two scores' PR curves CROSS, which predicts published
+                        ahead at the other extreme. Opposite signs across the tails confirm
+                        that and explain E; SAME signs refute it and are the more
+                        interesting outcome, putting the offset in the MIDDLE of the ranking
+                        where neither figure looks. The mirror is ONE KEYWORD --
+                        `tail="lower"` flips the call to z <= t and the hit to a
+                        NON-enhancer (`data._tail_labels`, `_tail_called`) and changes
+                        nothing else -- so a tail difference cannot be an artefact of two
+                        constructions. Requires match_within_bin=True. TWO THINGS TO EXPECT:
+                        lift is useless there (its ceiling is 1/r on the NON-enhancer rate,
+                        so 1.09 in the AT-rich bin), and the odds ratio can SATURATE, since
+                        the hit is now the majority class and a bottom 1% of 219 windows
+                        against a 91.7% base rate can come back entirely negative --
+                        `paired_deltas` now returns `n_boot` and a missing interval instead
+                        of raising. A synthetic frame lost EVERY replicate in one bin; the
+                        real bins are much larger, so expect it in at most the two smallest,
+                        and if it bites the fix is Haldane-Anscombe, NOT applied now because
+                        it would move D's committed numbers too. Verified offline on the
+                        shipped code path (synthetic frame substituted for
+                        `_lax_labelled_windows`; every threshold and LR+ matches a hand
+                        formula, both tails, and 1 + delta equals the LR+ ratio to machine
+                        precision) -- only the DATA is unverified.
+                        THERE IS STILL NO SUPPORTING FIG. 9; it existed for a few hours on
                         2026-09-04 and was merged back once its calling-rate panel moved to
-                        Fig. 5F. Its orphaned `output/supp_fig9.*` were removed 2026-09-05,
+                        Fig. 5F. The lower-tail output is named `lower_tail` for that
+                        reason -- whether it earns a number depends on what the run shows. Its orphaned `output/supp_fig9.*` were removed 2026-09-05,
                         and `fig5/README.md` -- which had announced it and denied it three
                         paragraphs apart -- was reconciled then.
 
@@ -731,23 +792,23 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    STATISTICALLY INDISTINGUISHABLE. A null there confirms Supporting Fig. 8 rather than
    failing to find something.
 
-2. **`fig5/captions.txt` covers Fig. 5A-F and Supporting Fig. 8's (A)-(E), and SEVEN
-   PLACEHOLDERS REMAIN**, down from thirteen. SIX of Fig. 5F's nine were filled on
+2. **`fig5/captions.txt` covers Fig. 5A-F and Supporting Fig. 8's (A)-(G), and NINE
+   PLACEHOLDERS REMAIN** -- seven of the old set plus `[8F-SUMMARY]` and `[8G-RESULT]`,
+   the lower tail's, which cannot be filled until it is run. SIX of Fig. 5F's nine were filled on
    2026-09-09 from the committed output of its own cell: `[F-THRESH]` = 3.237,
    `[F-HI]` = 41.667%, `[F-FOLD]` = 277x, `[F-MATCHED]` = 0.660%, hence
    `[F-MATCHED-PCTL]` = 99.340 and `[F-PCTL-HI]` = 58.333 (percentile = 100 x (1 - rate);
    filling `[F-HI]` takes the printed MAXIMUM calling rate to be the most GC-rich bin's,
    which the curve's monotonicity makes safe but which is an inference, not a printed fact).
-   Supporting Fig. 8's FOUR (D) placeholders were filled the same day from the rerun --
-   `[8D-GAINS]`, `[8D-N-SIGNIFICANT]`, `[8D-PREC-LO]`, `[8D-PREC-HI]`, values under WHAT
-   THE RERUN SETTLED above -- and the "220 called windows per score" beside them was
+   Supporting Fig. 8's FOUR ratio-panel placeholders (then D, now E) were filled the same
+   day from the rerun -- values under WHAT THE RERUN SETTLED above -- and the "220 called windows per score" beside them was
    corrected to 219, which is what the matched 1.000% rate actually calls in the most
    AT-rich bin.
    THE SEVEN THAT REMAIN ARE ALL PER-BIN VALUES THAT ARE COMPUTED BUT NOT PRINTED, which is
    why the rerun did not settle them: `[F-LO]`, `[F-PCTL-LO]` and `[F-FLAT]` from
    `data.calling_rate_by_gc`'s returned frame (its cell prints only the min/max, and the
-   printed minimum is 0.000%, from bins that call nothing), and `[8C-PUB-LO]`,
-   `[8C-PUB-HI]`, `[8C-PUB-FOLD]`, `[8C-RETRAINED-RANGE]` from `withinbin_s8`'s
+   printed minimum is 0.000%, from bins that call nothing), and `[8D-PUB-LO]`,
+   `[8D-PUB-HI]`, `[8D-PUB-FOLD]`, `[8D-RETRAINED-RANGE]` from `withinbin_s8`'s
    `threshold_used` column. Filling them means adding a per-bin print to those two cells and
    one more HPC run -- no refit. Do not read them off the PDFs and do not back them out of
    the rounded fold-swing. (A), (B) and (E)'s numbers are FINAL: A and B's came from

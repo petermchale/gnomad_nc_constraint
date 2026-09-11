@@ -88,7 +88,7 @@ read at Chen et al.'s `z ≥ 4`, the retrained score at `z ≥ 3.140`, the value
 worth least**, putting 2,618 calls in the bin where `LR+` is 1.25 and 38 where it is 2.06.
 **B's recall is flat**, 2.03% → 0.93%, and the calls move with it: 168 in the AT-rich bin
 against 38, and 154 in the GC-rich bin against 2,618. B's `LR+` still declines, 3.11 → 1.50,
-and *that residual is 8E's signal-to-noise, not a remnant of the bias* — a reader who takes B
+and *that residual is 8C's signal-to-noise, not a remnant of the bias* — a reader who takes B
 as "still not fixed" has read E's quantity off B's axes.
 
 *Do not turn A and B into one comparison.* The retrained `LR+` is higher in four bins of five
@@ -101,7 +101,31 @@ curve's *shape*.
 *Do not impose a per-bin rate on A or B either.* The per-bin freedom **is** the bias, and
 these panels exist to show what it does to discovery; matching it away is D's job.
 
-**8C — the per-bin threshold that calls 1% of that bin**, one curve per score:
+**8C — auPRC/`r` against GC for both scores**, threshold-free, `data.pr_curves` +
+`data.pr_curve_deltas` through `panels.panel_aupr_by_gc`. A GC-dependent bias is very
+nearly a common shift on every window in a narrow bin, positives and negatives alike, so it
+cancels from a within-bin *ranking* statistic: that is why E's two curves nearly coincide,
+and it means the steep decline of auPRC with GC *survives debiasing* (published
+1.518 → 1.199 across the bins, retrained 1.554 → 1.298). What remains is signal-to-noise,
+which is what McHale et al. conjectured in their text. **E comes last because it is the
+figure's caveat**, not its premise — A through D argue that debiasing redistributes calls,
+makes the cutoff portable and improves ranking where the score is used, and E says what that
+improvement is *not*: a wash over the whole recall axis, with one bin slightly worse. It is
+also the only panel here with no operating point, so its decline cannot be an artefact of
+where a cutoff sits.
+
+*Its legend carries the two names and nothing else, since 2026-09-10.* The pooled values
+(1.321 and 1.341) and the clause identifying the bars as a 95% paired CI travelled in the
+labels until then — two clauses per entry on a panel a third of the figure's width — and
+both now live in the caption, where the pooled numbers can be quoted. Cutting them took the
+legend from ~540 px, the full axes width, to 233 px. Its `y = 1` reference also moved from
+`REF_LINE_KW` to panel D's `MATCHED_RATE_LINE_KW` at zorder 1.5: the two panels each draw a
+null that every marker is judged against, and at 0.45 grey and 0.8 pt a dashed rule is
+barely heavier than the dotted gridlines it sits among and can be painted over by them. This
+is a deliberate divergence from the `rank = 0.5` and `r = 1` references in Fig. 5A, B and E,
+which keep the lighter style — there the line is context for a curve read on its own.
+
+**8D — the per-bin threshold that calls 1% of that bin**, one curve per score:
 the same `withinbin_s8` table D uses, through `panels.panel_bin_thresholds`. This is the
 bias in the score's own units and it uses **no labels at all**, so like Fig. 5F it rests on
 neither GeneHancer nor the laxness of an enhancer proxy. Published Gnocchi answers with a
@@ -114,7 +138,7 @@ measured at C's cutoff for that GC. It carried a dashed `z = 4` horizontal until
 dropped because a rule crossing one row of a stacked pair reads as a gridline belonging to
 both. No error bars: a quantile of a million windows has none worth drawing.
 
-**8D — the `LR+` RATIO per GC bin with the calling rate matched *within* each bin** (the
+**8E — the `LR+` RATIO per GC bin with the calling rate matched *within* each bin** (the
 panel that was 8B until 2026-09-08), which is what separates ranking from threshold
 placement: `data.threshold_metrics(match_within_bin=True)` and
 `data.paired_deltas(match_within_bin=True, metric="lr_pos")` through `panels.panel_lr_ratio`.
@@ -155,7 +179,7 @@ runs 0.17% → 13.97%). So D's published threshold in a bin is that bin's 99th p
 *Why no recall panel beside D.* With the calling rate common, `lift = recall / k` makes
 recall a constant rescaling of lift within a bin, and precision likewise since the base rate
 is shared — so a recall curve there would carry no information of its own, which is why the
-panel briefly numbered 8C on 2026-09-05 was cut the same day. **Recall earns its place in A
+panel briefly numbered 8D on 2026-09-05 was cut the same day. **Recall earns its place in A
 and B**, where the cutoff is global, `k` varies 45.7× with GC, and the identity stops being a
 rescaling. Note the wrinkle the 2026-09-08 revision introduced: recall rescales *lift*, and D
 now plots the *odds* ratio, so the caption's per-bin translation is a **precision** ratio and
@@ -163,30 +187,6 @@ is smaller than the number D draws. Quoting one for the other is the easiest err
 with this panel. A notebook cell used to verify `recall == lift × k` numerically; it was
 retired on 2026-09-09, once D stopped plotting lift and the check stopped standing in for the
 panel it justified.
-
-**8E — auPRC/`r` against GC for both scores**, threshold-free, `data.pr_curves` +
-`data.pr_curve_deltas` through `panels.panel_aupr_by_gc`. A GC-dependent bias is very
-nearly a common shift on every window in a narrow bin, positives and negatives alike, so it
-cancels from a within-bin *ranking* statistic: that is why E's two curves nearly coincide,
-and it means the steep decline of auPRC with GC *survives debiasing* (published
-1.518 → 1.199 across the bins, retrained 1.554 → 1.298). What remains is signal-to-noise,
-which is what McHale et al. conjectured in their text. **E comes last because it is the
-figure's caveat**, not its premise — A through D argue that debiasing redistributes calls,
-makes the cutoff portable and improves ranking where the score is used, and E says what that
-improvement is *not*: a wash over the whole recall axis, with one bin slightly worse. It is
-also the only panel here with no operating point, so its decline cannot be an artefact of
-where a cutoff sits.
-
-*Its legend carries the two names and nothing else, since 2026-09-10.* The pooled values
-(1.321 and 1.341) and the clause identifying the bars as a 95% paired CI travelled in the
-labels until then — two clauses per entry on a panel a third of the figure's width — and
-both now live in the caption, where the pooled numbers can be quoted. Cutting them took the
-legend from ~540 px, the full axes width, to 233 px. Its `y = 1` reference also moved from
-`REF_LINE_KW` to panel D's `MATCHED_RATE_LINE_KW` at zorder 1.5: the two panels each draw a
-null that every marker is judged against, and at 0.45 grey and 0.8 pt a dashed rule is
-barely heavier than the dotted gridlines it sits among and can be painted over by them. This
-is a deliberate divergence from the `rank = 0.5` and `r = 1` references in Fig. 5A, B and E,
-which keep the lighter style — there the line is context for a curve read on its own.
 
 **D and E carry the retrained curve's paired bootstrap interval** relative to published.
 Those bars are on one curve deliberately — independent intervals would describe the
@@ -251,10 +251,60 @@ note saying why, and the code is at `5ac14fa` if it is ever wanted back.
 **What replaces it is an argument, and a stronger one.** The truth set's GC skew hands
 *published* a tailwind — published is the GC-biased score and GeneHancer positives are
 GC-rich, between bins and still within them, where positives stay enriched at the high-GC
-end. The decontaminated score wins in all five bins anyway, so 8D is **conservative**. And
+end. The decontaminated score wins in all five bins anyway, so 8E is **conservative**. And
 **say the limitation rather than omitting it** — a reviewer will notice the secondary
 analyses rest on the set McHale et al. themselves call lax; the strong form is a caption
 sentence carrying this and the power argument above, not silence.
+
+**8F and 8G — the same construction at the OTHER end of the score, added 2026-09-10 and NOT
+YET RUN.** 8F is the cutoff calling the **bottom** 1% of each bin and 8G the paired `LR+`
+ratio measured there, stacked and sharing an x axis exactly as 8D over 8E.
+
+*Why they exist.* 8E finds the decontaminated score ahead at the top 1% of every bin and 8C
+finds a wash over the whole recall axis. `data._bin_thresholds`' docstring reconciles those by
+asserting that the two scores' precision-recall curves **cross** — and if they do, published
+should be ahead at the other extreme. That was an assertion, never a measurement. **Opposite
+signs in 8E and 8G confirm it and explain 8C; same signs refute it**, and are the more
+interesting outcome, putting the offset in the *middle* of the ranking where nothing currently
+looks.
+
+*The mirror is one keyword.* `tail="lower"` on `threshold_metrics` and `paired_deltas` flips
+the call to `z ≤ t` and the hit to a **non**-enhancer — a low Gnocchi predicts an unconstrained
+window, and the truth set's negatives are what that claim is right about — via
+`data._tail_labels` and `data._tail_called`, and changes nothing else. Precision, lift, `LR+`,
+the Wilson bounds and the paired bootstrap are the same code on a relabelled problem, so a
+difference between the tails cannot be an artefact of measuring them differently. Both require
+`match_within_bin=True`.
+
+*It is not `LR−`, and that is worth stating.* The likelihood ratio of a negative **test**,
+`P(no call | Y=1) / P(no call | Y=0)`, is pinned near 1 at a 1% calling rate — failing the
+cutoff is 99% of windows. On the committed numbers it runs 0.9850–0.9972 and its
+retrained-to-published ratios span **0.9939 to 0.9993**, against **1.06 to 1.38** for `LR+`.
+There is no dynamic range. What 8G reports is the likelihood ratio of the rare **low-tail
+event**, an interval likelihood ratio, which does have room to move.
+
+*Two things to expect.* **Lift is useless on this tail** — its ceiling is `1/r` on the
+**non**-enhancer rate, which runs 91.7% → 36.1%, so the ceiling is 1.09 in the most AT-rich
+bin. And **the odds ratio can saturate**: the hit is now the majority class, so a bottom 1% of
+219 windows against a 91.7% base rate can come back entirely negative, making precision 1 and
+`LR+` infinite. `paired_deltas` reports `n_boot` and returns a missing interval rather than
+raising. On a synthetic frame sized to provoke it, one bin lost **every** replicate; the real
+bins are far larger, so expect this in at most the two smallest. If it bites, the fix is a
+Haldane–Anscombe correction — deliberately **not** applied now, because it would move 8E's
+committed numbers too.
+
+*Verified offline on the shipped code path.* `_lax_labelled_windows` was substituted with a
+synthetic labelled frame and the real `threshold_metrics` / `paired_deltas` called: every
+`threshold_used` and `lr_pos` matches a hand-written formula exactly, in both tails, and
+`(1 + delta)` equals the ratio of the two `LR+` levels to machine precision. Only the **data**
+is unverified.
+
+**There is no FPR-matched check any more.** It recomputed `LR+` with each score cut at the
+quantile of its bin's *negatives*, so every bin sat at an identical false-positive rate rather
+than an identical calling rate, and it agreed with the panels in shape and ordering. Removed
+2026-09-10 with its prose: it was a second operating-point convention for a reader to keep
+straight, in service of a residual the panels bound anyway, and it needed the labels to set a
+threshold that 8D and 8F deliberately set without them. `data.fpr_matched_lr` is at `8598716`.
 
 Run the notebook top to bottom.
 
