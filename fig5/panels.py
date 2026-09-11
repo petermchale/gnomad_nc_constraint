@@ -1157,7 +1157,8 @@ def panel_recall_and_enrichment(ax, tm, key: str, xrange=(0.2, 0.8),
     ax.patch.set_visible(False)
 
 
-def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True) -> None:
+def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True,
+                   tail: str = "upper") -> None:
     """
     Supporting Figure 8D. The retrained score's LR+ over published Gnocchi's, per GC bin,
     with the 95% paired-bootstrap interval. `deltas` is data.paired_deltas() built with
@@ -1214,14 +1215,25 @@ def panel_lr_ratio(ax, deltas, xrange=(0.2, 0.8), show_xlabel: bool = True) -> N
     top = float(np.nanmax(1.0 + rows["ci_hi"].to_numpy()))
     bot = float(np.nanmin(np.append(1.0 + rows["ci_lo"].to_numpy(), 1.0)))
     ax.set_ylim(bot - 0.06 * (top - bot), top + 0.08 * (top - bot))
-    _finish(ax, "LR$^{+}$ ratio\n(decontaminated /\npublished)", xrange, show_xlabel,
-            legend=False)
+    # BOTH TAILS NAME THEIR CUT, on a line of their own. Supporting Fig. 8's E and G are the
+    # same artwork and a reader meeting both has to tell them apart, so neither is left as
+    # the unmarked default -- E says Gnocchi > cutoff, G says Gnocchi < cutoff, which is the
+    # direction of the call in the reader's own vocabulary rather than in the code's.
+    #
+    # ON ITS OWN LINE BECAUSE OF HOW A ROTATED LABEL IS MEASURED: it is as tall as its
+    # LONGEST LINE is wide, and these rows are half-height, so appending the phrase to
+    # "LR+ ratio" would have made that line the longest and pushed the label into the panel
+    # above. Split, the longest line stays "(decontaminated /" at 17 characters.
+    cut = ">" if tail == "upper" else "<"
+    _finish(ax, f"LR$^{{+}}$ ratio,\nGnocchi {cut} cutoff\n(decontaminated /\npublished)",
+            xrange, show_xlabel, legend=False)
 
 
 def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
                          show_xlabel: bool = True, reference_threshold: float | None = None,
                          gc_mean: float | None = None,
-                         legend_loc: str = "upper left") -> None:
+                         legend_loc: str = "upper left",
+                         tail: str = "upper") -> None:
     """
     Supporting Figure 8C. The Gnocchi threshold that calls the SAME fraction of every GC
     bin, per bin, one curve per score. `tm` is data.threshold_metrics() built with
@@ -1273,7 +1285,20 @@ def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
     # axes' HEIGHT, and this row is half of one, so no line may run much past twenty
     # characters. The rate is interpolated rather than written in, so the label cannot
     # drift from the `call_rate` the panel was actually built with.
-    _finish(ax, f"Gnocchi cutoff\n(top {100 * call_rate:g}% of windows\nin GC bin)",
+    # `tail` only changes the word: the quantity is the cutoff isolating `call_rate` of the
+    # bin at whichever end, and data._bin_thresholds has already picked the end.
+    #
+    # THE WRAP IS CHOSEN TO SHORTEN THE LONGEST LINE, not to save a line. A rotated label is
+    # as tall as its LONGEST LINE is wide (_finish says so, and it is easy to misapply):
+    # dropping "in GC bin" onto the line above changed the height by 12 px, because
+    # "(bottom 1% of windows" and "(bottom 1% of GC bin)" are both 21 characters. Breaking
+    # after the percentage is what works -- the longest line becomes "Gnocchi cutoff" at 14
+    # -- and it matters here because these rows are half-height and the label collided with
+    # the ratio panel's below it once the two stacks sat side by side ("bottom" being three
+    # characters longer than "top", the lower-tail column overlapped by 34 px, and no
+    # hspace within reach of the layout cleared it).
+    end = "top" if tail == "upper" else "bottom"
+    _finish(ax, f"Gnocchi cutoff\n({end} {100 * call_rate:g}%\nof GC bin)",
             xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
 

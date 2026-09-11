@@ -1255,52 +1255,7 @@ positives found the reallocation costs, 5,485 against 4,396, because the base ra
 climbs $7.7\times$; whether that is a real loss is not a question a GC-confounded truth set
 can answer.
 
-### C: the cutoff each score would need, bin by bin
-
-To call the same 1% of every GC bin, what threshold would each score require? Published
-Gnocchi answers with a **curve**, climbing from `[8C-PUB-LO]` in the most AT-rich bin to
-`[8C-PUB-HI]` in the most GC-rich, a swing of `[8C-PUB-FOLD]`; the retrained score with
-something close to a **constant**, `[8C-RETRAINED-RANGE]`. That is the bias in the score's
-own units, and — like Fig. 5F and unlike everything else here — **it uses no labels at all**.
-
-It is Fig. 5F's inverse, not its repetition: 5F fixes the threshold and reads the calling
-rate, C fixes the rate and reads the threshold, each natural for a different reader. C sits
-here rather than beside 5F because it is **D's x-axis made visible** — D's gains are measured
-at exactly these thresholds, so the shared x axis connects a cutoff to what it buys, and a
-reader who suspects D's matching of being artificial can see how far it had to reach.
-
-### D: ranking at the operating point the score is used at
-
-Fig. 5F *is* the statement that the two scores call very different fractions of each bin — 14%
-against 0.8% at the top — so comparing them at a common cutoff compares two operating points.
-D matches the calling rate **within** each bin, so neither is read at a different place on its
-own curve.
-
-**D is a ratio, not two levels.** Level curves invite a reader to compare each curve with
-*itself* across GC — A and B's job — when the only question here is whether retraining helps
-*in* a bin. **And it is the odds ratio**: within a bin the base rate cancels from either
-measure, so the lift ratio is exactly the precision ratio, but a fold increase in precision is
-bounded by $1/\text{precision}_{\text{published}}$, a ceiling falling about $14\times$ across
-these bins, so a $+2\%$ in the GC-rich bins and a $+33\%$ in the AT-poor ones are not measured
-on the same ruler. Since $\text{odds}(\text{precision}) = \mathrm{LR}^{+} \times \text{odds}(r)$,
-
-$$\frac{\text{odds}(p_{\text{scored}})}{\text{odds}(p_{\text{published}})} = \frac{\mathrm{LR}^{+}_{\text{scored}}}{\mathrm{LR}^{+}_{\text{published}}}$$
-
-and the prevalence cancels exactly, making the curve comparable bin to bin.
-
-**The gaps strengthen rather than collapse**: `[8D-GAINS]` from the lowest GC bin to the
-highest, with `[8D-N-SIGNIFICANT]` of five clear of 1.0. Quote the middle bins; the AT-poor
-gain is largest but rests on 220 called windows per score.
-
-*D describes a score nobody applies, deliberately.* **D says what the score CONTAINS; Fig. 5F
-says what happens when it is USED; A and B are the bridge.** The analyst-legible form is the
-per-bin **precision** ratio, which the matched rate makes a rescaling of D's own rows: the
-retrained score's calls are correct **1.30 times** as often as published's in the most AT-rich
-bin and **1.02 times** as often in the most GC-rich. Those are *precision* ratios and therefore
-smaller than the odds ratios D plots; quoting one for the other is the easiest error to make
-with this panel.
-
-### E: nearly blind to the bias, and that is the finding
+### C: nearly blind to the bias, and that is the finding
 
 The two curves nearly coincide, and that is not a null result — auPRC *within* a GC bin
 cannot see the bias, because a GC-dependent bias is nearly a common shift on every window in a
@@ -1311,9 +1266,11 @@ not the score sitting too low in GC-rich sequence; it is the observed-against-ex
 comparison carrying less constraint signal there relative to its own noise. It is named **by
 elimination**: this figure shows the decline survives, it does not measure the mechanism.
 
-**E comes last because it is the figure's caveat**, not its premise — A through D argue that
-debiasing redistributes calls, makes the cutoff portable and improves ranking where the score
-is used, and E says what that improvement is *not*.
+**C comes third, and it is the figure's hinge.** A and B say where each score spends its
+calls; C then says that over the whole recall axis debiasing buys essentially nothing — pooled
+1.321 against 1.341, with the one significant bin *negative*. D–G exist because that verdict
+is an average: a wash over all thresholds is consistent with a gain at one end of the ranking
+and a loss at the other, which is exactly what two crossing PR curves would produce.
 
 Two guards. Its *direction*: the claim rests on the decline **surviving**, not on the curves
 agreeing — their agreement is close to guaranteed by the binning, since within 5–10 GC points
@@ -1323,12 +1280,14 @@ power, not its level, which debiasing does move. The bars matter because the pan
 eye-catching feature is the top-bin gap (1.199 against 1.298 on 6,217 windows) — exactly the
 difference that does not survive.
 
-**D and E do not contradict each other.** auPRC integrates over the *whole* recall axis; a
+**E and C do not contradict each other.** auPRC integrates over the *whole* recall axis; a
 threshold statistic at 1% probes only the top, and the two scores' PR curves cross. Both are
 right, weighting the recall axis differently — which makes **auPRC the wrong summary for a
-constraint score**, since the top ~1% is the entire use case.
+constraint score**, since the top ~1% is the entire use case. It is still the right *question*
+to have asked, because it is what forces D–G: if the gain at the top is real and the average
+is flat, the offset has to be somewhere, and F and G go looking for it at the other end.
 
-### What carries the signal-to-noise claim, and why only E can close it
+### What carries the signal-to-noise claim, and why only C can close it
 
 **For the Discussion.** Three curves carry it, and they are not equally strong.
 
@@ -1352,13 +1311,58 @@ runs 1.08, 1.08, 1.07 in the top GC bin and 1.90, 2.12, 2.17 in the most AT-rich
 *rising*. That is lift rather than $\mathrm{LR}^{+}$ and a global rather than per-bin rate, so
 it is not decisive either way. A is simply not like-for-like across bins.
 
-**E is the only panel with no operating point at all**, so no cutoff placement can be
-generating its decline. That is why the claim is cited to E, with B as evidence that it is not
+**C is the only panel with no operating point at all**, so no cutoff placement can be
+generating its decline. That is why the claim is cited to C, with B as evidence that it is not
 an artefact of a statistic nobody uses.
 
 *The three are not independent measurements* — one ranking, one truth set, and a defect in the
-truth set moves all three. They are independent only in **where on the ranking they look**: E
+truth set moves all three. They are independent only in **where on the ranking they look**: C
 everywhere, B at a near-constant top 1%, A at a depth that itself varies 82-fold.
+
+### D: the cutoff each score would need, bin by bin
+
+To call the same 1% of every GC bin, what threshold would each score require? Published
+Gnocchi answers with a **curve**, climbing from `[8D-PUB-LO]` in the most AT-rich bin to
+`[8D-PUB-HI]` in the most GC-rich, a swing of `[8D-PUB-FOLD]`; the retrained score with
+something close to a **constant**, `[8D-RETRAINED-RANGE]`. That is the bias in the score's
+own units, and — like Fig. 5F and unlike everything else here — **it uses no labels at all**.
+
+It is Fig. 5F's inverse, not its repetition: 5F fixes the threshold and reads the calling
+rate, D fixes the rate and reads the threshold, each natural for a different reader. D sits
+here rather than beside 5F because it is **E's x-axis made visible** — E's gains are measured
+at exactly these thresholds, so the shared x axis connects a cutoff to what it buys, and a
+reader who suspects E's matching of being artificial can see how far it had to reach.
+
+### E: ranking at the top of the ranking, where the score is used
+
+Fig. 5F *is* the statement that the two scores call very different fractions of each bin — 14%
+against 0.8% at the top — so comparing them at a common cutoff compares two operating points.
+E matches the calling rate **within** each bin, so neither is read at a different place on its
+own curve.
+
+**E is a ratio, not two levels.** Level curves invite a reader to compare each curve with
+*itself* across GC — A and B's job — when the only question here is whether retraining helps
+*in* a bin. **And it is the odds ratio**: within a bin the base rate cancels from either
+measure, so the lift ratio is exactly the precision ratio, but a fold increase in precision is
+bounded by $1/\text{precision}_{\text{published}}$, a ceiling falling about $14\times$ across
+these bins, so a $+2\%$ in the GC-rich bins and a $+33\%$ in the AT-poor ones are not measured
+on the same ruler. Since $\text{odds}(\text{precision}) = \mathrm{LR}^{+} \times \text{odds}(r)$,
+
+$$\frac{\text{odds}(p_{\text{scored}})}{\text{odds}(p_{\text{published}})} = \frac{\mathrm{LR}^{+}_{\text{scored}}}{\mathrm{LR}^{+}_{\text{published}}}$$
+
+and the prevalence cancels exactly, making the curve comparable bin to bin.
+
+**The gaps strengthen rather than collapse**: **+37.7%, +6.3%, +8.5%, +33.0%** and **+8.4%** from the lowest GC bin to the
+highest, with **four** of five clear of 1.0. Quote the middle bins; the AT-poor
+gain is largest but rests on 219 called windows per score.
+
+*E describes a score nobody applies, deliberately.* **E says what the score CONTAINS; Fig. 5F
+says what happens when it is USED; A and B are the bridge.** The analyst-legible form is the
+per-bin **precision** ratio, which the matched rate makes a rescaling of E's own rows: the
+retrained score's calls are correct **1.30 times** as often as published's in the most AT-rich
+bin and **1.02 times** as often in the most GC-rich. Those are *precision* ratios and therefore
+smaller than the odds ratios E plots; quoting one for the other is the easiest error to make
+with this panel.
 
 ### The pooled numbers fall, and that is not evidence against the correction
 
@@ -1437,13 +1441,13 @@ budget_s8 = D.budget_comparison(threshold=D.GNOCCHI_THRESHOLD, truth_set="lax") 
 """)
 
 code(r"""
-# PANELS C AND D, which are one table read twice: threshold_used per (bin, score) is what C
-# draws, and the lift measured at those thresholds is what D draws. The calling rate is
+# PANELS D AND E, which are one table read twice: threshold_used per (bin, score) is what D
+# draws, and the lift measured at those thresholds is what E draws. The calling rate is
 # matched WITHIN each bin -- the one confound the figure's global matching cannot remove --
 # at a flat data.LAX_CALL_RATE rather than inherited from z >= 4, since with the rate
 # imposed per bin the cutoff is a construction and not a number anyone applies. NOT panel
-# B's operating point: B is one fixed global cutoff and the per-bin freedom it leaves IS
-# the bias. See data.LAX_CALL_RATE and data._bin_thresholds. Prints as it computes; seconds.
+# A and B's operating point: those are one fixed global cutoff and the per-bin freedom it
+# leaves IS the bias. See data.LAX_CALL_RATE and data._bin_thresholds. Prints as it computes; seconds.
 withinbin_s8 = D.threshold_metrics(truth_set="lax", call_rate=D.LAX_CALL_RATE,
                                    match_within_bin=True) \
     if NEUTRAL_WINDOWS_BED else None
@@ -1452,12 +1456,12 @@ gains_wb_s8 = D.paired_deltas(truth_set="lax", call_rate=D.LAX_CALL_RATE,
                             metric="lr_pos") \
     if NEUTRAL_WINDOWS_BED else None
 
-# PANEL C'S OWN NUMBERS. threshold_metrics prints precision, lift, LR+ and recall per bin
-# but not threshold_used -- and threshold_used IS panel C, the cutoff each score needs in
+# PANEL D'S OWN NUMBERS. threshold_metrics prints precision, lift, LR+ and recall per bin
+# but not threshold_used -- and threshold_used IS panel D, the cutoff each score needs in
 # order to call LAX_CALL_RATE of a bin. Printed here rather than added to that function's
 # line, so the tables every other cell shares keep the format their committed outputs have.
 if withinbin_s8 is not None:
-    print(f"\npanel C: the per-bin cutoff calling {100 * D.LAX_CALL_RATE:.1f}% of each bin.")
+    print(f"\npanel D: the per-bin cutoff calling {100 * D.LAX_CALL_RATE:.1f}% of each bin.")
     for key in ("published", "scored"):
         sub = withinbin_s8.filter(pl.col("score") == key).sort("mid")
         t = sub["threshold_used"].to_numpy()
@@ -1469,19 +1473,64 @@ if withinbin_s8 is not None:
               f"{t.max() / t.min():.2f}x")
 """)
 
+
+md(r"""
+## The other tail: where do the two scores' precision-recall curves cross?
+
+Supporting Fig. 8E finds the decontaminated score ahead at the **top** 1% of every GC bin,
+and 8C finds a **wash** once the threshold is integrated out — one significant bin, and that
+one negative. `data._bin_thresholds`' docstring reconciles those by asserting that the two
+scores' precision-recall curves **cross**: a gain at the top of the ranking coexists with no
+gain overall only if the advantage is given back somewhere else.
+
+That is a prediction, and until now an untested one. If it is right, the **bottom** tail is
+where published should be ahead — the windows each score is most confident are *un*constrained
+— and 8E's gains should reverse there.
+
+Panels F and G are 8D and 8E's construction applied to that end of the distribution, and
+nothing else changes. A call is $z \le t$ rather than $z \ge t$; the class a call is trying to
+hit is the **non**-enhancer, since a low Gnocchi predicts an unconstrained window; and the
+same $1\%$ of each bin is called. The mirror is implemented by flipping the label vector and
+the comparison and by nothing else (`data._tail_labels`, `data._tail_called`), so precision,
+lift, LR$^+$, their Wilson bounds and the paired bootstrap are the *same code* computing the
+same functional of a relabelled problem — which is what makes a difference between the tails
+readable as a difference in the scores rather than in the measurement.
+
+**Read G against 1.0, and read it against E.** A ratio above 1 says the
+decontaminated score is the better detector of unconstrained sequence in that bin, below 1
+says published is. If E's five gains are positive and G's five are negative, the crossing
+is confirmed and C's wash is explained. If both are positive, it is not, and C's wash needs
+another explanation — the more interesting outcome, since it would mean the gain at the top
+is offset somewhere in the middle of the ranking rather than at the far end.
+""")
+
 code(r"""
-# A CHECK, NOT A PANEL, and it answers the one objection LR+ does not dispose of by
-# itself. LR+ removes the PREVALENCE confound exactly -- it conditions on the true class on
-# both sides -- but it is read AT an operating point, and D and E set that point by
-# matching the CALLING rate. Since k = TPR*r + FPR*(1-r), a common k is not a common FPR
-# once r moves 7.7x: FPR runs about 0.93% to 0.78% across these bins. This recomputes LR+
-# with each score cut at the quantile of its bin's NEGATIVES instead, so every bin sits at
-# an identical FPR and both confounds are gone. If the cross-bin shape and the two scores'
-# ordering survive, the panels' reading stands and one caption sentence retires the point.
-# It is NOT the panels' own construction because setting a threshold from the negatives
-# uses the LABELS, and D is label-free by design. Prints only; seconds.
-fpr_check_s8 = D.fpr_matched_lr(truth_set="lax", call_rate=D.LAX_CALL_RATE) \
+# THE LOWER TAIL, through exactly the code path that built 8D and 8E. `tail="lower"` flips
+# the call to z <= t and the hit to a NON-enhancer; every other argument is 8D/8E's, so the
+# two tails differ in one keyword and in nothing else. That is deliberate -- a difference
+# between them has to be attributable to the scores, not to two constructions that happen to
+# be similar. Prints as it computes; the bootstrap is 500 replicates a bin, seconds.
+withinbin_lo = D.threshold_metrics(truth_set="lax", call_rate=D.LAX_CALL_RATE,
+                                   match_within_bin=True, tail="lower") \
     if NEUTRAL_WINDOWS_BED else None
+gains_wb_lo = D.paired_deltas(truth_set="lax", call_rate=D.LAX_CALL_RATE,
+                              n_bootstrap=500, seed=0, match_within_bin=True,
+                              metric="lr_pos", tail="lower") \
+    if NEUTRAL_WINDOWS_BED else None
+
+# The lower tail's own thresholds, for the caption -- the same per-bin print 8D's cell
+# carries, since threshold_metrics reports threshold_used but does not print it.
+if withinbin_lo is not None:
+    print(f"\nlower tail: the per-bin cutoff calling the BOTTOM "
+          f"{100 * D.LAX_CALL_RATE:.1f}% of each bin.")
+    for key in ("published", "scored"):
+        sub = withinbin_lo.filter(pl.col("score") == key).sort("mid")
+        t = sub["threshold_used"].to_numpy()
+        for row in sub.iter_rows(named=True):
+            print(f"  GC ({row['lo']:.2f}, {row['hi']:.2f}]  {row['short']:<15} "
+                  f"z <= {row['threshold_used']:.3f}")
+        print(f"    {sub['short'][0]:<15} {t[0]:.3f} -> {t[-1]:.3f} "
+              f"across GC, range {t.min():.3f} - {t.max():.3f}")
 """)
 
 code(r"""
@@ -1514,28 +1563,35 @@ if curves_s8 is not None:
     # which is why it is a COLUMN rather than a band across the bottom: auPRC/r spans only
     # about 1.2 to 1.6, and a wide short panel would flatten the decline that is the whole
     # point of drawing it.
-    fig = plt.figure(figsize=(20.0, 5.0))
-    # THE TWO COLUMN GAPS ARE NOT THE SAME SIZE, AND A UNIFORM wspace CANNOT SAY SO.
-    # Between columns 1 and 2 sit TWO long rotated labels -- A/B's right-hand LR+ label and
-    # C/D's left-hand one, which wraps to three lines because a rotated label is measured
-    # against a half-height row -- plus C/D's letters at x = -0.34. Between columns 2 and 3
-    # sits ONE: C/D carry nothing on their right, and E's letter is at x = -0.16. A single
-    # wspace tuned for the first gap (0.82, which is right) put ~2 in of dead space in the
-    # second on a 20 in figure. So the gaps are SPACER COLUMNS with their own widths and
-    # wspace=0, which is the only way one GridSpec holds two different gaps.
+    # TWO ROWS OF TWO SLOTS, and a slot is either a stacked pair or one full-height panel.
+    # The order is the argument's order, changed 2026-09-10 when the lower tail was added:
     #
-    # WIDTHS ARE IN UNITS OF ONE PANEL COLUMN. 0.72 and 0.30 against a panel of 1 gives
-    # 20 / (3 + 1.02) = 4.98 in per panel, so gap 1 is 3.58 in -- the absolute width the
-    # old uniform 0.82 produced, which was tuned by eye and should not change -- and gap 2
-    # is 1.49 in. The panels themselves gain about 0.67 in of width each.
-    gs = fig.add_gridspec(1, 5, width_ratios=[1.0, 0.72, 1.0, 0.30, 1.0], wspace=0.0)
+    #   row 1   A over B   where each score sends its calls        C   no net gain across
+    #                                                                  thresholds
+    #   row 2   D over E   the gain at the top 1%                  F over G   the other tail
+    #
+    # So a reader meets the operating-point picture, then the threshold-free verdict, then
+    # the two extremes of the ranking that have to reconcile with it. C is full height in
+    # its slot because auPRC/r spans only ~1.2-1.6 and a wide short panel flattens the
+    # decline that is the point of drawing it.
+    fig = plt.figure(figsize=(13.0, 10.0))
+    # THE COLUMN GAP IS THE SAME 3.58 IN the old 3-column layout was tuned to, and for the
+    # same reason: it holds A/B's right-hand LR+ label AND, below it, F/G's three-line
+    # left-hand one, with C's two-line label in between. As a SPACER COLUMN rather than a
+    # wspace, so its width is stated in inches rather than inferred -- 13.0 / (2 + 0.76)
+    # gives 4.71 in per panel and 3.58 in of gap.
+    gs = fig.add_gridspec(2, 3, width_ratios=[1.0, 0.76, 1.0],
+                          wspace=0.0, hspace=0.22)
     gsAB = gs[0, 0].subgridspec(2, 1, hspace=0.34)
     axA = fig.add_subplot(gsAB[0, 0])
     axB = fig.add_subplot(gsAB[1, 0], sharex=axA)
-    gsCD = gs[0, 2].subgridspec(2, 1, hspace=0.16)
-    axC = fig.add_subplot(gsCD[0, 0])
-    axD = fig.add_subplot(gsCD[1, 0], sharex=axC)
-    axE = fig.add_subplot(gs[0, 4])
+    axC = fig.add_subplot(gs[0, 2])
+    gsDE = gs[1, 0].subgridspec(2, 1, hspace=0.35)
+    axD = fig.add_subplot(gsDE[0, 0])
+    axE = fig.add_subplot(gsDE[1, 0], sharex=axD)
+    gsFG = gs[1, 2].subgridspec(2, 1, hspace=0.35)
+    axF = fig.add_subplot(gsFG[0, 0])
+    axG = fig.add_subplot(gsFG[1, 0], sharex=axF)
 
     if tm_s8 is not None:
         # A AND B: ONE SCORE EACH, RECALL AND LR+ TOGETHER, at that score's one fixed
@@ -1559,38 +1615,76 @@ if curves_s8 is not None:
         panels.panel_recall_and_enrichment(axB, tm_s8, "scored")
 
     if withinbin_s8 is not None:
-        # C AND D ARE ONE CONSTRUCTION AND ITS CONSEQUENCE, which is why they share an x
-        # axis: D's gain in each bin is measured at exactly the cutoffs C draws. Passing
+        # D AND E ARE ONE CONSTRUCTION AND ITS CONSEQUENCE, which is why they share an x
+        # axis: E's gain in each bin is measured at exactly the cutoffs D draws. Passing
         # tables built from the same call is what stops the two drifting apart.
-        panels.panel_bin_thresholds(axC, withinbin_s8, D.LAX_CALL_RATE, show_xlabel=False)
-        axC.tick_params(labelbottom=False)
-        # D IS A RATIO, NOT TWO LEVELS. Levels invite a cross-bin reading of each score
-        # against itself, which is A and B's job; D asks only whether retraining helps IN a
+        panels.panel_bin_thresholds(axD, withinbin_s8, D.LAX_CALL_RATE, show_xlabel=False)
+        axD.tick_params(labelbottom=False)
+        # E IS A RATIO, NOT TWO LEVELS. Levels invite a cross-bin reading of each score
+        # against itself, which is A and B's job; E asks only whether retraining helps IN a
         # bin. gains_wb_s8 must carry metric="lr_pos" -- its `delta` is the ODDS ratio, and
         # a precision ratio would be bounded by 1/precision and so not comparable across
         # bins. RECALL IS NOT DRAWN HERE: with the calling rate matched within a bin,
         # recall = lift x k with k constant, so it would be a constant rescaling. It earns
         # panels A and B, where the global cutoff lets k vary 45.7x.
-        panels.panel_lr_ratio(axD, gains_wb_s8)
+        panels.panel_lr_ratio(axE, gains_wb_s8)
 
-    # E LAST, AND IT IS THE FIGURE'S CAVEAT. D reports gains at the top 1%; E is the same
+    # C IS THE THRESHOLD-FREE VERDICT, and it comes before the tails rather than last: E
+    # reports gains at the top 1%; C is the same
     # comparison with no threshold at all, over the whole recall axis, and it finds a wash
     # -- one significant bin, negative. The two are consistent because the scores'
     # precision-recall curves cross, and BOTH have to be shown for that to be sayable. E is
     # also the only panel here with no operating point, so the decline it draws cannot be
     # an artefact of where the cutoff sits.
-    panels.panel_aupr_by_gc(axE, curves_s8, deltas=deltas_s8)
+    panels.panel_aupr_by_gc(axC, curves_s8, deltas=deltas_s8)
+
+    if withinbin_lo is not None:
+        # F AND G MIRROR D AND E ONTO THE BOTTOM 1%, through the same code with one keyword
+        # changed, and they sit beside them so the two tails are read as one comparison.
+        # The question they settle is whether the gain E reports at the top is GIVEN BACK at
+        # the other extreme -- which is what would reconcile E with C, whose verdict over the
+        # whole recall axis is a wash. See data._tail_labels for what "the other extreme"
+        # means: the call is z <= t and the hit is a NON-enhancer.
+        panels.panel_bin_thresholds(axF, withinbin_lo, D.LAX_CALL_RATE,
+                                    show_xlabel=False, tail="lower")
+        axF.tick_params(labelbottom=False)
+        panels.panel_lr_ratio(axG, gains_wb_lo, tail="lower")
 
     # C and D's letters sit furthest out: their y labels are three lines wide, because a
     # rotated label is measured against the axes' height and their rows are half of one.
-    for ax, lab, x in ((axA, "A", -0.26), (axB, "B", -0.26), (axC, "C", -0.34),
-                       (axD, "D", -0.34), (axE, "E", -0.16)):
+    # D-G's letters sit furthest out: their y labels are three lines wide, because a
+    # rotated label is measured against the axes' height and their rows are half of one.
+    for ax, lab, x in ((axA, "A", -0.26), (axB, "B", -0.26), (axC, "C", -0.16),
+                       (axD, "D", -0.34), (axE, "E", -0.34),
+                       (axF, "F", -0.34), (axG, "G", -0.34)):
         panels.label_panels((ax,), (lab,), x=x)
 
     s8_name = f"supp_fig8{config.WINDOW_SET_SUFFIX}"
     written = resave_ai.save_panel(fig, os.path.join(OUTPUT_DIR, s8_name))
     print(f"wrote {', '.join(os.path.basename(p) for p in written)}" if written
           else f"{s8_name}: unchanged, left alone")
+""")
+
+code(r"""
+# THE TWO TAILS SIDE BY SIDE, which is the whole point and is easier to read as a table than
+# off two figures. Sign agreement across the two columns means NO crossing at the extremes;
+# opposite signs confirm it.
+if gains_wb_s8 is not None and gains_wb_lo is not None:
+    print("  LR+ ratio (decontaminated / published), per GC bin, at 1% of each bin")
+    print(f"  {'GC bin':<16}{'upper tail':>28}{'lower tail':>28}")
+    up = gains_wb_s8.sort("mid").to_dicts()
+    dn = gains_wb_lo.sort("mid").to_dicts()
+    for a, b in zip(up, dn):
+        fmt = lambda e: (f"{100 * e['delta']:+6.1f}% "
+                         f"[{100 * e['ci_lo']:+6.1f},{100 * e['ci_hi']:+6.1f}]"
+                         + (" *" if (e['ci_lo'] > 0 or e['ci_hi'] < 0) else "  "))
+        print(f"  ({a['lo']:.2f}, {a['hi']:.2f}]{'':<4}{fmt(a):>28}{fmt(b):>28}")
+    n_up = sum(1 for e in up if e['delta'] > 0)
+    n_dn = sum(1 for e in dn if e['delta'] > 0)
+    print(f"\n  bins favouring the decontaminated score: {n_up}/5 upper, {n_dn}/5 lower")
+    print("  opposite signs => the PR curves cross at the extremes, which is what 8E's "
+          "wash\n  would then be averaging over. Same signs => the offset is elsewhere in "
+          "the ranking.")
 """)
 
 md(r"""
