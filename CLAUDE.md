@@ -631,15 +631,30 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         references in Fig. 5A, B and E, which keep REF_LINE_KW -- there the
                         line is context for a curve read alone, here it is the frame a
                         comparison is made in.
-                          F AND G: THE LOWER TAIL, added 2026-09-10, NOT YET RUN. D and
-                        E's construction pointed at the BOTTOM 1% of each bin. They test an
-                        assertion the figure already makes and had never checked:
-                        `_bin_thresholds`' docstring reconciles E's gains with C's wash by
-                        saying the two scores' PR curves CROSS, which predicts published
-                        ahead at the other extreme. OPPOSITE SIGNS in E and G confirm that
-                        and explain C; SAME signs refute it and are the more interesting
-                        outcome, putting the offset in the MIDDLE of the ranking where
-                        nothing looks. The mirror is ONE KEYWORD -- `tail="lower"` flips the
+                          F AND G: THE LOWER TAIL, added and RUN 2026-09-10. D and E's
+                        construction pointed at the BOTTOM 1% of each bin. THE RESULT IS THE
+                        FIGURE'S CONCLUSION, so do not re-derive it: the LR+ ratio falls
+                        BELOW 1 in ALL FIVE bins -- -34.3% [-67.4, +0.0], -22.9%
+                        [-28.8, -15.1], -23.3% [-28.4, -18.2], -42.1% [-51.1, -31.1],
+                        -41.5% [-56.9, -22.0] -- four of five clear of 1.0, EXACTLY
+                        REVERSING E, where the retrained score leads in all five. So the two
+                        scores' PR curves DO cross, C's wash is the average of a gain at one
+                        end and a loss at the other, and the figure's claim is a TRADE:
+                        debiasing improves discovery of the most constrained sequence and
+                        costs discovery of the least.
+                          READ THE LEVELS TOO. Published's LR+ here is 3.23-5.45 against the
+                        1.32-1.95 it manages in E, so on this truth set BOTH scores identify
+                        unconstrained sequence far more sharply than constrained, and the
+                        tail debiasing costs is the informative one.
+                          WHAT THE GAP CANNOT BE, and this is the load-bearing caveat: within
+                        a bin the GC bias is nearly a CONSTANT SHIFT, and a constant shift
+                        cannot reorder a ranking, so the difference here is NOT the bias. It
+                        is within-bin variation in the regional adjustment -- information the
+                        published model carries and the retrained one discards along with the
+                        bias. Whether that is real signal about local mutation rate or a
+                        second artefact of the same fit IS NOT SETTLED by this figure, and
+                        the prose says so explicitly. Do not let it drift into a claim.
+                          MECHANICS. The mirror is ONE KEYWORD -- `tail="lower"` flips the
                         call to z <= t and the hit to a NON-enhancer (`data._tail_labels`,
                         `_tail_called`) and changes nothing else -- so a tail difference
                         cannot be an artefact of two constructions. Requires
@@ -647,17 +662,16 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         negative TEST sits within 1% of 1.0 at a 1% calling rate (ratios
                         0.9939-0.9993 against 1.06-1.38 for LR+), because failing the cutoff
                         is 99% of windows; G reports the likelihood ratio of the rare
-                        LOW-tail event instead. TWO THINGS TO EXPECT: lift is useless there
-                        (ceiling 1/r on the NON-enhancer rate, so 1.09 in the AT-rich bin),
-                        and the odds ratio can SATURATE, the hit now being the majority class
-                        -- `paired_deltas` returns `n_boot` and a missing interval instead of
-                        raising. A synthetic frame lost EVERY replicate in one bin; expect it
-                        in at most the two smallest real bins, and if it bites the fix is
-                        Haldane-Anscombe, NOT applied now because it would move E's committed
-                        numbers. Verified offline on the shipped code path (synthetic frame
-                        substituted for `_lax_labelled_windows`; every threshold and LR+
-                        matches a hand formula in both tails, and 1 + delta equals the LR+
-                        ratio to machine precision) -- only the DATA is unverified.
+                        LOW-tail event instead. Lift is useless on this tail (ceiling 1/r on
+                        the NON-enhancer rate, so 1.1 in the AT-rich bin, which the run
+                        confirms). The saturation guard fired ONCE -- one replicate of 500 in
+                        the most AT-rich bin -- so `n_boot` stayed at 499 there and
+                        Haldane-Anscombe is NOT needed.
+                          F'S OWN CURVE IS NOT MONOTONIC. Published's bottom-1% cutoff runs
+                        -5.67, -6.04, -5.03, -4.14, -2.98; it rises 3.05 in z over its LAST
+                        FOUR bins, not across all five. The retrained score's stays within
+                        0.79 (-4.85, -5.64, -5.56, -5.55, -5.20). D's published curve IS
+                        monotonic, 2.83 -> 6.38.
                           TWO OPERATING POINTS, AND CONFUSING THEM IS THE WAY TO MISREAD
                         THIS FIGURE. A and B are one fixed global cutoff; C and D match the
                         rate within each bin at a flat 1% (`data.LAX_CALL_RATE`, new). Since
@@ -688,37 +702,11 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         bin -- panel C is that movement drawn -- and equals 4 nowhere in
                         particular, far above it in the top GC bin where an unmatched 4
                         calls 13.97%. Contrast A, B and Fig. 5F, one fixed z everywhere.
-                        THE LOWER TAIL, ADDED 2026-09-10 AND NOT YET RUN, is C and D's
-                        construction pointed at the BOTTOM 1% of each bin
-                        (`output/lower_tail.{pdf,png}`, four new notebook cells). It tests
-                        an assertion this figure already makes and had never checked:
-                        `_bin_thresholds`' docstring reconciles D's gains with E's wash by
-                        saying the two scores' PR curves CROSS, which predicts published
-                        ahead at the other extreme. Opposite signs across the tails confirm
-                        that and explain E; SAME signs refute it and are the more
-                        interesting outcome, putting the offset in the MIDDLE of the ranking
-                        where neither figure looks. The mirror is ONE KEYWORD --
-                        `tail="lower"` flips the call to z <= t and the hit to a
-                        NON-enhancer (`data._tail_labels`, `_tail_called`) and changes
-                        nothing else -- so a tail difference cannot be an artefact of two
-                        constructions. Requires match_within_bin=True. TWO THINGS TO EXPECT:
-                        lift is useless there (its ceiling is 1/r on the NON-enhancer rate,
-                        so 1.09 in the AT-rich bin), and the odds ratio can SATURATE, since
-                        the hit is now the majority class and a bottom 1% of 219 windows
-                        against a 91.7% base rate can come back entirely negative --
-                        `paired_deltas` now returns `n_boot` and a missing interval instead
-                        of raising. A synthetic frame lost EVERY replicate in one bin; the
-                        real bins are much larger, so expect it in at most the two smallest,
-                        and if it bites the fix is Haldane-Anscombe, NOT applied now because
-                        it would move D's committed numbers too. Verified offline on the
-                        shipped code path (synthetic frame substituted for
-                        `_lax_labelled_windows`; every threshold and LR+ matches a hand
-                        formula, both tails, and 1 + delta equals the LR+ ratio to machine
-                        precision) -- only the DATA is unverified.
                         THERE IS STILL NO SUPPORTING FIG. 9; it existed for a few hours on
                         2026-09-04 and was merged back once its calling-rate panel moved to
-                        Fig. 5F. The lower-tail output is named `lower_tail` for that
-                        reason -- whether it earns a number depends on what the run shows. Its orphaned `output/supp_fig9.*` were removed 2026-09-05,
+                        Fig. 5F. The lower tail was briefly a standalone `lower_tail` figure
+                        on 2026-09-10 before becoming this figure's F and G; nothing writes
+                        `output/lower_tail.*` any more. Its orphaned `output/supp_fig9.*` were removed 2026-09-05,
                         and `fig5/README.md` -- which had announced it and denied it three
                         paragraphs apart -- was reconciled then.
 

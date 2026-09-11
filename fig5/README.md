@@ -256,48 +256,48 @@ end. The decontaminated score wins in all five bins anyway, so 8E is **conservat
 analyses rest on the set McHale et al. themselves call lax; the strong form is a caption
 sentence carrying this and the power argument above, not silence.
 
-**8F and 8G — the same construction at the OTHER end of the score, added 2026-09-10 and NOT
-YET RUN.** 8F is the cutoff calling the **bottom** 1% of each bin and 8G the paired `LR+`
+**8F and 8G — the same construction at the OTHER end of the score**, added and run
+2026-09-10. 8F is the cutoff calling the **bottom** 1% of each bin and 8G the paired `LR+`
 ratio measured there, stacked and sharing an x axis exactly as 8D over 8E.
 
-*Why they exist.* 8E finds the decontaminated score ahead at the top 1% of every bin and 8C
-finds a wash over the whole recall axis. `data._bin_thresholds`' docstring reconciles those by
-asserting that the two scores' precision-recall curves **cross** — and if they do, published
-should be ahead at the other extreme. That was an assertion, never a measurement. **Opposite
-signs in 8E and 8G confirm it and explain 8C; same signs refute it**, and are the more
-interesting outcome, putting the offset in the *middle* of the ranking where nothing currently
-looks.
+**The result is the figure's conclusion.** The ratio falls **below 1.0 in all five bins** —
+−34.3% [−67.4, +0.0], −22.9% [−28.8, −15.1], −23.3% [−28.4, −18.2], −42.1% [−51.1, −31.1],
+−41.5% [−56.9, −22.0] — four of five clear of 1.0, **exactly reversing 8E**, where the
+retrained score leads in all five. So the two scores' precision-recall curves do cross, 8C's
+wash is the average of a gain at one end and a loss at the other, and the figure's claim is a
+**trade**: debiasing improves discovery of the most constrained sequence and costs discovery
+of the least.
 
-*The mirror is one keyword.* `tail="lower"` on `threshold_metrics` and `paired_deltas` flips
-the call to `z ≤ t` and the hit to a **non**-enhancer — a low Gnocchi predicts an unconstrained
-window, and the truth set's negatives are what that claim is right about — via
-`data._tail_labels` and `data._tail_called`, and changes nothing else. Precision, lift, `LR+`,
-the Wilson bounds and the paired bootstrap are the same code on a relabelled problem, so a
-difference between the tails cannot be an artefact of measuring them differently. Both require
-`match_within_bin=True`.
+*Read the levels as well as the ratio.* Published's `LR+` here is **3.23–5.45**, against the
+1.32–1.95 it manages in 8E. On this truth set both scores identify *un*constrained sequence
+far more sharply than constrained, so the tail debiasing costs is the informative one.
 
-*It is not `LR−`, and that is worth stating.* The likelihood ratio of a negative **test**,
-`P(no call | Y=1) / P(no call | Y=0)`, is pinned near 1 at a 1% calling rate — failing the
-cutoff is 99% of windows. On the committed numbers it runs 0.9850–0.9972 and its
-retrained-to-published ratios span **0.9939 to 0.9993**, against **1.06 to 1.38** for `LR+`.
-There is no dynamic range. What 8G reports is the likelihood ratio of the rare **low-tail
-event**, an interval likelihood ratio, which does have room to move.
+*What the gap cannot be — the load-bearing caveat.* Within a bin the GC bias is nearly a
+constant shift, and a constant shift cannot reorder a ranking, so this difference is **not the
+bias**. It is within-bin variation in the regional adjustment: information the published model
+carries and the retrained one discards along with the bias. Whether that is genuine signal
+about local mutation rate or a second artefact of the same fit **is not settled here**, and
+the prose says so. Do not let it drift into a claim.
 
-*Two things to expect.* **Lift is useless on this tail** — its ceiling is `1/r` on the
-**non**-enhancer rate, which runs 91.7% → 36.1%, so the ceiling is 1.09 in the most AT-rich
-bin. And **the odds ratio can saturate**: the hit is now the majority class, so a bottom 1% of
-219 windows against a 91.7% base rate can come back entirely negative, making precision 1 and
-`LR+` infinite. `paired_deltas` reports `n_boot` and returns a missing interval rather than
-raising. On a synthetic frame sized to provoke it, one bin lost **every** replicate; the real
-bins are far larger, so expect this in at most the two smallest. If it bites, the fix is a
-Haldane–Anscombe correction — deliberately **not** applied now, because it would move 8E's
-committed numbers too.
+*Mechanics.* `tail="lower"` on `threshold_metrics` and `paired_deltas` flips the call to
+`z ≤ t` and the hit to a **non**-enhancer — a low Gnocchi predicts an unconstrained window,
+and the truth set's negatives are what that claim is right about — via `data._tail_labels` and
+`data._tail_called`, and changes nothing else, so a difference between the tails cannot be an
+artefact of measuring them differently. Both require `match_within_bin=True`.
 
-*Verified offline on the shipped code path.* `_lax_labelled_windows` was substituted with a
-synthetic labelled frame and the real `threshold_metrics` / `paired_deltas` called: every
-`threshold_used` and `lr_pos` matches a hand-written formula exactly, in both tails, and
-`(1 + delta)` equals the ratio of the two `LR+` levels to machine precision. Only the **data**
-is unverified.
+*It is not `LR−`.* The likelihood ratio of a negative **test** is pinned near 1 at a 1% calling
+rate — failing the cutoff is 99% of windows. Its retrained-to-published ratios span **0.9939
+to 0.9993**, against **1.06 to 1.38** for `LR+`. 8G reports the likelihood ratio of the rare
+**low-tail event** instead, which has room to move.
+
+*Two predictions, both borne out.* Lift is useless on this tail — its ceiling is `1/r` on the
+**non**-enhancer rate, and the run gives 1.1 in the most AT-rich bin. And the odds ratio can
+saturate: the guard fired **once**, one replicate of 500 in that same bin, so `n_boot` held at
+499 and the Haldane–Anscombe correction is not needed.
+
+*8F's published curve is not monotonic*: −5.67, −6.04, −5.03, −4.14, −2.98, rising 3.05 in `z`
+over its **last four** bins rather than across all five. The retrained score's stays within
+0.79 of itself. 8D's published curve *is* monotonic, 2.83 → 6.38.
 
 **There is no FPR-matched check any more.** It recomputed `LR+` with each score cut at the
 quantile of its bin's *negatives*, so every bin sat at an identical false-positive rate rather
