@@ -1744,7 +1744,7 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     beside the per-bin counts, and re-matching within a bin would be wrong anyway, the
     matching being defined over the whole drawn population.
 
-    Returns one row per drawn bin: lo, hi, mid, n, n_pos, r, ceiling (1/r), tail,
+    Returns one row per drawn bin: lo, hi, mid, n, n_pos, r, ceiling (1/r),
     threshold_published, threshold_scored, n_called_*, BOTH
     measures' observed levels regardless of `metric` (lift_published, lift_scored,
     lr_pos_published, lr_pos_scored), `metric` recording which pair `delta` came from, delta
@@ -1844,7 +1844,6 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
         if boot.size < n_bootstrap:
             star += f" [{n_bootstrap - boot.size} replicate(s) saturated]"
         name = "LR+" if metric == "lr_pos" else "lift"
-        name += "" if tail == "upper" else " (lower)"
         print(f"  GC ({lo:.2f}, {hi:.2f}]  {name} {e[f'{metric}_published']:.2f} -> "
               f"{e[f'{metric}_scored']:.2f}  (lift ceiling {e['ceiling']:.1f})  "
               f"gain {100 * e['delta']:+6.1f}%  "
