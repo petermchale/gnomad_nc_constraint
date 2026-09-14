@@ -20,6 +20,8 @@ fig5/                    THE manuscript figure. Five panels, one argument; each 
   make_fig5_nb.py        generates fig5.ipynb -- edit prose/code HERE, not the notebook
   config.py, data.py, panels.py, refit.py, depletion_rank.py
 
+fig2d/                   McHale et al. Fig. 2D (over-dispersion at central GC) redrawn with
+                         the decontaminated Gnocchi beside the published one, and only that
 dnm_training_size/       the training-set-SIZE dose-response, and only that
 preconditions/           what had to be true about Chen et al.'s pipeline for any of the
                          above to mean anything: verify_* (is what we believe about their
