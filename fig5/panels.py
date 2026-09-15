@@ -1266,12 +1266,14 @@ NO REFERENCE LINE. A horizontal at Chen et al.'s z = 4 would be the obvious addi
 
     _gc_mean_line(ax, gc_mean)
 
-    # WRAPPED AFTER THE PERCENTAGE, and the wrap point is not free: a rotated label is as
-    # tall as its LONGEST LINE is wide, and at three panels to a row no line may run much past
-    # fourteen characters, which is what "Gnocchi cutoff" costs. The rate is interpolated
-    # rather than written in, so the label cannot drift from the `call_rate` the panel was
-    # actually built with.
-    _finish(ax, f"Gnocchi cutoff\n(top {100 * call_rate:g}%)",
+    # THREE LINES, and the wrap point is not free: a rotated label is as tall as its LONGEST
+    # LINE is wide, and at three panels to a stack no line may run much past fourteen
+    # characters. "Gnocchi cutoff" fit that on one line; "Gnocchi threshold" does not --
+    # measured, it stands 191 px on 119 px of axes and runs 21 px INTO the labels of the
+    # panels above and below. Split after "Gnocchi" it stands 103 px, inside its own axes.
+    # The rate is interpolated rather than written in, so the label cannot drift from the
+    # `call_rate` the panel was actually built with.
+    _finish(ax, f"Gnocchi\nthreshold\n(top {100 * call_rate:g}%)",
             xrange, show_xlabel, legend_loc=legend_loc,
             legend_fontsize=LEGEND_FONTSIZE - 2)
     # THE Y LABEL IS PINNED, NOT LEFT TO FLOAT. Matplotlib places a y label just outside the
@@ -1282,12 +1284,12 @@ NO REFERENCE LINE. A horizontal at Chen et al.'s z = 4 would be the obvious addi
     # window extents. Pinning also aligns the three labels down the stack, which floating
     # placement cannot do, and makes the clearance independent of whatever range a rerun
     # produces. THE COST OF PINNING is that a wider tick label than today's now runs INTO the
-    # y label instead of pushing it aside, so the clearance is left generous: at -0.20, with
-    # the panel letters at x = -0.40, the measured gaps are +20.7 px from the letter and
-    # +13.3 px from the widest tick label, about one extra character of room. The label is two
-    # lines for the same fit -- three needs 0.205 of the axes width against the 0.25 available
-    # between ticks and letters.
-    ax.yaxis.set_label_coords(-0.20, 0.5)
+    # y label instead of pushing it aside, so the clearance is left generous. At -0.17, with
+    # the panel letters at x = -0.40, the three-line label clears the widest tick label by
+    # 27 px and the letter by 9 px across and 11 px vertically, the letter sitting above the
+    # label's top end. It was -0.20 for the two-line wording, where three lines would have run
+    # 2 px across the letter.
+    ax.yaxis.set_label_coords(-0.17, 0.5)
 
 
 
@@ -1361,8 +1363,8 @@ def panel_calling_rate(ax, binned, thresholds: dict,
     # The percentile axis names the VALUE, so the cutoff is written bare and with "=";
     # the calling-rate axis names a SET, so it keeps "z \geq t", which is the condition
     # defining that set and is ungrammatical without the z.
-    cutoff_txt = ((lambda t: f"cutoff $= {t:.2f}$") if percentile_axis else
-                  (lambda t: f"cutoff $z \\geq {t:.2f}$"))
+    threshold_txt = ((lambda t: f"threshold $= {t:.2f}$") if percentile_axis else
+                  (lambda t: f"threshold $z \\geq {t:.2f}$"))
     # WHY ONLY THE LINE'S ENTRY IS QUALIFIED. Every entry would ideally say which
     # distribution its percentile is taken in -- the curves per GC bin, the line
     # genome-wide -- but "(cutoff z = 3.24, within GC bin)" on the longer score name runs
@@ -1395,7 +1397,7 @@ def panel_calling_rate(ax, binned, thresholds: dict,
             markerfacecolor="white" if key in MONO_OPEN else MONO,
             markeredgewidth=1.2, markersize=5, linewidth=2, capsize=3,
             elinewidth=1,
-            label=f"{display}  ({cutoff_txt(thresholds[key])})"))
+            label=f"{display}  ({threshold_txt(thresholds[key])})"))
     # BETWEEN THE GRID AND THE CURVES. _finish calls set_axisbelow(True), which puts the
     # gridlines at zorder 0.5, so a reference line drawn there ties with them and can be
     # painted over by the grid it is meant to be read against; at 1.5 it clears the grid and
@@ -1411,9 +1413,9 @@ def panel_calling_rate(ax, binned, thresholds: dict,
             # labelled, so the parenthetical restated a number the reader can already read
             # off; the entry's job is to say WHOSE distribution the percentile is taken in,
             # which is the one thing the axis does not say. The caption still quotes it.
-            label=("Genome-wide percentile common to both cutoffs"
+            label=("Genome-wide percentile common to both thresholds"
                    if percentile_axis else
-                   "Genome-wide calling rate common to both cutoffs")))
+                   "Genome-wide calling rate common to both thresholds")))
     ax.set_yscale("log")
     ax.yaxis.set_minor_formatter(mticker.NullFormatter())
     # A bin can legitimately call nothing, and 0 has no place on a log axis: the floor
