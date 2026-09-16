@@ -20,7 +20,9 @@ Inputs, in three groups:
     (which narrows the analyzed set to their 693,270 windows). Both default to None;
     the figure builds without them.
 """
+import contextlib
 import hashlib
+import io
 import os
 
 import duckdb
@@ -40,6 +42,31 @@ REPO_ROOT = os.path.dirname(HERE)
 OUTPUT_DIR = os.path.join(HERE, "output")     # figures and this figure's own caches
 CACHE_DIR = W.CACHE_DIR      # downloaded bucket files; $GNOCCHI_PUBLISHED_DIR moves them
 REFITS_DIR = os.path.join(REPO_ROOT, "refits")  # the shared refit outputs
+
+
+@contextlib.contextmanager
+def quiet():
+    """
+    Swallow a builder's progress output. For the notebook's REPEAT calls only.
+
+    WHY THIS AND NOT A `verbose` PARAMETER. The preamble every Supporting Fig. 8 builder
+    emits -- the window-file join, the z sanity check, the evaluated count -- is printed by
+    `gnocchi_bias/windows.py`, which `preconditions/` and `dnm_training_size/` import too,
+    so threading a flag down to it would change three other entry points to tidy one
+    notebook. This stays inside fig5.
+
+    HOW THE NOTEBOOK USES IT. Supporting Fig. 8 calls threshold_metrics and paired_deltas
+    five times over, and each call reprints that preamble plus its own per-bin dump -- about
+    110 lines, nearly all of it identical. The FIRST call of each kind runs loud, so the
+    population, the class balancing and the dropped bins are all on the page once; the
+    repeats run in here, and one consolidated table prints their numbers instead.
+
+    It captures stdout, not exceptions, so a failure still propagates and still shows its
+    traceback. The captured text is yielded, so a caller that wants a line of it can look.
+    """
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        yield buf
 
 N_BINS = 20
 XRANGE = (0.2, 0.73)   # read off McHale et al. Fig. 2A by eye, at 300 DPI; approximate,
