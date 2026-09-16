@@ -1014,10 +1014,14 @@ anything in `gnocchi_bias/windows.py`.
    lost that `fig5/fig5.ipynb` does not still derive and print. EARLIER ENTRIES ABOVE THAT
    SAY "`captions.txt`/`methods.txt` are already updated" ARE HISTORY -- they record that a
    past pass was propagated, not that the files exist.
-   **THE POINTER NAMES FIG. 5 AND SUPPORTING FIG. 7 ONLY.** Supporting Fig. 8 is absent from
-   it, and it is the one figure needing a truth set, which is the likeliest thing a reviewer
-   presses on. Everything it needs is derived and printed in the notebook, so that is a
-   sentence to add to the manuscript, not a computation to run.
+   **SUPPORTING FIG. 8 IS NOW NAMED IN THAT SUBSECTION TOO** (Peter, 2026-09-16), so the
+   pointer covers all three figures and the gap recorded here for one day is closed. The
+   exact wording lives in the manuscript, not in this repo -- see the caution below.
+   **THE PDFs IN THIS REPO ARE THE JANUARY SUBMISSION AND WILL KEEP SAYING OTHERWISE.**
+   `mchale_et_al_250115.pdf` and `mchale_et_al_supporting_250115.pdf` have Supporting
+   Figures 1-6 and no Fig. 5; Supporting Figs 7 and 8 are this work's and exist only in the
+   live document. So DO NOT re-derive the manuscript's current state from those PDFs -- they
+   are a fixed snapshot, useful for the citation trail into McHale et al. and nothing else.
    `METHODS.md` still covers the rank statistic's citation trail into McHale et al., which
    the notebook does not carry and nothing recomputes.
 3. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E

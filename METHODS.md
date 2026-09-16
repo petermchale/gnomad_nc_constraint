@@ -33,11 +33,12 @@ gap -- is not in the notebook and is not recomputable from anything, unlike ever
 the three prose files quoted. Nine of `gnocchi_bias/windows.py`'s docstrings point into it
 by section name, as does `fig5/data.py`'s `XRANGE`. It stays.
 
-TWO THINGS TO KNOW ABOUT THE POINTER. It names Fig. 5 and Supporting Fig. 7 and NOT
-SUPPORTING FIG. 8, which is the one figure needing a truth set and so the likeliest thing
-a reviewer presses on; everything it needs is derived and printed in the notebook, and
-that truth set is the enhancer flag carried by the same window file "The neutral window
-set" below is about, so this is a sentence to add rather than a computation to run. And
+TWO THINGS TO KNOW ABOUT THE POINTER. It names Fig. 5, Supporting Fig. 7 and, since
+2026-09-16, SUPPORTING FIG. 8 -- the one figure needing a truth set, that truth set being
+the enhancer flag carried by the same window file "The neutral window set" below is about.
+Beware of checking this against the PDFs in this repo: `mchale_et_al_250115.pdf` and its
+supporting file are the JANUARY SUBMISSION, with Supporting Figures 1-6 and no Fig. 5, so
+they cannot show the current pointer and are here for the citation trail alone. And
 the notebook it points at is committed with the **narrowed** run -- McHale et al.'s 693,270
 windows, which is what `fig5.neutral.png` and `output/supp_fig7.neutral.png` were built
 from. `CLAUDE.md` and the READMEs carry both runs, narrowed first and the wider
