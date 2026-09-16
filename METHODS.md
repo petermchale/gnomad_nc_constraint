@@ -1,8 +1,11 @@
 # Methods narrative — the Figure 2A-style rank statistic
 
-The canonical, extractable methods narrative for the rebuttal/revised paper. Split out of
+The methodological record behind the Figure-2A rank statistic: what the statistic is, and
+the citation trail into McHale et al. that justifies every choice in it. Split out of
 CLAUDE.md so it is read when methods are being written, rather than loaded into every
-session. It was written for `compute_gc_bias_step1_vs_step2.py`, **deleted 2026-08-07**
+session. It was extractable manuscript prose when the paper carried this as Methods text;
+it is now the backing for a Methods subsection that points at the notebook instead -- see
+the next block. It was written for `compute_gc_bias_step1_vs_step2.py`, **deleted 2026-08-07**
 (recoverable from git history) once fig5 panel A superseded its headline result on the
 same window set with the same statistic. Every methodological choice recorded below that
 fig5 still makes is implemented in `gnocchi_bias/windows.py`, which was extracted verbatim
@@ -11,29 +14,35 @@ from that script -- the statistic, the GC units, the filters, the window set. Re
 the sections below are titled by, are mapped out under "TWO CAPABILITIES WENT WITH THE
 SCRIPT"; nothing here describes a program that can still be run.
 
-**The other half of the manuscript's methods text lives in `fig5/methods.txt`** — the
-Methods subsection "How Gnocchi's regional adjustment drives its GC bias", covering
-everything Fig. 5 and Supporting Fig. 7 need beyond the rank statistic: the two-step
-model and the form of `r`, the per-GC-bin aggregation `R = ΣE2/ΣE1` and its CpG
-decomposition, the training-set strata and their DNM-rate comparison, the two `P(DNM)`
-estimators, the refit and its two controls, the depletion-rank overlay, and the
-saturation model behind Supporting Fig. 7A. It is written to be pasted into the manuscript,
-one paragraph per line, and quotes the **narrowed** run — McHale et al.'s 693,270 windows —
-which is what the committed `fig5.neutral.png` and `output/supp_fig7.neutral.png` were built
-from. (`fig5/captions.txt` carried the figure captions in the same form until it was deleted
-at `e593d1d`, as `fig5/results.txt` was at `5bd253f`; `fig5/fig5.ipynb` still derives and
-prints every number either of them quoted.)
-`CLAUDE.md` and the READMEs now carry both runs, narrowed first and the wider
+**THE MANUSCRIPT NO LONGER CARRIES ANY OF THIS AS PROSE.** Its Methods subsection
+"Mathematical and computational dissection, and correction, of Gnocchi's GC bias" is two
+sentences and two links: that Gnocchi was reproduced using code and intermediate data
+files supplied by Chen et al., pointing at `preconditions/`, and that the mathematical
+derivations and code behind Fig. 5 and Supporting Fig. 7 are at `fig5/fig5.ipynb`. SO THE
+NOTEBOOK IS THE METHODS TEXT NOW, and its prose is published material rather than working
+notes -- a reader of the paper follows that link and lands in it. `fig5/methods.txt`,
+which carried that subsection as pasteable paragraphs, was deleted once the pointer
+replaced it, as `fig5/captions.txt` was at `e593d1d` and `fig5/results.txt` at `5bd253f`.
+Recover any of the three from git history; nothing in them is lost that
+`fig5/fig5.ipynb` does not still derive and print.
+
+WHAT THAT LEAVES THIS FILE, and why it was not deleted with them. The rank statistic's
+citation trail into McHale et al. -- the GC units, the axis ranges, the chromosome and
+noncoding filters, the neutral window set and the join that supplies it, the window-count
+gap -- is not in the notebook and is not recomputable from anything, unlike every number
+the three prose files quoted. Nine of `gnocchi_bias/windows.py`'s docstrings point into it
+by section name, as does `fig5/data.py`'s `XRANGE`. It stays.
+
+TWO THINGS TO KNOW ABOUT THE POINTER. It names Fig. 5 and Supporting Fig. 7 and NOT
+SUPPORTING FIG. 8, which is the one figure needing a truth set and so the likeliest thing
+a reviewer presses on; everything it needs is derived and printed in the notebook, and
+that truth set is the enhancer flag carried by the same window file "The neutral window
+set" below is about, so this is a sentence to add rather than a computation to run. And
+the notebook it points at is committed with the **narrowed** run -- McHale et al.'s 693,270
+windows, which is what `fig5.neutral.png` and `output/supp_fig7.neutral.png` were built
+from. `CLAUDE.md` and the READMEs carry both runs, narrowed first and the wider
 1,843,559-window reproduction in parentheses: `0.046 / 0.168 / 0.026` against
 `0.093 / 0.212 / 0.046`.
-
-**SUPPORTING FIG. 8 HAS NO METHODS TEXT, here or there.** `fig5/methods.txt` is 37 lines
-and every one of its Supporting-Figure mentions is Fig. 7; this file covers the rank
-statistic. Nothing is unrecorded -- `fig5/fig5.ipynb` derives and prints the truth set,
-the three matched calling rates, LR+ and the paired bootstrap -- but none of it is in
-extractable manuscript form yet. Whoever writes it should say up front that this is the
-one figure needing a truth set, and that the truth set is the enhancer flag carried by
-the same window file "The neutral window set" below is about.
 
 TWO CAPABILITIES WENT WITH THE SCRIPT and exist nowhere else, both concerning comparison
 against McHale et al.'s *existing published* figures rather than producing Fig. 5:

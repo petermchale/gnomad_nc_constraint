@@ -34,10 +34,11 @@ published/               Chen et al.'s data as downloaded (gitignored, ~8 GB; se
                          gnocchi_bias/windows.py, that every entry point defaults to)
 refits/                  one copy of each regional-adjustment refit (gitignored, ~12 GB)
 
-METHODS.md               the rank statistic's methods narrative -- extractable paper text,
-                         and the citation trail 9 of windows.py's docstrings point into.
-                         Kept at the root, not under fig5/, because windows.py is imported
-                         from preconditions/ and dnm_training_size/ too.
+METHODS.md               the rank statistic's methodological record -- the citation trail
+                         into McHale et al. that 9 of windows.py's docstrings point into,
+                         and nothing the notebook carries. Kept at the root, not under
+                         fig5/, because windows.py is imported from preconditions/ and
+                         dnm_training_size/ too.
 ```
 
 Each directory has its own README with operational detail, and METHODS.md holds the
@@ -56,9 +57,9 @@ sections 1-5 are migrated into `fig5/fig5.ipynb`).
 reproduction** (noncoding + `pass_qc` + autosome/PAR, built from the bucket); set, it is
 McHale et al.'s own **693,270** putatively neutral windows. **The committed figure is the
 narrowed run** -- `fig5/fig5.neutral.png`, `fig5/output/*.neutral.*`, and the executed
-`fig5/fig5.ipynb`, whose prose quotes it throughout -- and so is the surviving manuscript
-file, `fig5/methods.txt` (`fig5/captions.txt` and `fig5/results.txt` were deleted at
-`e593d1d` and `5bd253f`; see item 2 below). Numbers below therefore give the
+`fig5/fig5.ipynb`, whose prose quotes it throughout -- and the notebook is now the ONLY
+manuscript text, all three prose files having been deleted (see item 2 below). Numbers
+below therefore give the
 **narrowed run first, the wider one in parentheses**. A few measurements exist only on the
 wider set, because the neutral BED lives on the constraint-tools HPC path and is not
 available offline; each of those says so.
@@ -80,10 +81,13 @@ filtered set to match the figure.
    in the highest bin drawn (wider run: 0.95 -> 1.79, 0.98-1.00, 0.6%, 43% at GC 0.75).
    This is a decomposition identity, not a fit.
 3. The training set **is not the scored population**: the QC-pass noncoding share of the
-   training sites falls **0.82 -> 0.27** across GC, and the scored band -- the part of that
-   territory McHale et al. call putatively neutral -- peaks at **0.36** near GC 0.35 and is
-   down to **0.007** by GC 0.68 (wider run, where the scored band *is* QC-pass noncoding:
-   0.84 -> 0.28). The excluded
+   training sites falls **0.815 at mean GC to 0.273 by GC 0.68**, peaking at 0.898 in the
+   GC 0.25 bin, and the scored band -- the part of that territory McHale et al. call
+   putatively neutral -- peaks at **0.363** at GC 0.35 and is down to **0.007** by GC 0.68
+   (wider run, where the scored band *is* QC-pass noncoding: 0.84 -> 0.28). ALWAYS QUOTE
+   THE GC WITH THESE: cell 37 prints at the TOP OF THE DRAWN RANGE, GC 0.70, where the same
+   two quantities are **0.284** and **0.001**, so a bare "0.27 against 0.284" reads as a
+   contradiction and is two endpoints of one monotone decline. The excluded
    territory is *different*, not merely absent -- the QC-failing stratum's non-CpG DNM
    rate runs **1.50-1.63x** the scored rate through the GC bulk and **3.39x by GC 0.58**,
    while coding/noncoding stays flat at **0.86-1.00** (wider run: 1.55x, 4.06x by GC 0.61,
@@ -255,11 +259,14 @@ current analysis needs it.
 
 ## Methods narrative — moved
 
-`METHODS.md` (repo root) holds the canonical methods text for the Figure-2A rank
-statistic: what the statistic is, the GC units, chromosome/noncoding filters, the neutral
-window set and the join that supplies it, axis ranges, and the window-count gap against
-McHale et al. **Read it before writing any methods or rebuttal prose about the rank
-statistic**, and before changing anything in `gnocchi_bias/windows.py`.
+`METHODS.md` (repo root) is the methodological record for the Figure-2A rank statistic:
+what the statistic is, the GC units, chromosome/noncoding filters, the neutral window set
+and the join that supplies it, axis ranges, and the window-count gap against McHale et al.
+It is NOT manuscript prose any more -- the paper's Methods subsection points at
+`fig5/fig5.ipynb` instead (item 2 below) -- but it is the only place those choices are
+cited to McHale et al. by page and section, and nothing recomputes them. **Read it before
+writing any methods or rebuttal prose about the rank statistic**, and before changing
+anything in `gnocchi_bias/windows.py`.
 
 ## Where to pick up
 
@@ -284,17 +291,24 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    caller). Again no number changed, and `captions.txt`/`methods.txt` are updated.
    **Fig. 5F's axis became a percentile on 2026-09-05** -- detail below, and again no number
    changed, only which end of one is labelled.
-   **The notebook is 41 cells, 17 of its 23 code cells carry real outputs, and no
-   placeholder remains anywhere.** It was executed end to end on the HPC path at `035e144`
-   (2026-09-11) after the left-tail rework, so every number in it is real; the count read 37
-   here until that day and was stale by two even then.
-   **NINE CELLS ARE OUTSTANDING AND THE NOTEBOOK NEEDS AN HPC RE-EXECUTION** -- 24, 25, 27,
-   29, 31, 32, 33, 35 and 37, from the two 2026-09-16 passes. **THE MARGINAL COST IS NIL**,
-   because the workflow re-executes every cell anyway (`nbconvert --to notebook --execute
-   --inplace`), so nine missing outputs cost the same run as one. Only 37 and the Supporting
-   Fig. 8 print blocks changed what is COMPUTED or SHOWN; the rest lost outputs to comment
-   and string edits alone.
-   Cell 37 is the real edit: its panel-C block had been printing
+   **The notebook is 41 cells, ALL 23 code cells run, 19 of them print, and no placeholder
+   remains anywhere.** Re-executed on the HPC path at `5894724` (2026-09-16), which cleared
+   the nine cells this entry used to list as outstanding; the count read 37 here until
+   2026-09-11 and was stale by two even then.
+   **THE FOUR CELLS WITH NO OUTPUT ARE NOT A PENDING RERUN.** 24, 25, 27 and 29 are exactly
+   the ones that run inside `data.quiet()`, which emit nothing by design, so 19 of 23 IS the
+   healthy state and a later reader should not try to "fix" it. Check a real run by
+   `execution_count` instead: it ran 1-23 with no gaps, and all 41 cells carry `id` fields
+   at `nbformat_minor: 5`, which is the `nbconvert --execute --inplace` signature rather
+   than the generator's (see the cosmetic note below).
+   **THE RETIRED `GC only` ROWS ARE GONE**, exactly as the entry below predicted: zero
+   occurrences of `GC only` or `GC content alone` in any committed output.
+   **EVERY PANEL CAME BACK BYTE-IDENTICAL.** Cells 8, 10, 12, 14, 16, 18, 20 and 32 each
+   printed `unchanged, left alone`, which is why that commit touches `fig5.ipynb` and
+   nothing else. The committed PDFs are therefore CONFIRMED current against `panels.py`, not
+   merely assumed to be.
+   Cell 37 was the real edit of those passes and its output is now committed: its panel-C
+   block had been printing
    `scored-population fraction 0.00 at GC 0.22 -> 0.00 at GC 0.70`, two rounded zeros and
    none of the three numbers the prose quotes, and it now prints TWO shares -- QC-pass
    noncoding (scored + putatively nonneutral) and the scored band alone -- each as its value
@@ -384,13 +398,15 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    ratio panel (then 8D, now 8I) was previewed on the REAL committed ratios (1.377, 1.063,
    1.085, 1.330, 1.084 with their intervals), so its shape was verified and not merely its
    geometry.
-   **TWO CELLS' COMMITTED OUTPUTS ALSO SHOW ROWS THE CODE NO LONGER PRODUCES**, since the
-   GC-only arm was removed on 2026-09-10 without a rerun: panels A and B's `tm_s8` table
-   still prints a `GC only` row per bin, and the `budget_s8` cell still prints
-   "GC content alone ... lift 2.15". Those rows are HISTORY, not current output -- nothing
-   cites them, and the same run clears them. No other number in either cell moves: removing
-   an arm changes which rows exist, never the published or decontaminated rows beside them,
-   because each score's threshold is set from its OWN quantile.
+   **TWO CELLS ONCE SHOWED ROWS THE CODE NO LONGER PRODUCES -- CLEARED AT `5894724`.** The
+   GC-only arm was removed on 2026-09-10 without a rerun, so panels A and B's `tm_s8` table
+   kept printing a `GC only` row per bin and the `budget_s8` cell kept printing
+   "GC content alone ... lift 2.15". The 2026-09-16 re-execution removed both, as this entry
+   predicted it would; there are now zero occurrences of either string in any committed
+   output. Kept here for the reasoning, which recurs: such rows are HISTORY rather than
+   current output, nothing cites them, and no other number in either cell moves, because
+   removing an arm changes which rows exist and never the published or decontaminated rows
+   beside them -- each score's threshold is set from its OWN quantile.
    The layout fix rode along and IS NOW RENDERED: the 3-column gridspec with its uniform
    `wspace=0.82` became a 5-column one with SPACER COLUMNS, `width_ratios=[1, 0.72, 1, 0.30,
    1]` and `wspace=0`, which is the only way one GridSpec holds two different gaps -- gap 1
@@ -401,6 +417,18 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    resize, not a relink, and from seven panels to nine -- and panel D of Fig. 5 is 7.6 in
    tall rather than 4.6, matching panel C. **THAT ILLUSTRATOR EDIT IS STILL TO DO**; it is
    the only part of the rebuild no run can perform.
+   **THE RERUN NAMED THE STALE LINKS EXACTLY** -- cell 40, at `5894724`: three panel PDFs
+   are newer than what `fig5.neutral.ai` was saved against, **`fig5B.neutral.pdf`,
+   `fig5F.neutral.pdf` and `supp_fig8.neutral.pdf`**. NOTE WHAT IS NOT IN THAT LIST:
+   `fig5D.neutral.pdf`. D's PDF has not moved since the assembly was last saved, so D's
+   7.6 in is a change INSIDE the document rather than a relink, while B and F are the
+   2026-09-10 restyles arriving. The cell could not act because the run was on Linux
+   (`osascript not found`); `resave_ai.py` is macOS-only. RELINK AND RESIZE ARE SEPARATE:
+   `.venv/bin/python fig5/resave_ai.py -suffix .neutral -dry_run` lists the stale links and
+   the same command without `-dry_run` reloads them and re-exports the PNG, but Supporting
+   Fig. 8's 13 x 11.5 and panel D's height are still done by hand. The panel PDFs are
+   tracked, so a Mac checkout that is up to date already has them and RUNBOOK step 8's
+   copy-back is a no-op there.
    **The top-1% ratio panel (then D, now 8I) has these numbers, written into the prose**:
    the LR+ gains are
    **+37.7% [+1.7, +93.8], +6.3% [+0.8, +12.3], +8.5% [+2.3, +15.9], +33.0% [+8.8, +66.4]
@@ -971,15 +999,27 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    the 0.660% matched rate: that mean is unweighted over bins and the matching is
    window-weighted. The old `[8D-*]` group and `[8F-SUMMARY]`/`[8G-RESULT]` names belonged to
    panels the rework retired; do not go looking for them.
-   **The manuscript text is now ONE file**: `fig5/methods.txt`, the Methods subsection
-   "How Gnocchi's regional adjustment drives its GC bias", paragraph-per-line for pasting
-   and on the narrowed run. THE OTHER TWO WERE DELETED -- `fig5/captions.txt` (Fig. 5 and
-   Supporting Figs 7-8) at `e593d1d`, and `fig5/results.txt` at `5bd253f`, the latter FIVE
-   paragraphs since 2026-09-11, up from three, when the Supporting Fig. 8 paragraph was
-   split in two and a left-tail paragraph added. Recover either from git history if wanted;
-   nothing is lost that cannot be rebuilt, since `fig5/fig5.ipynb` still derives and prints
-   every number they quoted. `METHODS.md` covers the rank statistic and points at what
-   survives.
+   **THERE IS NO MANUSCRIPT PROSE FILE ANY MORE, AND THE NOTEBOOK IS CITED IN ITS PLACE.**
+   The paper's Methods subsection is now titled "Mathematical and computational dissection,
+   and correction, of Gnocchi's GC bias" and is TWO SENTENCES AND TWO LINKS: that Gnocchi
+   was reproduced using code and intermediate data files supplied by Chen et al., pointing
+   at `preconditions/`, and that the mathematical derivations and code behind Fig. 5 and
+   Supporting Fig. 7 are at `fig5/fig5.ipynb`. SO THE NOTEBOOK'S PROSE IS PUBLISHED
+   MATERIAL, not working notes -- a reader of the paper follows that link and lands in it.
+   Edit it accordingly, and keep `preconditions/` presentable for the same reason.
+   All three prose files are gone: `fig5/captions.txt` (Fig. 5 and Supporting Figs 7-8) at
+   `e593d1d`, `fig5/results.txt` at `5bd253f` (FIVE paragraphs by then, up from three, when
+   the Supporting Fig. 8 paragraph was split in two and a left-tail paragraph added), and
+   `fig5/methods.txt` once the pointer replaced it. Recover any from git history; nothing is
+   lost that `fig5/fig5.ipynb` does not still derive and print. EARLIER ENTRIES ABOVE THAT
+   SAY "`captions.txt`/`methods.txt` are already updated" ARE HISTORY -- they record that a
+   past pass was propagated, not that the files exist.
+   **THE POINTER NAMES FIG. 5 AND SUPPORTING FIG. 7 ONLY.** Supporting Fig. 8 is absent from
+   it, and it is the one figure needing a truth set, which is the likeliest thing a reviewer
+   presses on. Everything it needs is derived and printed in the notebook, so that is a
+   sentence to add to the manuscript, not a computation to run.
+   `METHODS.md` still covers the rank statistic's citation trail into McHale et al., which
+   the notebook does not carry and nothing recomputes.
 3. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E
    already is, on gnomAD counts the DNM model never sees).
 4. **`DEPLETION_RANK_BED` and `NEUTRAL_WINDOWS_BED` are both set** in `fig5/config.py` and
