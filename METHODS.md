@@ -14,10 +14,12 @@ everything Fig. 5 and Supporting Fig. 7 need beyond the rank statistic: the two-
 model and the form of `r`, the per-GC-bin aggregation `R = ΣE2/ΣE1` and its CpG
 decomposition, the training-set strata and their DNM-rate comparison, the two `P(DNM)`
 estimators, the refit and its two controls, the depletion-rank overlay, and the
-saturation model behind Supporting Fig. 7A. The two figure captions that go with it are
-`fig5/captions.txt`. Both are written to be pasted into the manuscript, one paragraph per
-line, and both quote the **narrowed** run — McHale et al.'s 693,270 windows — which is
-what the committed `fig5.neutral.png` and `output/supp_fig7.neutral.png` were built from.
+saturation model behind Supporting Fig. 7A. It is written to be pasted into the manuscript,
+one paragraph per line, and quotes the **narrowed** run — McHale et al.'s 693,270 windows —
+which is what the committed `fig5.neutral.png` and `output/supp_fig7.neutral.png` were built
+from. (`fig5/captions.txt` carried the figure captions in the same form until it was deleted
+at `e593d1d`, as `fig5/results.txt` was at `5bd253f`; `fig5/fig5.ipynb` still derives and
+prints every number either of them quoted.)
 `CLAUDE.md` and the READMEs now carry both runs, narrowed first and the wider
 1,843,559-window reproduction in parentheses: `0.046 / 0.168 / 0.026` against
 `0.093 / 0.212 / 0.046`.
