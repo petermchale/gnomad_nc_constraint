@@ -56,8 +56,9 @@ sections 1-5 are migrated into `fig5/fig5.ipynb`).
 reproduction** (noncoding + `pass_qc` + autosome/PAR, built from the bucket); set, it is
 McHale et al.'s own **693,270** putatively neutral windows. **The committed figure is the
 narrowed run** -- `fig5/fig5.neutral.png`, `fig5/output/*.neutral.*`, and the executed
-`fig5/fig5.ipynb`, whose prose quotes it throughout -- and so are the two manuscript
-files, `fig5/captions.txt` and `fig5/methods.txt`. Numbers below therefore give the
+`fig5/fig5.ipynb`, whose prose quotes it throughout -- and so is the surviving manuscript
+file, `fig5/methods.txt` (`fig5/captions.txt` and `fig5/results.txt` were deleted at
+`e593d1d` and `5bd253f`; see item 2 below). Numbers below therefore give the
 **narrowed run first, the wider one in parentheses**. A few measurements exist only on the
 wider set, because the neutral BED lives on the constraint-tools HPC path and is not
 available offline; each of those says so.
@@ -283,10 +284,55 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    caller). Again no number changed, and `captions.txt`/`methods.txt` are updated.
    **Fig. 5F's axis became a percentile on 2026-09-05** -- detail below, and again no number
    changed, only which end of one is labelled.
-   **The notebook is 41 cells, ALL 23 code cells carry real outputs, and no placeholder
-   remains anywhere.** It was executed end to end on the HPC path at `035e144`
+   **The notebook is 41 cells, 17 of its 23 code cells carry real outputs, and no
+   placeholder remains anywhere.** It was executed end to end on the HPC path at `035e144`
    (2026-09-11) after the left-tail rework, so every number in it is real; the count read 37
    here until that day and was stale by two even then.
+   **NINE CELLS ARE OUTSTANDING AND THE NOTEBOOK NEEDS AN HPC RE-EXECUTION** -- 24, 25, 27,
+   29, 31, 32, 33, 35 and 37, from the two 2026-09-16 passes. **THE MARGINAL COST IS NIL**,
+   because the workflow re-executes every cell anyway (`nbconvert --to notebook --execute
+   --inplace`), so nine missing outputs cost the same run as one. Only 37 and the Supporting
+   Fig. 8 print blocks changed what is COMPUTED or SHOWN; the rest lost outputs to comment
+   and string edits alone.
+   Cell 37 is the real edit: its panel-C block had been printing
+   `scored-population fraction 0.00 at GC 0.22 -> 0.00 at GC 0.70`, two rounded zeros and
+   none of the three numbers the prose quotes, and it now prints TWO shares -- QC-pass
+   noncoding (scored + putatively nonneutral) and the scored band alone -- each as its value
+   at mean GC, its value at the top of the drawn range, and its peak with the bin that peak
+   falls in, at three decimals.
+   **SUPPORTING FIG. 8's PROSE AND PRINTED OUTPUT WERE COMPRESSED 2026-09-16**, Peter's
+   instruction, to support two specific manuscript texts he wrote: a Results sentence (lax
+   truth set; A/B redistribute discovery toward sequence where a call is worth more; F/I
+   increase the evidential weight of those calls at matched budgets) and his own Supporting
+   Fig. 8 caption. Prose fell **37% in words** (4,812 -> 3,026 over cells 22-35) and printed
+   output from **290 lines to about 110**. All 20 claims in those two texts were checked
+   against the surviving prose, one by one.
+   **HOW THE PRINT REDUCTION WORKS, because it is a new mechanism**: `data.quiet()`, a
+   context manager that redirects stdout. Supporting Fig. 8 calls `threshold_metrics` and
+   `paired_deltas` five times, and every call reprinted the window-file join, the z sanity
+   check and the evaluated count plus its own per-bin dump -- 179 of those 290 lines were
+   near-identical repeats. The FIRST call of each kind still runs loud (cells 23 and 26), so
+   the population, the balancing and the dropped bins are on the page once; cells 24, 25, 27
+   and 29 run inside `quiet()`. It is a context manager and NOT a `verbose` parameter because
+   that preamble is printed by `gnocchi_bias/windows.py`, which `preconditions/` and
+   `dnm_training_size/` import too -- a flag would have changed three other entry points to
+   tidy one notebook. Exceptions still propagate.
+   **CELL 33 IS NOW THE ONLY PLACE D-I's NUMBERS PRINT**, as one table over all three depths,
+   and it reads them from the `gains_wb_*` frames ALONE -- `paired_deltas` already returns
+   `threshold_published`/`threshold_scored` beside the ratio, so the left half of the table is
+   what D/E/F draw and the right half what G/H/I draw, and neither can drift from the artwork.
+   The `withinbin_*` frames now exist only to be handed to the panels. The per-bin threshold
+   dumps that used to sit in cells 27 and 29 are gone.
+   WHAT THE COMPRESSION DELIBERATELY KEPT, since each is a guard a reviewer would otherwise
+   find: the truth set's GC skew hands PUBLISHED a tailwind, so 8I is conservative; C's
+   decline naming signal-to-noise BY ELIMINATION and not by measurement; the precision-ratio
+   vs odds-ratio warning on 8I; and the whole left-tail retirement, which now has cell 28 to
+   itself under the plainer heading "What the left tail is *not*".
+   **`cutoff` IS NOW `threshold` THROUGHOUT THE NOTEBOOK** (41 occurrences, 2026-09-16),
+   finishing what `4dfcfda` started in `panels.py`'s rendered text and in `methods.txt` --
+   the notebook had been left out, so its prose said `cutoff` beside a panel whose y label
+   said `threshold`. The sweep is a synonym swap and changes no claim; `panels.py`'s and
+   `data.py`'s internal COMMENTS still say `cutoff`, deliberately, as `4dfcfda` left them.
    **HOW TO EDIT IT WITHOUT LOSING THAT.** Running `make_fig5_nb.py` over `fig5.ipynb`
    directly discards every output. The reliable way, used repeatedly on 2026-09-11: generate
    into a SCRATCH directory, then copy `outputs`/`execution_count`/`id` onto every cell whose
@@ -513,7 +559,17 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
                         stretched tail, and E is a CALIBRATION CHECK needing no truth set --
                         a well-calibrated z has its median near 0 in every bin); reading down
                         the right stack sweeps C's recall axis.
-                        EVERY LETTER HAS MOVED AGAIN, third time. The map:
+                        EVERY LETTER HAS MOVED AGAIN, third time. **`data.py`'s DOCSTRINGS
+                        WERE ONE RELETTERING BEHIND UNTIL 2026-09-16** -- `8E` still meant
+                        the auPRC panel (now `8C`) in ten places and `8D` the ratio panel
+                        (now `8I`) in five, and the comment block above `LAX_CALL_RATE` still
+                        said "B applies one fixed global cutoff ... C and D impose the rate"
+                        where it is now A and B against D-I. All corrected; `paired_deltas`'
+                        own docstrings had already been updated on 2026-09-11, which is why
+                        the file was inconsistent rather than uniformly old. Two pointers
+                        reading "the note above `LAX_CALL_RATES`" were also wrong in
+                        DIRECTION -- the left-tail note sits BELOW it -- and now say so, in
+                        `data.py` twice and in the notebook twice. The map:
                         old D (cutoff, top 1%) -> F; old E (ratio, top 1%) -> I; old F
                         (cutoff, bottom 1%) -> D, reread as the cutoff calling the top 99%,
                         SAME FIVE NUMBERS; old G (ratio, bottom-1% mirror) -> G but
@@ -897,8 +953,9 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    STATISTICALLY INDISTINGUISHABLE. A null there confirms Supporting Fig. 8 rather than
    failing to find something.
 
-2. **`fig5/captions.txt` covers Fig. 5A-F and Supporting Fig. 8's (A)-(I), and NO
-   PLACEHOLDERS REMAIN ANYWHERE** -- in it, in `results.txt`, or in the notebook's prose. The
+2. **NO PLACEHOLDERS REMAIN ANYWHERE** -- not in the notebook's prose, and none did in
+   `fig5/captions.txt` (which covered Fig. 5A-F and Supporting Fig. 8's (A)-(I)) or
+   `fig5/results.txt` before those two were deleted. The
    last four (`[8E-PUB-MEDIANS]`, `[8E-SCORED-RANGE]`, `[8G-RESULT]`, `[8H-RESULT]`) were
    filled 2026-09-11 from the run at `035e144`; values in the Supporting Fig. 8 block above.
    Fig. 5F's were filled from cell 18's own per-bin print, which THE RUN ALSO TURNED INTO
@@ -914,13 +971,15 @@ statistic**, and before changing anything in `gnocchi_bias/windows.py`.
    the 0.660% matched rate: that mean is unweighted over bins and the matching is
    window-weighted. The old `[8D-*]` group and `[8F-SUMMARY]`/`[8G-RESULT]` names belonged to
    panels the rework retired; do not go looking for them.
-   **The manuscript text is THREE files**, all paragraph-per-line for pasting, all on the
-   narrowed run: `fig5/captions.txt` (Fig. 5 and Supporting Figs 7-8), `fig5/methods.txt`
-   (the Methods subsection "How Gnocchi's regional adjustment drives its GC bias"), and
-   `fig5/results.txt` -- FIVE paragraphs since 2026-09-11, up from three, when the
-   Supporting Fig. 8 paragraph was split in two and a left-tail paragraph added; the longest
-   fell from 4009 to 2175 characters. `METHODS.md` covers the rank statistic and points at
-   them.
+   **The manuscript text is now ONE file**: `fig5/methods.txt`, the Methods subsection
+   "How Gnocchi's regional adjustment drives its GC bias", paragraph-per-line for pasting
+   and on the narrowed run. THE OTHER TWO WERE DELETED -- `fig5/captions.txt` (Fig. 5 and
+   Supporting Figs 7-8) at `e593d1d`, and `fig5/results.txt` at `5bd253f`, the latter FIVE
+   paragraphs since 2026-09-11, up from three, when the Supporting Fig. 8 paragraph was
+   split in two and a left-tail paragraph added. Recover either from git history if wanted;
+   nothing is lost that cannot be rebuilt, since `fig5/fig5.ipynb` still derives and prints
+   every number they quoted. `METHODS.md` covers the rank statistic and points at what
+   survives.
 3. **Optional hardening**: a held-out DNM split would make panel D out-of-sample (panel E
    already is, on gnomAD counts the DNM model never sees).
 4. **`DEPLETION_RANK_BED` and `NEUTRAL_WINDOWS_BED` are both set** in `fig5/config.py` and
