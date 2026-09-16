@@ -4,9 +4,12 @@ The canonical, extractable methods narrative for the rebuttal/revised paper. Spl
 CLAUDE.md so it is read when methods are being written, rather than loaded into every
 session. It was written for `compute_gc_bias_step1_vs_step2.py`, **deleted 2026-08-07**
 (recoverable from git history) once fig5 panel A superseded its headline result on the
-same window set with the same statistic. Every methodological choice recorded below is
-still live: they are implemented in `gnocchi_bias/windows.py`, which was extracted
-verbatim from that script, and fig5 inherits all of them. Read `windows.py` for the code.
+same window set with the same statistic. Every methodological choice recorded below that
+fig5 still makes is implemented in `gnocchi_bias/windows.py`, which was extracted verbatim
+from that script -- the statistic, the GC units, the filters, the window set. Read
+`windows.py` for the code. The two choices fig5 does NOT make, and the dead `-flag` names
+the sections below are titled by, are mapped out under "TWO CAPABILITIES WENT WITH THE
+SCRIPT"; nothing here describes a program that can still be run.
 
 **The other half of the manuscript's methods text lives in `fig5/methods.txt`** — the
 Methods subsection "How Gnocchi's regional adjustment drives its GC bias", covering
@@ -24,13 +27,38 @@ prints every number either of them quoted.)
 1,843,559-window reproduction in parentheses: `0.046 / 0.168 / 0.026` against
 `0.093 / 0.212 / 0.046`.
 
+**SUPPORTING FIG. 8 HAS NO METHODS TEXT, here or there.** `fig5/methods.txt` is 37 lines
+and every one of its Supporting-Figure mentions is Fig. 7; this file covers the rank
+statistic. Nothing is unrecorded -- `fig5/fig5.ipynb` derives and prints the truth set,
+the three matched calling rates, LR+ and the paired bootstrap -- but none of it is in
+extractable manuscript form yet. Whoever writes it should say up front that this is the
+one figure needing a truth set, and that the truth set is the enhancer flag carried by
+the same window file "The neutral window set" below is about.
+
 TWO CAPABILITIES WENT WITH THE SCRIPT and exist nowhere else, both concerning comparison
 against McHale et al.'s *existing published* figures rather than producing Fig. 5:
 the 2D hexbin density heat map of (GC, rank) that reproduces Fig. 2A's visual form
 (fig5 draws only the conditional-mean line), and `-bias_metric residual`, the
 `expected − observed` metric Supp. Fig. 1 is defined on (fig5 uses the rank statistic
-only). Recover them from git if either is wanted. Every
-methodological choice below that mirrors, deviates from, or could not be replicated from
+only). Recover either from git at `807974f`, the commit that deleted the script.
+
+THE `-flag` NAMES BELOW ARE THAT SCRIPT'S AND NO LONGER EXIST ANYWHERE -- not as flags,
+not as settings, nowhere but this file. They are kept because each one names a
+methodological choice, and the choice is what this file is for. What carries it now is
+`gnocchi_bias/windows.py`, where the on-by-default ones are either unconditional or
+`build_window_table` keyword arguments: `-match_paper_gc_units` is
+`add_gc_content_fraction()`, always applied; `-exclude_sex_chromosomes` is
+`exclude_sex_chromosomes()` / `build_window_table(exclude_sex=)`; `-restrict_to_noncoding`
+is `restrict_to_noncoding()` / `build_window_table(noncoding=)`, thresholded by
+`NONCODING_MAX_CODING_PROP`; `-bias_metric rank` is what every fig5 panel computes, there
+being no other metric now. `-plot_heatmap` and `-bias_metric residual` are the two
+capabilities above and have no successor at all. ONE THING "on by default" NO LONGER
+CONVEYS: the sex-chromosome, noncoding and `pass_qc` filters are SKIPPED OUTRIGHT when
+`NEUTRAL_WINDOWS_BED` is supplied, which is the committed run -- their file is then the
+whole definition. See "The neutral window set" below.
+
+Every methodological choice below that mirrors, deviates from, or could not be replicated
+from
 McHale, Goldberg & Quinlan 2026 ("The performance of genetic-constraint metrics varies
 significantly across the human noncoding genome", `mchale_et_al_250115.pdf` + supporting
 PDF, this repo) is cited by page/section, with exact quoted text where it matters.
@@ -38,7 +66,7 @@ PDF, this repo) is cited by page/section, with exact quoted text where it matter
 `-bias_metric rank` (default) reproduces the statistic actually plotted in **Figure 2A**
 (page 6 of `mchale_et_al_250115.pdf`; Methods, "Computation of window residuals under the
 Chen model", p.15), generalized to compare step 1 vs step 2 on the same axes (the paper
-only plots one model, the published Gnocchi — this script's whole point is a
+only plots one model, the published Gnocchi — that script's whole point was a
 step1-vs-step2 comparison, so the same rank statistic is computed for both):
 1. Compute each window's own z-score from `(expected, observed)`, using the *exact*
    formula in `run_nc_constraint_gnomad_v31_main.py` lines 278–281: `oe =
@@ -57,11 +85,16 @@ step1-vs-step2 comparison, so the same rank statistic is computed for both):
    exactly Figure 2A's dark-grey conditional-mean-rank line, with a horizontal reference
    line at y=0.5 (not y=0, since this is a rank, not a residual) and a vertical reference
    line at the mean GC content of the analyzed window set.
-4. A 2D hexbin density heat map of `(GC content, rank)` is drawn behind the line.
+4. The script drew a 2D hexbin density heat map of `(GC content, rank)` behind the
+   line. fig5 does not -- panel A is the conditional-mean line alone. The "Heat map"
+   section below keeps that panel's design choices, since a reproduction of Figure 2A's
+   visual form would have to make them again.
 
-`-bias_metric residual` is the original metric this script started with, kept for
-backward compatibility (not part of Figure 2A) — see the script's own docstring for its
-definition; nothing about it was changed by the Figure-2A generalization.
+`-bias_metric residual` was the original metric the script started with, kept there for
+backward compatibility and not part of Figure 2A: the `expected − observed` residual that
+McHale et al.'s Supp. Fig. 1 is defined on. Nothing about it was changed by the Figure-2A
+generalization, and its definition is in that script's own docstring, at `807974f`. fig5
+computes the rank statistic only.
 
 **GC content units** (`-match_paper_gc_units`, on by default): this repo's own
 `GC_content_1k` column (`misc/genomic_features13_genome_1kb.txt`) is a **percentage**,
@@ -76,11 +109,13 @@ which calls `bedtools nuc -fi <genome> -bed <windows> | cut -f1-7,9`): `bedtools
 consistent with a fraction, not 20–73. So `GC_content_1k` is divided by 100 here before
 binning/plotting in rank mode.
 
-**Heat map** (`-plot_heatmap`, on by default): a 2D hexbin density plot of
+**Heat map** (`-plot_heatmap`, on by default in the script -- which went with it, fig5
+drawing no heat map, so read this as the design of a panel that would have to be rebuilt):
+a 2D hexbin density plot of
 `(GC content, rank)`, one panel each for step 1 and step 2, using a log-scaled `inferno`
 colormap (matching the paper's black-purple-orange-yellow palette;
 `matplotlib.colors.LogNorm`, `mincnt=1` so empty cells stay white). The conditional-mean
-line is drawn in light grey (`"0.9"`, close to white) rather than a plain dark grey — the
+line was drawn in light grey (`"0.9"`, close to white) rather than a plain dark grey — the
 paper's "Mean observed Gnocchi" line reads as much lighter than its legend swatch
 suggests once drawn over the heat map's mostly dark-purple/black cells, and a plain dark
 grey line is nearly invisible against the same background. NOT reproduced: the
@@ -102,7 +137,11 @@ the y=0.5 reference line, which spans the same width as the box: pixel columns ~
 at 300 DPI) but tick-mark pixel positions couldn't be isolated cleanly from the label
 text underneath them — so `(0.2, 0.73)` is a visual estimate, not pixel-exact or
 text-sourced. Treat as approximate; refine against the actual McHale et al.
-figure-generation code/data if exact bounds are needed for a citation.
+figure-generation code/data if exact bounds are needed for a citation. CORROBORATED, not
+confirmed, by the narrowed run: their own 693,270 windows span GC 0.212-0.716 (printed by
+`fig5/fig5.ipynb`), which is about what anyone plotting that set would round to 0.2-0.73.
+The wider reproduction spans 0.14-0.837 and would not have produced these limits — see
+"Window count vs. the paper" below.
 
 **Chromosome filtering** (`-exclude_sex_chromosomes`, on by default): McHale et al.'s
 Methods ("Provenance of constraint scores", p.14) state plainly: "Windows on the X and Y
@@ -167,18 +206,44 @@ oriented so high means constrained. Panel A does not use that column: it ranks d
 rank within Halldorsson's own windows, as McHale et al.'s notebook does. See
 `fig5/depletion_rank.py`.
 
+McHALE ET AL.'S WINDOW FILE NOW SERVES A SECOND PURPOSE, added after this section was
+written. With
+`build_window_table(keep_enhancer_windows=True)` the `enhancer == False` step is skipped
+and the flag comes back as an `overlaps_enhancer` column instead
+(`join_mchale_window_labels`): their non-exonic Chen windows entire, labelled rather than
+filtered. That is Supporting Fig. 8's truth set. So one join settles the GeneHancer
+question for both uses -- the window set fig5 analyses and the labels Supporting Fig. 8
+classifies against -- and neither is derivable from the public bucket. The real file is
+1,003,227 rows, 309,957 of them (30.9%) enhancer-overlapping, leaving the 693,270. FIG. 5'S
+OWN PANELS MUST NOT TAKE THAT PATH: a set retaining enhancer windows is not the putatively
+neutral population, and `build_window_table` raises if the flag is asked for without the
+file, the flag being GeneHancer's and not rebuildable from the bucket.
+
 Set it in `fig5/config.py` as `NEUTRAL_WINDOWS_BED` (path only; `None` skips the
 restriction). **Both window sets are meant to be run** — 1,843,559 and 693,270 — since a
-result holding on only one is a result about the window definition. Operational costs of
-switching: the `scored` and `sizematched` refits must be rerun (~6 min each) and are keyed
-by population alone, so one set's refits overwrite the other's; the panel-C and CpG caches
-in `fig5/output/` carry a fingerprint of the GC edges and the window set, so those coexist.
-Panel C gains a fourth band, `other_noncoding`, counting exactly the territory given up
-in the narrowing — the band to read when asking whether the figure's conclusions survive
-it. Its four strata are a subdivision of the genome's three only if their set holds no
-coding window; that is not enforced, so the join prints how many kept windows have
-`coding_prop > 0` (0 means the nesting holds and the `coding` band is exactly QC-pass
-coding; anything else means those windows are labelled `scored`, not `coding`).
+result holding on only one is a result about the window definition. Operational cost of
+switching: the `scored` and `sizematched` refits must be rerun (~6 min each). THEY DO NOT
+OVERWRITE EACH OTHER, and this paragraph said they did -- `config.WINDOW_SET_SUFFIX` and
+`config.tagged()` tag exactly those two populations (`e6ca662`, 2026-08-21), so the two
+sets' refit tables, provenance entries and panel PDFs land beside each other. `full` is
+deliberately untagged: it never builds the window table, so one copy serves both, and
+tagging it would send every reader looking for a file no run ever writes. (Any `refits/`
+on disk without a `.neutral` sibling is a wider-run directory predating the suffix, which
+is what this used to describe.) The panel-C and CpG caches in `fig5/output/` coexist for a
+different reason -- their names carry a fingerprint of the GC edges and the window
+population, which moves when the suffix does.
+Panel C gains a fourth band, `other_noncoding`, counting exactly the territory given up in
+the narrowing — the band to read when asking whether the figure's conclusions survive it.
+That is the COLUMN name; the panel's legend calls it *QC-pass putatively nonneutral
+noncoding*, since being outside a set McHale et al. call putatively neutral is not
+evidence of selection. Its four strata are a subdivision of the genome's three only if
+their set holds no coding window; that is not enforced, so the join prints how many kept
+windows have `coding_prop > 0` (0 would mean the nesting holds and the `coding` band is
+exactly QC-pass coding; anything else means those windows are labelled `scored`, not
+`coding`). MEASURED ON THE REAL FILE IT IS 49 OF 693,270 -- 0.007%, so the nesting very
+nearly holds but does not: those 49 sit in the `scored` band and the `coding` band is
+QC-pass coding minus them. Far too few to move any panel, and recorded here so the
+question is not reopened.
 
 **Will the narrowing change the answer? It did not — and this is now settled by the real
 run, not the stand-ins.** On McHale et al.'s own 693,270 windows the three statistics are
@@ -203,33 +268,52 @@ cut doing exactly that does break the result (2.64x -> 0.96x), but it keeps 1.0%
 GC > 0.5 windows, deletes the (GC > 0.5, z > 2) corner outright, and selects on the
 quantity being ranked, distorting all three curves together — a bound, not an estimate.
 
-Untested against the real file (it is not available in this environment): verified instead
-against a synthetic stand-in with the same column names and coordinate convention — the
-join, its two diagnostics, and the guard that raises when fewer than half the file's
-windows match (the signature of a `chr1`-vs-`1` mismatch, which would otherwise look like
-a very strict filter). The diagnostics are the `coding_prop > 0` nesting count above and
-a shortfall line; since nothing here filters any more, that line reports one thing only —
-windows with no row in the joined table, almost all of them QC failures. (It used to
-distinguish "filtered here" from "absent from Chen et al.'s table", via a `df_prefilter`
-argument that no longer exists.) **Deleted with this change**: the `bedtools coverage`
+RUN AGAINST THE REAL FILE, and this paragraph used to say the opposite. The join was
+first verified against a synthetic stand-in with the same column names and coordinate
+convention, the file not being available offline; it has since run on the constraint-tools
+HPC path, and `fig5/fig5.ipynb` is committed with the output:
+
+```
+McHale et al. window file: 1,003,227 rows, 309,957 (30.9%) overlapping an enhancer
+  -> 693,270 putatively neutral (enhancer flag False)
+neutral-window restriction: 1,984,900 windows -> 693,270 (0 of the file's 693,270 not matched)
+  49 of the 693,270 kept have coding_prop > 0.0 (0 = their set nests inside QC-pass noncoding)
+analyzed window set: 693,270 windows, GC 0.212-0.716
+```
+
+BOTH DIAGNOSTICS THEREFORE HAVE REAL VALUES. The shortfall is ZERO: every one of their
+windows has a row in Chen et al.'s constraint table, the step-1 expected table and the
+features table, so `load_joined_table`'s three-way inner join subtracts nothing and the
+analyzed set is their set exactly — the one way a window of theirs could still fall out,
+named above, turns out not to occur. The nesting count is the 49 discussed above. Since
+nothing here filters any more, that line can report one thing only -- windows with no row
+in the joined table, which would be QC failures -- and on the real file it reports none.
+(It used to distinguish "filtered here" from "absent from Chen et al.'s table", via a
+`df_prefilter` argument that no longer exists.) ONE THING IS STILL EXERCISED ONLY BY THE
+STAND-IN, because a correct file cannot trip it: the guard that raises when fewer than
+half the file's windows match, the signature of a `chr1`-vs-`1` mismatch, which would
+otherwise look like a very strict filter.
+
+**Deleted with this change**: the `bedtools coverage`
 GeneHancer exclusion (`restrict_to_neutral_genehancer`, its `min_frac_covered` cumulative-
 coverage semantics, and the chromosome-naming check), recoverable at `fe51e63`. It never
 ran against real GeneHancer data, and a join on their file answers the same question
 without the licensed input.
 
-**Window count vs. the paper** (explains the wider GC-content "fringe" visible in this
-script's heat maps vs. Figure 2A): measured directly (2026-07-21, full non-downsampled
-dataset, default filters — `exclude_sex_chromosomes` + `restrict_to_noncoding` +
-`pass_qc`, no neutral-set join): this script's default window set has **1,843,559**
-windows, vs. the paper's stated **693,270** "putatively neutral" windows (page 5) — 2.66x
-more. GC content (fraction) in our set ranges 0.14–0.837 (mean 0.399) — genuinely wider
-than the ~0.2–0.73 plotted range, though only 414 of 1,843,559 windows (0.02%) fall
-outside `[0.2, 0.73]` — the vast majority of the extra volume is denser sampling of the
-*same* GC range the paper covers, not a wider range per se; with 2.66x more windows, the
-sparse GC tails naturally pick up more points, making the low-count "fringe" hexbin cells
-near the plot edges more populated/visible here than in the paper's smaller set (verified
-separately that matplotlib's `hexbin` `extent` correctly drops out-of-range points rather
-than piling them at the boundary, so the fringe is real data, not a plotting artifact).
+**Window count vs. the paper** (explains the wider GC-content "fringe" that was visible in
+the script's heat maps against Figure 2A): measured directly (2026-07-21, full
+non-downsampled dataset, default filters — `exclude_sex_chromosomes` +
+`restrict_to_noncoding` + `pass_qc`, no neutral-set join): the default window set has
+**1,843,559** windows, vs. the paper's stated **693,270** "putatively neutral"
+windows (page 5) — 2.66x more. GC content (fraction) in our set ranges 0.14–0.837 (mean
+0.399) — genuinely wider than the ~0.2–0.73 plotted range, though only 414 of 1,843,559
+windows (0.02%) fall outside `[0.2, 0.73]` — the vast majority of the extra volume is
+denser sampling of the *same* GC range the paper covers, not a wider range per se; with
+2.66x more windows, the sparse GC tails naturally pick up more points, making the
+low-count "fringe" hexbin cells near the plot edges more populated/visible here than in
+the paper's smaller set (verified separately that matplotlib's `hexbin` `extent` correctly
+drops out-of-range points rather than piling them at the boundary, so the fringe is real
+data, not a plotting artifact).
 Likely, only partially confirmed causes of the 2.66x gap:
 1. Enhancer-overlapping windows, which their file excludes and this repo cannot identify
    without it (effect size on the count not separately measured; supplying
