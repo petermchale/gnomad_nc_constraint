@@ -1068,10 +1068,10 @@ def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
     ONCE, ON THE LABELLED TABLE, not once per score -- the two scores are columns of the
     same rows. (The reference notebook balances per metric because its four metrics are
     carried on four different window files and it has no choice.) One balancing means the
-    two curves in Supporting Fig. 8E are computed on an identical set of windows and an
+    two curves in Supporting Fig. 8C are computed on an identical set of windows and an
     identical set of positives, so a difference between them is the score and nothing else.
 
-    PANEL E'S /r IS NOT A SECOND GUARD ON THIS, once the balancing has run: r is then the
+    PANEL C'S /r IS NOT A SECOND GUARD ON THIS, once the balancing has run: r is then the
     same number in every bin, so dividing by it is a constant rescale that cannot change
     the panel's shape. Its job is to put the random classifier at exactly 1.0 so the axis
     reads "times better than guessing". The notebook computes it per bin and so does
@@ -1106,7 +1106,7 @@ def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
 
 def _positive_fraction(df: pl.DataFrame) -> float:
     """The random classifier's precision on `df`: the dashed baseline of a per-bin
-    precision-recall curve, and the normalizer of Supporting Fig. 8E's y axis. It is `r` in
+    precision-recall curve, and the normalizer of Supporting Fig. 8C's y axis. It is `r` in
     the baseline-classifier theory of McHale et al.'s Methods."""
     return float(df[TRUTH_TARGET].mean())  # type: ignore[arg-type]
 
@@ -1116,7 +1116,7 @@ def pr_curves(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
               refit_expected: str | None = None, seed: int = 0,
               gc_bins: list | None = None, min_n: int | None = None) -> dict:
     """
-    Everything Supporting Fig. 8E draws, against one truth set: labelled
+    Everything Supporting Fig. 8C draws, against one truth set: labelled
     table -> GC bins -> class balancing -> precision-recall curves, in one call.
 
     `truth_set` is "lax" (GeneHancer enhancer overlap; McHale et al.'s Fig. 4A/B) and so
@@ -1221,8 +1221,8 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
 
         delta(g) = [auPRC_scored(g) - auPRC_published(g)] / auPRC_published(g)
 
-    and the normalizer r CANCELS from it, since both curves in Supporting Fig. 8E are the
-    same auPRCs divided by the same per-bin r. So this is the same comparison that panel
+    and the normalizer r CANCELS from it, since both curves in Supporting Fig. 8C are the
+    same auPRCs divided by the same per-bin r. So this is the same comparison that panel C
     invites the eye to make, with the prevalence normalization taken out rather than applied twice, and it is
     dimensionless -- "the retrained score finds x% more of the enhancers, at equal recall".
 
@@ -1231,7 +1231,7 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     both expected-count tables onto one window set and z-filters them jointly). Almost all
     of the sampling variability in auPRC is variability in WHICH WINDOWS the truth set
     happens to contain, and that is common to both scores, so it cancels in the difference.
-    Independent error bars on Supporting Fig. 8E's two curves would therefore be a much
+    Independent error bars on Supporting Fig. 8C's two curves would therefore be a much
     weaker -- and misleading -- statement than this: they would show the uncertainty of each level, when
     the question is about the gap. Each bootstrap replicate here resamples the bin's rows
     once and scores BOTH models on that same resample, which is what preserves the pairing.
@@ -1240,7 +1240,7 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     strata defined by a covariate, not a random draw, so the inference wanted is conditional
     on them: "given these windows at this GC, how sure are we of the gap?"
 
-    `balance=False` BY DEFAULT, WHICH IS THE OPPOSITE OF Supporting Fig. 8E, and
+    `balance=False` BY DEFAULT, WHICH IS THE OPPOSITE OF Supporting Fig. 8C, and
     deliberately. _balance_positive_fraction exists to make bins comparable in LEVEL -- it
     is what makes a single dashed baseline valid for every GC bin's precision-recall curve. A within-bin,
     between-score comparison needs none of that: both scores see the same rows and the same
@@ -1248,7 +1248,7 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     about four fifths of the positives, and it bites hardest exactly at high GC where
     positives are densest and the bins are already thin. Keeping them is a large gain in
     power precisely where the question is. Pass balance=True to compute the difference on
-    Supporting Fig. 8E's own rows instead -- which is not a check but a REQUIREMENT when
+    Supporting Fig. 8C's own rows instead -- which is not a check but a REQUIREMENT when
     the result is drawn as that panel's error bars, since an interval computed on a
     different population belongs to a different statistic than the markers it sits on.
 
@@ -1319,19 +1319,21 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
 # statements about the score as people actually apply it.
 GNOCCHI_THRESHOLD = 4.0
 
-# THE MATCHED OPERATING POINT OF SUPPORTING FIGURE 8's C AND D: the top 1% of each GC bin
-# by each score. C draws the thresholds that delivers and D the lift measured at them, so
-# the two panels are one construction seen twice and must read the same number.
+# THE MATCHED OPERATING POINT OF SUPPORTING FIGURE 8's F AND I: the top 1% of each GC bin
+# by each score. F draws the thresholds that delivers and I the gain measured at them, so
+# the two panels are one construction seen twice and must read the same number. The other
+# two rates in LAX_CALL_RATES pair D with G and E with H the same way.
 #
-# IT IS NOT PANEL B's OPERATING POINT, AND THE DIFFERENCE IS THE FIGURE'S SPINE. B applies
-# ONE FIXED GLOBAL CUTOFF per score -- published at Chen et al.'s own z >= 4 -- and lets the
-# fraction of each bin that clears it fall where it may. That freedom IS the bias, and B is
-# the panel that shows what it does to discovery, so imposing a per-bin rate there would
-# delete the very thing B measures. C and D impose the rate precisely to remove it, which is
-# what isolates ranking from threshold placement. Two operating points, two questions; the
-# figure is incoherent only if they are confused, which is why they are named apart.
+# IT IS NOT A AND B's OPERATING POINT, AND THE DIFFERENCE IS THE FIGURE'S SPINE. A and B
+# apply ONE FIXED GLOBAL CUTOFF per score -- published at Chen et al.'s own z >= 4 -- and let
+# the fraction of each bin that clears it fall where it may. That freedom IS the bias, and
+# those are the panels that show what it does to discovery, so imposing a per-bin rate there
+# would delete the very thing they measure. D through I impose the rate precisely to remove
+# it, which is what isolates ranking from threshold placement. Two operating points, two
+# questions; the figure is incoherent only if they are confused, which is why they are named
+# apart.
 #
-# WHY A ROUND 1% FOR C AND D rather than "whatever published calls at z >= 4" (1.002%):
+# WHY A ROUND 1% FOR F AND I rather than "whatever published calls at z >= 4" (1.002%):
 # with the rate imposed per bin, the cutoff is no longer a number anyone applies -- it is a
 # construction -- so it should be stated in the roundest form a caption can carry rather
 # than inherited from a cutoff whose provenance then has to be explained. The two differ by
@@ -1362,7 +1364,7 @@ LAX_CALL_RATES = (LAX_CALL_RATE, 0.50, 0.99)
 # and the wrong comparison to carry: the manuscript's claim is published against
 # decontaminated, that comparison is paired and computed within a GC bin, and a score with
 # no constraint information in it adjudicates nothing between two constraint scores. What the truth set's GC skew actually does to the comparison is give PUBLISHED a
-# tailwind, since published is the GC-biased one -- so Supporting Fig. 8D is conservative,
+# tailwind, since published is the GC-biased one -- so Supporting Fig. 8I is conservative,
 # which is a sentence in the caption and needs no third classifier to support it.
 def _score_column(key: str) -> str:
     return f"z_{key}"
@@ -1445,8 +1447,9 @@ def _odds_ratio(p: float, r: float) -> float:
 
 
 # WHY THE LEFT TAIL IS NOT READ AS A DISCOVERY PROBLEM, recorded here because the code that
-# did read it that way was deleted on 2026-09-11 and the prose in fig5/captions.txt,
-# fig5/results.txt, fig5/README.md and the notebook all point at this note.
+# did read it that way was deleted on 2026-09-11 and the prose in fig5/README.md and the
+# notebook both point at this note. (fig5/captions.txt and fig5/results.txt pointed here
+# too until they were deleted, at e593d1d and 5bd253f.)
 #
 # Until then Supporting Fig. 8 reached the far end of the ranking by calling z <= t and
 # counting a NON-enhancer as the hit, on the grounds that a low Gnocchi claims a window is
@@ -1484,17 +1487,17 @@ def _bin_thresholds(sub: pl.DataFrame, keys, target: float) -> dict:
     score 0.82%, a 17-fold difference, and skill falls as a threshold loosens, so published
     would show the lower skill there even if the two scores ranked windows identically.
 
-    AND SUPPORTING FIG. 8E SAYS THEY VERY NEARLY DO. auPRC integrates over all thresholds,
+    AND SUPPORTING FIG. 8C SAYS THEY VERY NEARLY DO. auPRC integrates over all thresholds,
     so it is this same within-bin comparison with the operating point removed, and it finds
     differences of order 1% with the one significant bin NEGATIVE. Two measurements of the
     same thing that disagree by an order of magnitude have to be reconciled; matching
     within the bin is what settled it, and the answer was that both are right -- auPRC
     weights the whole recall axis, lift at 1% only its top, and the two scores' curves
-    cross. So this is not a diagnostic that failed; it is Supporting Fig. 8D.
+    cross. So this is not a diagnostic that failed; it is Supporting Fig. 8I.
 
     IT IS A DIAGNOSTIC AS WELL AS A PANEL. Forcing published to call 1% of GC-rich sequence
     describes a score nobody is using -- the whole point of Fig. 5F is that it calls 14%
-    there. Supporting Fig. 8D says what the score CONTAINS; Fig. 5F says what happens when
+    there. Supporting Fig. 8I says what the score CONTAINS; Fig. 5F says what happens when
     it is USED.
     """
     q = 1.0 - target
@@ -1513,12 +1516,12 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       ) -> pl.DataFrame:
     """
     Precision, recall and calling rate at a FIXED Gnocchi threshold, per GC bin, for both
-    scores. Feeds Fig. 5F and Supporting Fig. 8's A, B, C and D, and the numbers behind them.
+    scores. Feeds Fig. 5F and Supporting Fig. 8's A, B and D-I, and the numbers behind them.
 
-    WHY A FIXED THRESHOLD CHANGES WHAT IS MEASURED. Supporting Fig. 8E is a within-bin
+    WHY A FIXED THRESHOLD CHANGES WHAT IS MEASURED. Supporting Fig. 8C is a within-bin
     RANKING statistic, and a bias that is a function of GC is very nearly a common shift on
     every window in a narrow bin, positives and negatives alike -- a shift that cannot change
-    a within-bin ranking, which is why E's two curves nearly coincide. Fix the threshold
+    a within-bin ranking, which is why C's two curves nearly coincide. Fix the threshold
     instead and the shift stops cancelling: it decides how many windows in each bin are
     CALLED at all. The analyst's question lives here too -- someone handed a window with
     Gnocchi >= 4 wants P(constrained | called), and if that depends on GC then the score
@@ -1550,7 +1553,7 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     from the precision, lr_pos from its odds), which is what makes only the second comparable
     across bins. Expect the correction to flatten call_rate strongly and precision and recall
     less so, and do not read a residual slope in precision as residual bias: declining
-    signal-to-noise with GC survives debiasing (Supporting Fig. 8E's finding) and shows up
+    signal-to-noise with GC survives debiasing (Supporting Fig. 8C's finding) and shows up
     here too.
 
     THE TWO SCORES ARE COMPARED AT A MATCHED CALLING RATE, NOT A COMMON NUMBER, without which
@@ -1565,18 +1568,19 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     the confound rather than to quote. Matching is computed over the windows in the DRAWN
     bins, so the fraction matched is the one the panels cover.
 
-    `call_rate` REPLACES `threshold` AS THE ANCHOR, and is how Supporting Fig. 8's C and D
-    are built: the reference score's cutoff becomes its own quantile at 1 - call_rate rather
-    than an absolute z, so the operating point is "the top q of the population" and not
-    "z >= 4". Pass LAX_CALL_RATE. `threshold` is then ignored for the reference score.
+    `call_rate` REPLACES `threshold` AS THE ANCHOR, and is how Supporting Fig. 8's D through
+    I are built: the reference score's cutoff becomes its own quantile at 1 - call_rate
+    rather than an absolute z, so the operating point is "the top q of the population" and
+    not "z >= 4". Pass one of LAX_CALL_RATES. `threshold` is then ignored for the reference
+    score.
 
-    UNBALANCED, unlike Supporting Fig. 8E: the base rate an analyst faces is the real one,
+    UNBALANCED, unlike Supporting Fig. 8C: the base rate an analyst faces is the real one,
     and reporting it per bin is what keeps the bins comparable. Intervals are Wilson, per
     curve -- see _wilson for why not a bootstrap.
 
     A CALL IS ALWAYS z >= t AND A HIT IS ALWAYS AN ENHANCER. The far end of the ranking is
     reached by raising `call_rate` towards 1, not by mirroring the problem onto the left tail
-    -- see the note above LAX_CALL_RATES for why that reading has no truth set.
+    -- see the LEFT-TAIL note below LAX_CALL_RATES for why that reading has no truth set.
 
     Returns one row per (GC bin, score): lo, hi, mid, score, threshold_used, n, n_pos,
     r, n_called, call_rate, precision, recall, lift, skill, lr_pos, the last six each with
@@ -1708,7 +1712,7 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     bin none of this bites, both scores facing one r and one ceiling, which is why this
     function compares them there and nowhere else.
 
-    `metric` DEFAULTS TO "lr_pos" BECAUSE THE PANEL DRAWS CURVES ACROSS BINS. Panel D's claim
+    `metric` DEFAULTS TO "lr_pos" BECAUSE THE PANEL DRAWS CURVES ACROSS BINS. Panel I's claim
     is within-bin, but its artwork is a curve over GC and a reader compares along it whatever
     the prose says. "lift" keeps the older statistic.
 
@@ -1733,7 +1737,8 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     monotone function of it -- precision, lift, skill and LR+ all increasing -- so they agree
     on which score is ahead in a bin and in every bootstrap replicate, and differ only in
     dynamic range and in whether they are comparable ACROSS bins. That is the whole content
-    of "the switch costs no evidence, only magnitude" in the note above LAX_CALL_RATES: the
+    of "the switch costs no evidence, only magnitude" in the LEFT-TAIL note below
+    LAX_CALL_RATES: the
     reading the figure retired was another monotone function of the same count.
 
     PAIRED, for the reason in pr_curve_deltas: one index vector per replicate, both scores
@@ -1755,7 +1760,7 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
     f"{metric}_published" -- so `delta`, `ci_lo` and `ci_hi` always belong to `metric`, and a
     level column is only ever a level. Both pairs are kept because the caption needs both: with the rate matched inside a bin, lift_scored / lift_published IS
     the precision ratio (the analyst-legible "33% more likely to be an enhancer here") while
-    `delta` on the lr_pos default is the larger odds ratio. 8D quotes both, so neither pair
+    `delta` on the lr_pos default is the larger odds ratio. 8I quotes both, so neither pair
     can go until those placeholders are filled.
     """
     if truth_set != "lax":
