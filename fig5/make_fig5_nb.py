@@ -27,7 +27,7 @@ def code(text):
 md(r"""
 # Figure 5 — Gnocchi's GC bias comes from its regional adjustment, and from fitting that adjustment on the wrong population
 
-Five panels, one argument. Each is written to `output/fig5{A..E}.pdf` as a standalone
+Six panels, one argument. Each is written to `output/fig5{A..F}.pdf` as a standalone
 vector file for assembly in Illustrator.
 
 | | Claim | Quantity |
@@ -35,11 +35,12 @@ vector file for assembly in Illustrator.
 | **A** | The bias is *introduced by* the regional adjustment, not inherited from the context-only model | mean standardized rank vs GC, for $r\equiv1$ and for full Gnocchi |
 | **B** | That adjustment's GC dependence is wholly non-CpG — and $R_{\mathrm{CpG}}\approx1$ is *correct*, because methylation already carries it in step 1 | $R_{\mathrm{eff}}=\sum E_2/\sum E_1$ per GC bin, decomposed by CpG status |
 | **C** | The DNM training set is not the scored population: at high GC it is mostly coding, or sequence dropped for failing gnomAD's variant-call QC | composition of the training sites per GC bin |
-| **D** | Restricting the training set to the scored population flattens the empirical DNM rate — and the fit then tracks it | fitted and empirical $P(\mathrm{DNM})$, non-CpG, three training populations |
+| **D** | Restricting the training set to the scored population flattens the empirical DNM rate — and the fit then tracks it | fitted and empirical $P(\mathrm{DNM})$, non-CpG, two training populations (a third is fit as a control and reported under E) |
 | **E** | Refitting $r$ on the scored population removes the bias in Gnocchi itself | panel A's statistic, with the retrained Gnocchi added |
+| **F** | The same fix in the units the score is used in: a fixed Gnocchi value is not a fixed percentile | percentile of Chen et al.'s $z\ge4$ within each GC bin, published and retrained |
 
 A and E are the same statistic on the same windows, so they are read as before/after.
-B, C and D explain what happens in between.
+B, C and D explain what happens in between, and F restates E where the score is applied.
 """)
 
 code(r"""
@@ -888,7 +889,7 @@ md(r"""
 
 E measures the bias as a **rank**: uniform on $(0,1)$ by construction, so "mean rank returns
 to 0.5" is exactly right and tells a user nothing about their own window. F is the same fact
-at **Gnocchi $\geq 4$**, Chen et al.'s own cutoff for calling a window constrained — what
+at **Gnocchi $\geq 4$**, Chen et al.'s own threshold for calling a window constrained — what
 fraction of each part of the genome gets called?
 
 **It uses no labels**, being a property of the score and of GC content, which is why it sits
@@ -898,7 +899,7 @@ on one population — E's rank returning to 0.5, F's percentile flattening — r
 measurements that happen to agree.
 
 The two scores are matched on **overall** calling rate rather than given a common number:
-retraining moves the whole $z$ distribution, so the same numeral is a stricter cutoff for one
+retraining moves the whole $z$ distribution, so the same numeral is a stricter threshold for one
 of them. The swing *across* GC is a ratio within one score and is untouched by that choice.
 
 **Two reference lines, and they are different kinds of thing.** The vertical one is mean GC —
@@ -912,7 +913,7 @@ falls away in the tails, since what is pinned is the window-weighted *mean* rath
 one bin. The published curve crosses it **well to the GC-rich side of mean GC**, which is the
 panel's claim in one glance: its calling rate is near-exponential in GC, so a few GC-rich bins
 calling tens of per cent pull the window-weighted mean far above the rate at a typical window.
-Equivalently — $z = 4$ is a *typical* cutoff nowhere near the typical window.
+Equivalently — $z = 4$ is a *typical* threshold nowhere near the typical window.
 """)
 
 code(r"""
@@ -1162,19 +1163,19 @@ with two Gnocchi variants in place of their four metrics.
 
 | | Asks | Quantity | Operating point |
 |---|---|---|---|
-| **A** | *Published:* where do its calls **go**, and is a call worth more there? | recall and $\mathrm{LR}^{+}$ per bin | one global cutoff |
-| **B** | *Retrained:* the same two questions, same axes | recall and $\mathrm{LR}^{+}$ per bin | one global cutoff |
+| **A** | *Published:* where do its calls **go**, and is a call worth more there? | recall and $\mathrm{LR}^{+}$ per bin | one global threshold |
+| **B** | *Retrained:* the same two questions, same axes | recall and $\mathrm{LR}^{+}$ per bin | one global threshold |
 | **C** | Does it change ranking *at all*? | auPRC / positive-class fraction | none |
-| **D**, **E**, **F** | What cutoff would each score need to call the top **99%**, **50%**, **1%** of every bin? | per-bin threshold | — |
+| **D**, **E**, **F** | What threshold would each score need to call the top **99%**, **50%**, **1%** of every bin? | per-bin threshold | — |
 | **G**, **H**, **I** | Does debiasing help at each of those three depths? | $\mathrm{LR}^{+}$ ratio per bin | rate matched **within** each bin |
 
 **G, H and I are one comparison at three points, not three comparisons.** A call is $z > t$ and
 a hit is an enhancer in all three; only the fraction of the bin called changes, $99\% \to 50\%
 \to 1\%$ down the stack (`data.LAX_CALL_RATES`). Since C integrates over the *whole* recall
 axis, reading one comparison at three points along it says **where** the two scores differ,
-which no single threshold-free number can. D, E and F are the cutoffs that construction
+which no single threshold-free number can. D, E and F are the thresholds that construction
 requires, row-aligned with G, H and I and using no labels at all — three quantiles of each
-score's own distribution, of which **E is a calibration check**: the cutoff calling the top 50%
+score's own distribution, of which **E is a calibration check**: the threshold calling the top 50%
 of a bin *is* that bin's median $z$, and a score whose null is $N(0,1)$ on these windows has its
 median near $0$ everywhere.
 
@@ -1186,18 +1187,19 @@ are where the two scores meet.
 **$\mathrm{LR}^{+}$ and not lift, everywhere the reading is across bins.** Lift is
 $\text{precision}/r$ and $r$ climbs $7.7\times$ here, so lift carries a ceiling of $1/r$ falling
 $12.0 \to 1.57$. The two do not merely differ in size: on these very rows lift falls
-$1.80 \to 1.12$ while skill *rises* $0.073 \to 0.218$, so **dividing by a function of the
+$1.81 \to 1.12$ while skill *rises* $0.074 \to 0.218$, so **dividing by a function of the
 prevalence is not a prevalence correction** and the choice decides the sign of the trend.
 $\mathrm{LR}^{+} = P(\text{call} \mid Y{=}1)/P(\text{call} \mid Y{=}0)$ conditions on the true
 class on both sides, so $r$ cancels outright. Lift survives only as the within-bin translation a
 caption quotes.
 
 **Two kinds of operating point, and the difference is the figure's spine.** A and B apply one
-fixed global cutoff per score — published at $z \ge 4$, retrained at $z \ge 3.140$, the value
+fixed global threshold per score — published at $z \ge 4$, retrained at $z \ge 3.140$, the value
 calling the same 1.00% of the population — and let each *bin*'s share fall where it may. **That
 freedom is the bias**; imposing a per-bin rate there would delete what A and B measure. D–I
 impose it instead, which is what isolates ranking from threshold placement. So $z = 4$ appears
-only once here, as A's actual cutoff; Fig. 5F keeps it unmatched and label-free, the third role.
+only once here, as A's actual threshold; Fig. 5F keeps it unmatched and label-free, the
+third role.
 
 **Error bars differ accordingly.** C, G, H and I carry a 95% paired-bootstrap interval on the
 retrained curve relative to published — bars on one curve, not two, because independent
@@ -1295,7 +1297,7 @@ average is flat, the offset has to sit somewhere further down the ranking.
 **A and B corroborate it legitimately.** $\mathrm{LR}^{+}$ falls with GC for *both* scores —
 $2.06 \to 1.25$ published, $3.11 \to 1.50$ retrained (not monotonically: 3.11, 1.91, 1.69, 1.80,
 1.50) — and since it conditions on the true class on both sides, the $7.7\times$ prevalence
-climb cancels exactly. The decline is real, in the units an analyst applying a cutoff
+climb cancels exactly. The decline is real, in the units an analyst applying a threshold
 experiences, and it survives the correction.
 
 **What they cannot rule out is that it is specific to the top ~1%.** Both are read at a single
@@ -1303,40 +1305,40 @@ operating point, and nothing in a fixed-threshold panel distinguishes a ranking 
 less signal in GC-rich sequence *throughout* from one where only its tail does.
 
 **B is the stronger of the two.** The panels fix one $z$, not one *depth*: published calls 0.17%
-of the most AT-rich bin and 13.97% of the most GC-rich, an 82-fold swing, so A compares one
+of the most AT-rich bin and 13.97% of the most GC-rich, an 80-fold swing, so A compares one
 bin's extreme tail against another's top seventh. The retrained score's rates run 0.77–1.04%,
 near enough depth-matched. *Do not turn that into a claim about the direction of the confound.*
 The tempting story — reading deeper lowers enrichment, so A's decline is exaggerated — is not
-supported: loosening the global cutoff from 1% to 10%, published lift runs 1.08, 1.08, 1.07 in
+supported: loosening the global threshold from 1% to 10%, published lift runs 1.08, 1.08, 1.07 in
 the top GC bin and 1.90, 2.12, 2.17 in the most AT-rich, flat then *rising*. That is lift rather
 than $\mathrm{LR}^{+}$ and a global rather than per-bin rate, so it is not decisive either way.
 A is simply not like-for-like across bins.
 
-**C is the only panel with no operating point at all**, so no cutoff placement can be generating
-its decline. That is why the claim is cited to C, with B as evidence that it is not an artefact
-of a statistic nobody uses.
+**C is the only panel with no operating point at all**, so no threshold placement can be
+generating its decline. That is why the claim is cited to C, with B as evidence that it is
+not an artefact of a statistic nobody uses.
 
 *The three are not independent measurements* — one ranking, one truth set, and a defect in the
 truth set moves all three. They are independent only in **where on the ranking they look**: C
-everywhere, B at a near-constant top 1%, A at a depth that itself varies 82-fold.
+everywhere, B at a near-constant top 1%, A at a depth that itself varies 80-fold.
 
-### D, E and F: the cutoffs each score would need, bin by bin
+### D, E and F: the thresholds each score would need, bin by bin
 
 To call the same fraction of every GC bin, what threshold would each score require? Published
 Gnocchi answers with a **curve** at all three depths and the retrained score with something
 close to a **constant** — which is the point of stacking them: a bias that moves the top 1%
-cutoff, the median and the top 99% cutoff alike is a shift of the **whole** score within a bin,
-not a stretched tail. At the top 1%, published climbs **2.83 → 6.38** (2.26-fold) against
-**3.01 → 3.16** (1.05-fold); at the median, **−0.96 → +2.32**, a monotonic swing of **3.28 in
-$z$**, against a retrained curve staying within **0.54** of itself (−0.22 to +0.32); and in the
-left tail **−5.67, −6.04, −5.03, −4.14, −2.98**, rising 3.05 over its last four bins, against a
-retrained **0.79**. Like Fig. 5F and unlike everything else here, **these use no labels at
-all**.
+threshold, the median and the top 99% threshold alike is a shift of the **whole** score
+within a bin, not a stretched tail. At the top 1%, published climbs **2.83 → 6.38**
+(2.26-fold) against a retrained **3.01 → 3.04**, spanning **3.01–3.16** in all (1.05-fold);
+at the median, **−0.96 → +2.32**, a monotonic swing of **3.28 in $z$**, against a retrained
+curve staying within **0.54** of itself (−0.22 to +0.32); and in the left tail **−5.67,
+−6.04, −5.03, −4.14, −2.98**, rising 3.05 over its last four bins, against a retrained
+**0.79**. Like Fig. 5F and unlike everything else here, **these use no labels at all**.
 
-**E is the cheapest result in the figure, and the most quotable.** The cutoff calling the top
+**E is the cheapest result in the figure, and the most quotable.** The threshold calling the top
 half of a bin *is* that bin's median $z$, so in the most GC-rich sequence **half of published
-Gnocchi's windows already sit above $z = 2.3$** — with Chen et al.'s cutoff only 1.7 further on
-— while in the most AT-rich its median sits *below* zero.
+Gnocchi's windows already sit above $z = 2.3$** — with Chen et al.'s threshold only 1.7
+further on — while in the most AT-rich its median sits *below* zero.
 
 **Read E's swing, not its offset from zero.** A score whose null were standard normal on a
 putatively neutral population would have its median near 0 in every bin, and this population is
@@ -1351,15 +1353,15 @@ $+0.3$ is a level common to every bin, not a GC dependence, and so not a residua
 F is Fig. 5F's inverse, not its repetition: 5F fixes the threshold and reads the calling rate, F
 fixes the rate and reads the threshold, each natural for a different reader. The three sit here
 rather than beside 5F because they are **G, H and I's x-axes made visible** — the gains are
-measured at exactly these thresholds, so a shared x axis connects a cutoff to what it buys, and
+measured at exactly these thresholds, so a shared x axis connects a threshold to what it buys, and
 a reader who suspects the matching of being artificial can see how far it had to reach.
 
 ### I: the top of the ranking, where the score is used
 
 Fig. 5F *is* the statement that the two scores call very different fractions of each bin — 14%
-against 0.8% at the top — so comparing them at a common cutoff compares two operating points. I
-matches the calling rate **within** each bin, so neither is read at a different place on its own
-curve.
+against 0.8% at the top — so comparing them at a common threshold compares two operating
+points. I matches the calling rate **within** each bin, so neither is read at a different
+place on its own curve.
 
 **I is a ratio, not two levels.** Level curves invite a reader to compare each curve with
 *itself* across GC — A and B's job — when the only question here is whether retraining helps
@@ -1442,7 +1444,7 @@ deltas_s8 = D.pr_curve_deltas(truth_set="lax", seed=0, n_bootstrap=500,
 """)
 
 code(r"""
-# PANELS A AND B: ONE FIXED GLOBAL CUTOFF PER SCORE -- published at Chen et al.'s z >= 4,
+# PANELS A AND B: ONE FIXED GLOBAL THRESHOLD PER SCORE -- published at Chen et al.'s z >= 4,
 # the retrained score at the z calling the same fraction of the WHOLE population. The
 # fraction of each BIN that then clears it is free to vary, which is the point: that freedom
 # is the bias, and A and B are what it does to discovery. Do not pass call_rate here. Cheap
@@ -1467,8 +1469,8 @@ code(r"""
 # PANELS F AND I -- THE TOP-1% ROW -- which are one table read twice: threshold_used per
 # (bin, score) is what F draws, and the LR+ measured at those thresholds is what I draws. The
 # calling rate is matched WITHIN each bin, the one confound the figure's global matching
-# cannot remove, so the cutoff here is a construction and not a number anyone applies. NOT
-# panel A and B's operating point -- those are one fixed global cutoff and the per-bin freedom
+# cannot remove, so the threshold here is a construction and not a number anyone applies. NOT
+# panel A and B's operating point -- those are one fixed global threshold and the per-bin freedom
 # it leaves IS the bias. The 50% and 99% rows are the next cell, through the same code with
 # only call_rate changed. See data.LAX_CALL_RATES and data._bin_thresholds.
 withinbin_s8 = D.threshold_metrics(truth_set="lax", call_rate=D.LAX_CALL_RATE,
@@ -1480,10 +1482,10 @@ gains_wb_s8 = D.paired_deltas(truth_set="lax", call_rate=D.LAX_CALL_RATE,
     if NEUTRAL_WINDOWS_BED else None
 
 # PANEL F'S OWN NUMBERS. threshold_metrics prints precision, lift, LR+ and recall per bin
-# but not threshold_used, which IS panel F -- the cutoff each score needs in order to call
+# but not threshold_used, which IS panel F -- the threshold each score needs in order to call
 # LAX_CALL_RATE of a bin.
 if withinbin_s8 is not None:
-    print(f"\npanel F: the per-bin cutoff calling {100 * D.LAX_CALL_RATE:.1f}% of each bin.")
+    print(f"\npanel F: the per-bin threshold calling {100 * D.LAX_CALL_RATE:.1f}% of each bin.")
     for key in ("published", "scored"):
         sub = withinbin_s8.filter(pl.col("score") == key).sort("mid")
         t = sub["threshold_used"].to_numpy()
@@ -1514,17 +1516,17 @@ expectation, so *unconstrained sequence sits at $z \approx 0$* — which is most
 The left tail is the opposite anomaly: **more** variation than expected, whose leading
 explanations are hypermutability or mutation-model misspecification, not an absence of
 selection. The numbers here say as much. Under the neutral null the 1st percentile would be
-$z = -2.33$; published's bottom-1% cutoffs run $-5.67$, $-6.04$, $-5.03$, $-4.14$, $-2.98$,
+$z = -2.33$; published's bottom-1% thresholds run $-5.67$, $-6.04$, $-5.03$, $-4.14$, $-2.98$,
 so four of five bins are far heavier than sampling noise around a neutral expectation. A
 GeneHancer non-enhancer label is evidence about *enhancer status*, and **there is no truth
 set for the left tail**, so that construction quietly swapped one hypothesis for another.
-`the note above data.LAX_CALL_RATES` records the error at the point where it was made.
+The left-tail note *below* `data.LAX_CALL_RATES` records the error where it was made.
 
 **What replaces it: one hypothesis, three operating points.** Every panel from D to I now
 calls $z > t$ and counts an enhancer as the hit. What varies is the fraction of a bin called
 — $1\%$, $50\%$, $99\%$ — matched between the scores within each bin. The $99\%$ point uses
-**the very same cutoff** the retired construction did; it simply reads it in the direction
-the truth set supports, asking whether the windows *above* a low cutoff are enhancers rather
+**the very same threshold** the retired construction did; it simply reads it in the direction
+the truth set supports, asking whether the windows *above* a low threshold are enhancers rather
 than whether the ones below it are not.
 
 **The switch costs no evidence, only magnitude.** Writing
@@ -1542,11 +1544,12 @@ area is**, and so the middle panel of the column is the one to read for magnitud
 for sign.
 
 **And they do cross.** The retrained score leads in **all five** bins at the top 1% and trails
-in **four of five** at both the median and the far end — $+0.1$, $-1.3$, $-3.1$, $-3.0$, $-3.0$
-per cent at $50\%$ and $-0.2$, $-0.1$, $-0.2$, $-0.4$, $-0.5$ at $99\%$ — so the crossing sits
-**between the 1st and 50th percentile**, and the gain at the extreme top is paid for by a small,
-significant deficit through the rest of the ranking. Two things keep that in proportion. The
-loss is slight exactly where the gain is not: at the median neither score discriminates much,
+in **four of five** at the median and in **all five** at the far end — $+0.1$, $-1.3$, $-3.1$,
+$-3.0$, $-3.0$ per cent at $50\%$ and $-0.2$, $-0.1$, $-0.2$, $-0.4$, $-0.5$ at $99\%$, four of
+the five significant in each case — so the crossing sits **between the 1st and 50th
+percentile**, and the gain at the extreme top is paid for by a small, significant deficit
+through the rest of the ranking. Two things keep that in proportion. The loss is slight
+exactly where the gain is not: at the median neither score discriminates much,
 $\mathrm{LR}^{+}$ running $1.19$–$1.39$ for both, so the largest deficit is $1.23 \to 1.19$, a
 loss of $0.04$, against $1.95 \to 2.69$ at the top. And G is pinned near 1.0 by arithmetic, so
 its five negatives are a **sign** and not a size. The deficit grows with GC at both depths,
@@ -1569,7 +1572,8 @@ code(r"""
 # three deltas are one comparison read at three points on the recall axis rather than three
 # hypotheses. That is deliberate -- a difference between them has to be attributable to where
 # on the ranking we are looking, not to two constructions that happen to be similar. Why the
-# left tail is read this way and not as a call of z <= t: the note above data.LAX_CALL_RATES.
+# left tail is read this way and not as a call of z <= t: the left-tail note BELOW
+# data.LAX_CALL_RATES.
 # The bootstrap is 500 replicates a bin, seconds.
 CALL_RATE_MID, CALL_RATE_HIGH = D.LAX_CALL_RATES[1], D.LAX_CALL_RATES[2]
 
@@ -1587,7 +1591,7 @@ gains_wb_99 = D.paired_deltas(truth_set="lax", call_rate=CALL_RATE_HIGH,
 
 # PANELS D AND E's own thresholds, for the caption -- the same per-bin print panel F's cell
 # carries, since threshold_metrics reports threshold_used but does not print it. D's are the
-# same five cutoffs the retired bottom-1% construction used, which is the point: only the
+# same five thresholds the retired bottom-1% construction used, which is the point: only the
 # direction of the call and the label changed, never the windows. E's are each bin's MEDIAN
 # z, so a well-calibrated score sits near 0 in every row and published's drift is the bias
 # with no truth set involved.
@@ -1595,7 +1599,7 @@ for _panel, _rate, _tm in (("D", CALL_RATE_HIGH, withinbin_99),
                            ("E", CALL_RATE_MID, withinbin_50)):
     if _tm is None:
         continue
-    print(f"\npanel {_panel}: the per-bin cutoff calling the top "
+    print(f"\npanel {_panel}: the per-bin threshold calling the top "
           f"{100 * _rate:.0f}% of each bin.")
     for key in ("published", "scored"):
         sub = _tm.filter(pl.col("score") == key).sort("mid")
@@ -1674,11 +1678,11 @@ if curves_s8 is not None:
     #   row 1   A over B      where each score sends its calls    C   no net gain across
     #                                                                 thresholds
     #   row 2   D over E over F                             G over H over I
-    #           the cutoff at 99 / 50 / 1%                  the gain at 99 / 50 / 1%
+    #           the threshold at 99 / 50 / 1%               the gain at 99 / 50 / 1%
     #
     # THE TWO STACKS ARE ROW-ALIGNED BY CALLING RATE, so each ratio panel sits beside the
-    # cutoff it was measured at: D with G at 99%, E with H at 50%, F with I at 1%. They are
-    # ordered LEFT TAIL -> MEDIAN -> RIGHT TAIL, which is why the rate descends -- the cutoff
+    # threshold it was measured at: D with G at 99%, E with H at 50%, F with I at 1%. They are
+    # ordered LEFT TAIL -> MEDIAN -> RIGHT TAIL, which is why the rate descends -- the threshold
     # isolating the top 99% of a bin sits at z ~ -5, the top 50% IS the median, the top 1% is
     # z ~ +3 to +6 -- so reading down scans the score axis and the two stacks scan it together.
     # Reading down the LEFT stack gives three quantiles of one distribution; reading down the
@@ -1690,7 +1694,7 @@ if curves_s8 is not None:
     # it flat.
     #
     # A LOOKUP FOR THE OLD LETTERS, since captions and git history predating 2026-09-11 use
-    # them: old D -> F, old E -> I, old F -> D (same five numbers, read as the cutoff calling
+    # them: old D -> F, old E -> I, old F -> D (same five numbers, read as the threshold calling
     # the top 99%), old G -> G but RECOMPUTED and its numbers do not carry over; E and H are
     # new.
     fig = plt.figure(figsize=(13.0, 11.5))
@@ -1719,7 +1723,7 @@ if curves_s8 is not None:
 
     if tm_s8 is not None:
         # A AND B: ONE SCORE EACH, RECALL AND LR+ TOGETHER, at that score's one fixed GLOBAL
-        # cutoff. The comparison is WITHIN a panel -- does this score send its calls where a
+        # threshold. The comparison is WITHIN a panel -- does this score send its calls where a
         # call is worth anything? -- which is why the two scores are two panels rather than
         # two curves. Published's pair runs in OPPOSITE directions: recall climbs 45.7x with
         # GC while LR+ falls, so it calls most where a call is worth least. The retrained
@@ -1737,12 +1741,12 @@ if curves_s8 is not None:
         panels.panel_recall_and_enrichment(axB, tm_s8, "scored")
 
     # D, E AND F ARE THREE QUANTILES OF ONE DISTRIBUTION, per GC bin and per score. The
-    # argument is in reading them together: if the published cutoff climbs with GC at all
+    # argument is in reading them together: if the published threshold climbs with GC at all
     # three, its bias is a shift of the WHOLE score within a bin rather than a distortion of
     # one tail, which is what licenses reading G, H and I as three views of one ranking. None
     # of the three uses labels.
     #
-    # E IS ALSO A CALIBRATION CHECK, and the cheapest in the figure: the cutoff calling the
+    # E IS ALSO A CALIBRATION CHECK, and the cheapest in the figure: the threshold calling the
     # top 50% of a bin IS that bin's median z, and a score whose null is N(0, 1) on these
     # windows has its median near 0 everywhere. Published's drift is the bias stated with no
     # truth set at all.
@@ -1761,7 +1765,7 @@ if curves_s8 is not None:
     # C the same comparison with no threshold at all and it finds a wash. The two are
     # consistent because the scores' precision-recall curves cross, and BOTH have to be shown
     # for that to be sayable. C is also the only panel with no operating point, so the decline
-    # it draws cannot be an artefact of where a cutoff sits.
+    # it draws cannot be an artefact of where a threshold sits.
     panels.panel_aupr_by_gc(axC, curves_s8, deltas=deltas_s8)
 
     # G, H AND I: ONE COMPARISON AT THREE POINTS ON THE RECALL AXIS, the call at z > t and the
@@ -1771,7 +1775,7 @@ if curves_s8 is not None:
     # the ODDS ratio, and a precision ratio is bounded by 1/precision and so not comparable
     # across bins. RECALL IS NOT DRAWN BESIDE ANY OF THEM: with the rate matched within a bin,
     # recall = lift x k at constant k, so it would be a constant rescaling; it earns A and B,
-    # where the global cutoff lets k vary 45.7x.
+    # where the global threshold lets k vary 45.7x.
     #
     # WHAT TO EXPECT DOWN THE COLUMN: the magnitudes GROW downward as the calling rate falls,
     # because at 99% both scores' precision is within about a percent of prevalence. So read G
@@ -1862,7 +1866,12 @@ md(r"""
 
 Gnocchi is a $z$-score, and a $z$-score promises that a given value means the same departure
 from neutral expectation anywhere in the genome. That promise is what licenses attaching a
-threshold to it. **Fig. 5F** measures it, with no truth set, and it fails by a factor of 80.
+threshold to it. **Fig. 5F** measures it, with no truth set, and it fails badly: over the 20
+GC bins that panel draws, the fraction of windows clearing $z \ge 4$ runs from nothing at all
+in the most AT-rich bin to **41.7%** in the most GC-rich, a **277-fold** swing across the bins
+that call anything. Supporting Fig. 8's A and B are read at that same threshold over five coarser
+bins, where the swing is **80-fold** — and those are the numbers the next paragraph quotes,
+coarse bins being what a worked example needs.
 
 **Concretely.** Two patients, two *de novo* noncoding variants: one in a CpG-island promoter
 scoring Gnocchi 4.2, one in an AT-rich distal enhancer scoring 3.8. The analyst keeps the
@@ -1876,7 +1885,7 @@ a GC-rich window at random.
 **The workaround, if you know the bias.** Convert Gnocchi to a percentile *within GC
 stratum*. It is crude, needs only the published table plus GC content, and recovers most of
 what retraining achieves — anyone using published Gnocchi today should be doing this rather
-than applying one genome-wide cutoff.
+than applying one genome-wide threshold.
 
 **But it has a precondition it cannot verify: you must know which covariates the score varies
 with, and know them all.** Stratification removes only the biases already discovered. McHale
@@ -1930,7 +1939,7 @@ if deltas_s8 is not None:
 
 if tm_s8 is not None:
     print(f"\npanels A and B. Published held at Gnocchi >= {D.GNOCCHI_THRESHOLD:g} (Chen")
-    print("et al.'s own cutoff); the retrained score takes the threshold calling the SAME")
+    print("et al.'s own); the retrained score takes the threshold calling the SAME")
     print("fraction of windows, so precision and recall compare like with like. Unbalanced.")
     print("call_rate uses NO labels, so it is the most robust number here.")
     for key in D.PR_SCORES:
@@ -1972,14 +1981,31 @@ print(f"\npanel B: r_non spans {b['r_non'].min():.3f}-{b['r_non'].max():.3f}; "
       f"{b['r_counterfactual'].max():.3f}")
 print(f"  CpG share of expected counts rises {b['pi_cpg'].min():.3f} -> {b['pi_cpg'].max():.3f}")
 
-# Restricted to the plotted x range as well: the bins below it are almost entirely
-# QC-failing sequence, so an unrestricted min() would report an analyzed fraction of 0.00
-# from a bin the panel does not draw.
+# Restricted to the plotted x range: the bins below it are almost entirely QC-failing
+# sequence, so an unrestricted min() would report a fraction from a bin the panel does not
+# draw. That restriction is NOT enough on its own -- the lowest bin it leaves is still
+# 0.4% scored -- so what is printed is the value at mean GC, the value at the top of the
+# range, and the peak, each with the bin it comes from, at THREE decimals: the scored
+# band's tails round to 0.00 at two, and a caption would then carry a zero that is really
+# four sites in a thousand.
+#
+# TWO SHARES, NOT ONE, because the prose quotes both and they are easy to confuse.
+# `frac_scored` is the bottom band alone -- the windows McHale et al. call putatively
+# neutral -- while the QC-pass noncoding share is that plus the putatively nonneutral rest
+# of the same category, the band the narrowing gives up. With NEUTRAL_WINDOWS_BED unset
+# the second stratum is empty and the two lines coincide, which is itself worth seeing.
 c = comp.filter((pl.col("n_total") >= MIN_N_SITES)
                 & pl.col("gc_mid").is_between(*XRANGE)).sort("gc_mid")
+bulk_gc = float((c["n_total"] * c["gc_mid"]).sum() / c["n_total"].sum())
+bulk = int((c["gc_mid"] - bulk_gc).abs().arg_min())
 print(f"\npanel C: {int(c['n_total'].sum()):,} non-CpG training sites in the plotted "
-      f"range; scored-population fraction {c['frac_scored'][0]:.2f} at GC "
-      f"{c['gc_mid'][0]:.2f} -> {c['frac_scored'][-1]:.2f} at GC {c['gc_mid'][-1]:.2f}")
+      f"range; site-weighted mean GC {bulk_gc:.3f}")
+for _name, _frac in (("QC-pass noncoding", c["frac_scored"] + c["frac_other_noncoding"]),
+                     ("scored band", c["frac_scored"])):
+    _peak = int(_frac.arg_max())
+    print(f"  {_name:<18} {_frac[bulk]:.3f} at mean GC -> {_frac[-1]:.3f} at GC "
+          f"{c['gc_mid'][-1]:.2f};  peak {_frac[_peak]:.3f} at GC "
+          f"{c['gc_mid'][_peak]:.2f}")
 
 print("\npanel D: empirical P(DNM), max / min ratio within each population")
 for pop, tab in binned_d.items():
