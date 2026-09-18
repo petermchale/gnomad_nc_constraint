@@ -1432,16 +1432,59 @@ md(r"""
 ### Why panel G sits near 1.0, and why that is not a null result
 
 $\mathrm{LR}^{+}$ is the odds ratio $[p/(1-p)]\,/\,[r/(1-r)]$ at any calling rate, and a rate
-near 1 forces the precision $p$ to the base rate $r$. Writing $\varepsilon = 1 - k$ for the
-uncalled fraction,
+near 1 forces the precision $p$ to the base rate $r$. To see how fast, work inside one GC bin
+with positive-class fraction $r$ and calling rate $k$, and write
+$\pi_1 = P(\text{call}\mid\text{constrained})$ (the recall) and
+$\pi_0 = P(\text{call}\mid\text{not constrained})$, so that $\mathrm{LR}^{+} = \pi_1/\pi_0$.
 
-$$\mathrm{LR}^{+} \;=\; 1 \;+\; \frac{\text{recall} - k}{1 - r} \;+\; O(\varepsilon^{2})
-  \;\le\; 1 \;+\; \frac{\varepsilon}{1-r},$$
+**Exact form.** The calling rate is a mixture of the two classes,
+$k = r\pi_1 + (1-r)\pi_0$, so $\pi_0 = (k - r\pi_1)/(1-r)$ and
 
-so at $k = 0.99$ both scores sit within about a percent of 1.0, and so does their ratio —
-**however sharp either score is**. Equivalently: as the threshold falls towards $-\infty$,
-$\mathrm{LR}^{+} \to 1$ for every score, whatever it ranks by. The cell below checks that
-against the exact values rather than asserting it.
+$$\mathrm{LR}^{+} \;=\; \frac{(1-r)\,\pi_1}{k - r\pi_1},
+\qquad
+\mathrm{LR}^{+} - 1 \;=\; \frac{\pi_1 - k}{k - r\pi_1} \;=\; \frac{\pi_1 - k}{(1-r)\,\pi_0}.$$
+
+With $k$ and $r$ fixed, $\pi_1$ is the only free quantity, which is the one-free-count point
+made below. The mixture also makes $k$ a weighted average of $\pi_1$ and $\pi_0$, so it lies
+between them, and $\pi_1 \ge k$, $\pi_1 \ge \pi_0$ and $\mathrm{LR}^{+} \ge 1$ are one
+statement: the score ranks positives above chance. A score independent of the label calls both
+classes at rate $k$, so $\pi_1 = \pi_0 = k$ and $\mathrm{LR}^{+} = 1$. The numerator
+$\pi_1 - k$ is therefore how far the recall sits above what random calling at the same rate
+would achieve.
+
+**Expansion in the uncalled fraction.** Write $\varepsilon = 1 - k$. It splits over the two
+classes,
+
+$$\varepsilon \;=\; r\,(1-\pi_1) \;+\; (1-r)\,(1-\pi_0),$$
+
+and both terms are non-negative, so $1-\pi_1 \le \varepsilon/r$ and
+$1-\pi_0 \le \varepsilon/(1-r)$: both call probabilities are $1 - O(\varepsilon)$. Then
+$\pi_1 - k = \varepsilon - (1-\pi_1)$ is $O(\varepsilon)$ as well, and expanding
+$1/\pi_0 = 1 + (1-\pi_0) + O(\varepsilon^{2})$ in the exact form gives
+
+$$\mathrm{LR}^{+} \;=\; 1 \;+\; \frac{\pi_1 - k}{1 - r}
+\;+\; \frac{(\pi_1 - k)(1-\pi_0)}{1-r} \;+\; O(\varepsilon^{3})
+\;=\; 1 \;+\; \frac{\text{recall} - k}{1 - r} \;+\; O(\varepsilon^{2}).$$
+
+**Bound.** $\pi_1 \le 1$ gives $\pi_1 - k \le \varepsilon$, and $\pi_0 \ge 1 - \varepsilon/(1-r)$
+from above, so for any score that ranks above chance
+
+$$1 \;\le\; \mathrm{LR}^{+} \;\le\; 1 + \frac{\varepsilon}{1 - r - \varepsilon}
+\;=\; 1 + \frac{\varepsilon}{1-r} + O(\varepsilon^{2}).$$
+
+**The ratio G plots.** Both scores share $k$ and $r$ within a bin, so dividing the two
+expansions,
+
+$$\frac{\mathrm{LR}^{+}_{\text{decontaminated}}}{\mathrm{LR}^{+}_{\text{published}}}
+\;=\; 1 \;+\; \frac{\pi_1^{\text{decontaminated}} - \pi_1^{\text{published}}}{1 - r}
+\;+\; O(\varepsilon^{2}),$$
+
+and with both recalls in $[k, 1]$ the ratio differs from 1.0 by at most about
+$\varepsilon/(1-r)$. At $k = 0.99$ that is 1.1% in the most AT-rich bin ($r = 0.083$) and 2.8%
+in the most GC-rich ($r = 0.639$) — **however sharp either score is**. Equivalently: as the
+threshold falls towards $-\infty$, $\mathrm{LR}^{+} \to 1$ for every score, whatever it ranks
+by. The cell below checks the first-order form against the exact values rather than asserting
+it.
 
 **The significance is not compressed with the magnitude.** At a matched rate inside a bin $n$,
 $n_{\text{pos}}$ and $n_{\text{called}}$ are fixed and shared, so the $2\times2$ table has
