@@ -85,7 +85,7 @@ filtered set to match the figure.
    GC 0.25 bin, and the scored band -- the part of that territory McHale et al. call
    putatively neutral -- peaks at **0.363** at GC 0.35 and is down to **0.007** by GC 0.68
    (wider run, where the scored band *is* QC-pass noncoding: 0.84 -> 0.28). ALWAYS QUOTE
-   THE GC WITH THESE: cell 36 prints at the TOP OF THE DRAWN RANGE, GC 0.70, where the same
+   THE GC WITH THESE: cell 35 prints at the TOP OF THE DRAWN RANGE, GC 0.70, where the same
    two quantities are **0.284** and **0.001**, so a bare "0.27 against 0.284" reads as a
    contradiction and is two endpoints of one monotone decline. The excluded
    territory is *different*, not merely absent -- the QC-failing stratum's non-CpG DNM
@@ -291,24 +291,28 @@ anything in `gnocchi_bias/windows.py`.
    caller). Again no number changed, and `captions.txt`/`methods.txt` are updated.
    **Fig. 5F's axis became a percentile on 2026-09-05** -- detail below, and again no number
    changed, only which end of one is labelled.
-   **The notebook is 40 cells (41 until 2026-09-18, when the markdown cell at index 28 was
-   deleted and every later cell moved up one; cell numbers here are the current ones), ALL 23 code cells run, 19 of them print, and no placeholder
+   **The notebook is 39 cells, ALL 22 code cells run, 18 of them print, and no placeholder
    remains anywhere.** Re-executed on the HPC path at `5894724` (2026-09-16), which cleared
    the nine cells this entry used to list as outstanding; the count read 37 here until
-   2026-09-11 and was stale by two even then.
+   2026-09-11 and was stale by two even then. TWO CELLS WERE DELETED ON 2026-09-18, Peter's
+   instruction: the markdown section "What the left tail is *not*" (index 28), and the
+   code cell that checked panel G's first-order LR+ expansion (then index 30, execution
+   count 18), together with the derivation and one-free-count prose around it. Every later
+   cell moved up, and CELL NUMBERS HERE ARE THE CURRENT ONES; "then N" marks an old one.
    **THE FOUR CELLS WITH NO OUTPUT ARE NOT A PENDING RERUN.** 24, 25, 27 and 28 are exactly
-   the ones that run inside `data.quiet()`, which emit nothing by design, so 19 of 23 IS the
+   the ones that run inside `data.quiet()`, which emit nothing by design, so 18 of 22 IS the
    healthy state and a later reader should not try to "fix" it. Check a real run by
-   `execution_count` instead: it ran 1-23 with no gaps, and all 40 cells carry `id` fields
+   `execution_count` instead: it ran 1-23 with ONE gap, at 18, which is the deleted check
+   cell and NOT a cell that failed to run; all 39 cells carry `id` fields
    at `nbformat_minor: 5`, which is the `nbconvert --execute --inplace` signature rather
    than the generator's (see the cosmetic note below).
    **THE RETIRED `GC only` ROWS ARE GONE**, exactly as the entry below predicted: zero
    occurrences of `GC only` or `GC content alone` in any committed output.
-   **EVERY PANEL CAME BACK BYTE-IDENTICAL.** Cells 8, 10, 12, 14, 16, 18, 20 and 31 (32 at the time) each
+   **EVERY PANEL CAME BACK BYTE-IDENTICAL.** Cells 8, 10, 12, 14, 16, 18, 20 and 30 (32 at the time) each
    printed `unchanged, left alone`, which is why that commit touches `fig5.ipynb` and
    nothing else. The committed PDFs are therefore CONFIRMED current against `panels.py`, not
    merely assumed to be.
-   Cell 36 (then 37) was the real edit of those passes and its output is now committed: its panel-C
+   Cell 35 (then 37) was the real edit of those passes and its output is now committed: its panel-C
    block had been printing
    `scored-population fraction 0.00 at GC 0.22 -> 0.00 at GC 0.70`, two rounded zeros and
    none of the three numbers the prose quotes, and it now prints TWO shares -- QC-pass
@@ -332,7 +336,7 @@ anything in `gnocchi_bias/windows.py`.
    that preamble is printed by `gnocchi_bias/windows.py`, which `preconditions/` and
    `dnm_training_size/` import too -- a flag would have changed three other entry points to
    tidy one notebook. Exceptions still propagate.
-   **CELL 32 IS NOW THE ONLY PLACE D-I's NUMBERS PRINT**, as one table over all three depths,
+   **CELL 31 IS NOW THE ONLY PLACE D-I's NUMBERS PRINT**, as one table over all three depths,
    and it reads them from the `gains_wb_*` frames ALONE -- `paired_deltas` already returns
    `threshold_published`/`threshold_scored` beside the ratio, so the left half of the table is
    what D/E/F draw and the right half what G/H/I draw, and neither can drift from the artwork.
@@ -419,7 +423,7 @@ anything in `gnocchi_bias/windows.py`.
    resize, not a relink, and from seven panels to nine -- and panel D of Fig. 5 is 7.6 in
    tall rather than 4.6, matching panel C. **THAT ILLUSTRATOR EDIT IS STILL TO DO**; it is
    the only part of the rebuild no run can perform.
-   **THE RERUN NAMED THE STALE LINKS EXACTLY** -- cell 39 (then 40), at `5894724`: three panel PDFs
+   **THE RERUN NAMED THE STALE LINKS EXACTLY** -- cell 38 (then 40), at `5894724`: three panel PDFs
    are newer than what `fig5.neutral.ai` was saved against, **`fig5B.neutral.pdf`,
    `fig5F.neutral.pdf` and `supp_fig8.neutral.pdf`**. NOTE WHAT IS NOT IN THAT LIST:
    `fig5D.neutral.pdf`. D's PDF has not moved since the assembly was last saved, so D's
@@ -644,7 +648,12 @@ anything in `gnocchi_bias/windows.py`.
                         LR+ = odds(p)/odds(r) at ANY calling rate, so a rate near 1 -- which
                         forces the precision p to the base rate r -- drives it to 1: at
                         k = 0.99, LR+ = 1 + (recall - k)/(1 - r) + O((1-k)^2), bounded by
-                        1 + (1-k)/(1-r). Cell 30 prints that check against the exact values.
+                        1 + (1-k)/(1-r). THE NOTEBOOK NO LONGER CARRIES THIS (2026-09-18): its
+                        derivation, the check cell and the one-free-count paragraph were all
+                        deleted, and the panel-G section now states only the limit the
+                        manuscript uses -- LR+ -> 1 for every score as the threshold goes to
+                        -infinity, so neither score discriminates much at G and the small
+                        divergence there is that limit. What follows is kept as reasoning.
                         THE EVIDENCE IS NOT COMPRESSED WITH THE MAGNITUDE: at a matched rate
                         inside a bin, n, n_pos and n_called are fixed and shared, so the 2x2
                         table has ONE FREE COUNT and precision, lift, skill and LR+ are all
@@ -710,7 +719,8 @@ anything in `gnocchi_bias/windows.py`.
                         against +0.32. By the same token the retrained score's residual +0.3
                         is a LEVEL common to every bin, not a GC dependence, so not a
                         residual bias.
-                          8G's ALGEBRA HELD: |LR+ - 1| <= 0.0152 and the first-order form
+                          8G's ALGEBRA HELD (the check cell that printed this was deleted
+                        2026-09-18; recover it from `95acfe4`): |LR+ - 1| <= 0.0152 and the first-order form
                         tracks the exact values to 3e-4, reproducing the offline
                         reconstruction to the last digit (1.0074, 1.0101, 1.0099, 1.0141,
                         1.0152 published; 1.0056-1.0097 decontaminated). So read 8G for SIGN

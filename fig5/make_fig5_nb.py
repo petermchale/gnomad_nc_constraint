@@ -1429,92 +1429,13 @@ with D.quiet():
 """)
 
 md(r"""
-### Why panel G sits near 1.0, and why that is not a null result
+### Why panel G sits near 1.0
 
-$\mathrm{LR}^{+}$ is the odds ratio $[p/(1-p)]\,/\,[r/(1-r)]$ at any calling rate, and a rate
-near 1 forces the precision $p$ to the base rate $r$. To see how fast, work inside one GC bin
-with positive-class fraction $r$ and calling rate $k$, and write
-$\pi_1 = P(\text{call}\mid\text{constrained})$ (the recall) and
-$\pi_0 = P(\text{call}\mid\text{not constrained})$, so that $\mathrm{LR}^{+} = \pi_1/\pi_0$.
-
-**Exact form.** The calling rate is a mixture of the two classes,
-$k = r\pi_1 + (1-r)\pi_0$, so $\pi_0 = (k - r\pi_1)/(1-r)$ and
-
-$$\mathrm{LR}^{+} \;=\; \frac{(1-r)\,\pi_1}{k - r\pi_1},
-\qquad
-\mathrm{LR}^{+} - 1 \;=\; \frac{\pi_1 - k}{k - r\pi_1} \;=\; \frac{\pi_1 - k}{(1-r)\,\pi_0}.$$
-
-With $k$ and $r$ fixed, $\pi_1$ is the only free quantity, which is the one-free-count point
-made below. The mixture also makes $k$ a weighted average of $\pi_1$ and $\pi_0$, so it lies
-between them, and $\pi_1 \ge k$, $\pi_1 \ge \pi_0$ and $\mathrm{LR}^{+} \ge 1$ are one
-statement: the score ranks positives above chance. A score independent of the label calls both
-classes at rate $k$, so $\pi_1 = \pi_0 = k$ and $\mathrm{LR}^{+} = 1$. The numerator
-$\pi_1 - k$ is therefore how far the recall sits above what random calling at the same rate
-would achieve.
-
-**Expansion in the uncalled fraction.** Write $\varepsilon = 1 - k$. It splits over the two
-classes,
-
-$$\varepsilon \;=\; r\,(1-\pi_1) \;+\; (1-r)\,(1-\pi_0),$$
-
-and both terms are non-negative, so $1-\pi_1 \le \varepsilon/r$ and
-$1-\pi_0 \le \varepsilon/(1-r)$: both call probabilities are $1 - O(\varepsilon)$. Then
-$\pi_1 - k = \varepsilon - (1-\pi_1)$ is $O(\varepsilon)$ as well, and expanding
-$1/\pi_0 = 1 + (1-\pi_0) + O(\varepsilon^{2})$ in the exact form gives
-
-$$\mathrm{LR}^{+} \;=\; 1 \;+\; \frac{\pi_1 - k}{1 - r}
-\;+\; \frac{(\pi_1 - k)(1-\pi_0)}{1-r} \;+\; O(\varepsilon^{3})
-\;=\; 1 \;+\; \frac{\text{recall} - k}{1 - r} \;+\; O(\varepsilon^{2}).$$
-
-**Bound.** $\pi_1 \le 1$ gives $\pi_1 - k \le \varepsilon$, and $\pi_0 \ge 1 - \varepsilon/(1-r)$
-from above, so for any score that ranks above chance
-
-$$1 \;\le\; \mathrm{LR}^{+} \;\le\; 1 + \frac{\varepsilon}{1 - r - \varepsilon}
-\;=\; 1 + \frac{\varepsilon}{1-r} + O(\varepsilon^{2}).$$
-
-**The ratio G plots.** Both scores share $k$ and $r$ within a bin, so dividing the two
-expansions,
-
-$$\frac{\mathrm{LR}^{+}_{\text{decontaminated}}}{\mathrm{LR}^{+}_{\text{published}}}
-\;=\; 1 \;+\; \frac{\pi_1^{\text{decontaminated}} - \pi_1^{\text{published}}}{1 - r}
-\;+\; O(\varepsilon^{2}),$$
-
-and with both recalls in $[k, 1]$ the ratio differs from 1.0 by at most about
-$\varepsilon/(1-r)$. At $k = 0.99$ that is 1.1% in the most AT-rich bin ($r = 0.083$) and 2.8%
-in the most GC-rich ($r = 0.639$) — **however sharp either score is**. Equivalently: as the
-threshold falls towards $-\infty$, $\mathrm{LR}^{+} \to 1$ for every score, whatever it ranks
-by. The cell below checks the first-order form against the exact values rather than asserting
-it.
-
-**The significance is not compressed with the magnitude.** At a matched rate inside a bin $n$,
-$n_{\text{pos}}$ and $n_{\text{called}}$ are fixed and shared, so the $2\times2$ table has
-**one free count**; precision, lift, skill and $\mathrm{LR}^{+}$ are all monotone in it and
-agree on which score is ahead, in a bin and in every bootstrap replicate. G's small numbers are
-a small *effect size at an operating point where no effect size can be large*, not a weak
-finding. **So read G for sign, H and I for magnitude.**
-""")
-
-
-code(r"""
-# THE PINNING CHECKED RATHER THAN ASSERTED, so panel G's small numbers cannot be mistaken for
-# a null. LR+ = odds(p)/odds(r) at any rate, so it goes to 1 as the rate goes to 1, a rate
-# near 1 forcing the precision to the base rate; at k = 0.99,
-#     LR+ = 1 + (recall - k)/(1 - r) + O((1-k)^2).
-# If the first-order form tracks the exact LR+ to a few parts in 10^4 the pinning is the
-# algebra's, not a coincidence of this truth set. Both columns are already in the frame.
-if withinbin_99 is not None:
-    print(f"\npanel G's levels, at a {100 * CALL_RATE_HIGH:.0f}% calling rate")
-    print(f"  {'GC bin':<14}{'score':<16}{'LR+':>10}{'first order':>14}{'|LR+ - 1|':>12}")
-    worst_err = 0.0
-    for row in withinbin_99.sort(["mid", "score"]).iter_rows(named=True):
-        approx = 1 + (row["recall"] - row["call_rate"]) / (1 - row["r"])
-        worst_err = max(worst_err, abs(row["lr_pos"] - approx))
-        print(f"  ({row['lo']:.2f}, {row['hi']:.2f}]{'':<4}{row['short']:<16}"
-              f"{row['lr_pos']:>10.4f}{approx:>14.4f}{abs(row['lr_pos'] - 1):>12.4f}")
-    worst_dev = max(abs(r["lr_pos"] - 1) for r in withinbin_99.iter_rows(named=True))
-    print(f"\n  max |LR+ - 1| = {worst_dev:.5f}, and the first-order form tracks the exact "
-          f"LR+ to {worst_err:.2e},\n  so the compression is the algebra's and not this truth "
-          f"set's. Read G for sign only.")
+$\mathrm{LR}^{+} = P(\text{call}\mid\text{constrained})\,/\,P(\text{call}\mid\text{not constrained})$.
+As the threshold falls towards $-\infty$ every window in the bin is called, both probabilities
+go to 1, and $\mathrm{LR}^{+} \to 1$ for **every** score, whatever it ranks by. At G's 99%
+calling rate neither score is particularly discriminative, so the two cannot differ by much
+there: the divergence being smallest at G is that limit, not evidence that the scores agree.
 """)
 
 
