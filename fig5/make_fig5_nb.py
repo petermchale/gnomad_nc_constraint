@@ -1402,47 +1402,13 @@ with D.quiet():
 """)
 
 
-md(r"""
-## What the left tail is *not*
-
-G reads the far end of the ranking by calling $z > t$ with $t$ at each bin's 1st percentile:
-99% of the bin called, an enhancer still the hit. **A construction we tried first and retired**
-did the mirror — the bottom 1%, with the call at $z \le t$ and a *non*-enhancer as the hit. It
-gave a large, significant reversal in every bin, and it does not mean what it appears to.
-
-Gnocchi is a two-sided $z$ against a neutral expectation, so *unconstrained sequence sits at
-$z \approx 0$*, which is most of the genome. The left tail is the opposite anomaly: **more**
-variation than expected, whose leading explanations are hypermutability or mutation-model
-misspecification rather than an absence of selection. The numbers say as much — under the
-neutral null the 1st percentile would be $z = -2.33$, while published's run $-5.67$, $-6.04$,
-$-5.03$, $-4.14$, $-2.98$, four of five far heavier than sampling noise. A GeneHancer
-non-enhancer label is evidence about *enhancer status*, and **there is no truth set for the
-left tail**, so that construction swapped one hypothesis for another. The left-tail note
-*below* `data.LAX_CALL_RATES` records the error where it was made.
-
-**The switch cost no evidence, only magnitude.** With $a = P(z \le t \mid \text{enhancer})$ and
-$b = P(z \le t \mid \text{non-enhancer})$, the retired reading was $b/a$ and the kept one is
-$(1-a)/(1-b)$. At a matched rate inside a bin these are a monotone reparametrisation of one
-$2\times2$ table, so they order the two scores identically in every bin and in every bootstrap
-replicate; only the numbers compress, by a factor of order $k$.
-
-**And what a gap at any of these three depths cannot be.** Within a bin the GC bias is nearly a
-*constant shift*, which cannot reorder a ranking, so a difference between the scores at a
-matched rate is **not the bias**. It is within-bin variation in the regional adjustment:
-information the published model carries and the decontaminated one discards along with the
-bias. Whether that is genuine signal about local mutation rate or a second artefact of the same
-fit **is not settled by these data** — and the 13-feature panel includes `CpG_island` and
-`Nucleosome`, which correlate with regulatory annotation, so that component is not independent
-of a GeneHancer truth set.
-""")
-
 code(r"""
 # THE OTHER TWO DEPTHS, through exactly the code path that built the 1% pair above. ONLY
 # `call_rate` CHANGES: the call is z > t and the hit an enhancer in all three, so these are
 # one comparison read at three points on the recall axis, not three hypotheses. A difference
 # between them therefore has to be attributable to WHERE on the ranking we are looking. Why
 # the left tail is read this way and not as a call of z <= t: the left-tail note BELOW
-# data.LAX_CALL_RATES, and the markdown above.
+# data.LAX_CALL_RATES.
 #
 # QUIET, as above; the table two cells down prints all three depths together. 500 bootstrap
 # replicates a bin, seconds.
