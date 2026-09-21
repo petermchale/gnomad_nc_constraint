@@ -77,7 +77,8 @@ filtered set to match the figure.
    windows as an external comparison, sits at **0.096**.
 2. That adjustment's GC dependence is **wholly non-CpG**. `r_non` runs **0.96 -> 1.45**
    while `r_CpG` stays **0.997-1.014**, and the counterfactual holding non-CpG `r` at 1 is
-   flat within **0.4%** even though CpG contexts carry **26%** of the expected-count weight
+   flat within **0.4%** (computed and printed, not drawn since 2026-09-21) even though CpG
+   contexts carry **26%** of the expected-count weight
    in the highest bin drawn (wider run: 0.95 -> 1.79, 0.98-1.00, 0.6%, 43% at GC 0.75).
    This is a decomposition identity, not a fit.
 3. The training set **is not the scored population**: the QC-pass noncoding share of the
@@ -279,8 +280,9 @@ anything in `gnocchi_bias/windows.py`.
    **The committed notebook and PNG are one restyle behind `fig5/panels.py`.** The panels
    were made monochrome on 2026-08-27 -- A, D and E carry identity in marker shape, fill,
    dash pattern and presence of error bars rather than in colour, with two exemptions
-   (panel C, which recolours to green-for-QC-pass / red-for-QC-fail, and panel B's
-   R_eff-plus-counterfactual pair) -- panel D lost the size-matched control's two curves,
+   (panel C, which recolours to green-for-QC-pass / red-for-QC-fail, and panel B's applied
+   curve, which was the R_eff-plus-counterfactual PAIR's colour until 2026-09-21 and is now
+   R_eff's alone) -- panel D lost the size-matched control's two curves,
    and panel E now prints each curve's mean |rank - 0.5| in its legend. No number changed;
    `captions.txt` and `methods.txt` are already updated. **Panel D was then split into two
    stacked rows on 2026-09-01** -- empirical curves above, fitted below, over a shared x
@@ -291,6 +293,30 @@ anything in `gnocchi_bias/windows.py`.
    caller). Again no number changed, and `captions.txt`/`methods.txt` are updated.
    **Fig. 5F's axis became a percentile on 2026-09-05** -- detail below, and again no number
    changed, only which end of one is labelled.
+   **PANEL B WAS RELABELLED AND LOST ITS COUNTERFACTUAL CURVE ON 2026-09-21**, Peter's
+   instruction, and THIS ONE DOES LEAVE A PANEL PDF STALE -- `fig5B.neutral.pdf` must be
+   regenerated on the HPC path, the only outstanding rebuild in the repo. What changed:
+   the ylabel is now "Adjustment of expected SNV counts (published/ablated)" and the three
+   legend entries are "All sites", "non-CpG sites" and "CpG sites", so the legend names the
+   SITE SET each ratio is summed over while the ylabel states the ratio once, where the
+   entries used to carry their LaTeX formulae (`$R_eff = \Pi R_CpG + (1-\Pi) R_non$` and
+   the same expression with R_non replaced by 1). The counterfactual CURVE is gone; the
+   QUANTITY is not -- `data.r_eff_by_gc` still returns `r_counterfactual`, the panel B cell
+   still selects it into its table, and the caption-numbers cell still prints its span, so
+   the 0.4% flatness finding is unaffected and still regenerable. NO NUMBER CHANGED.
+   WHY REMOVING IT COSTS NOTHING, which is the argument to keep if it is ever questioned:
+   subtracting 1 from the identity makes the counterfactual's departure exactly
+   `Pi * (R_CpG - 1)`, so the two curves the panel DOES draw bound it -- 0.264 x 0.014 =
+   0.0037 on the narrowed run, which IS the quoted 0.4%. Drawn, it lay along the R = 1
+   reference and under R_CpG for the whole panel, in the region where the curves already
+   converge. THE YLABEL IS WRAPPED, and the break is measured: on one line it renders 586 px
+   against 354 px of axes height, at the phrase break 376 px (6% over, nothing clipped since
+   panels save bbox_inches="tight"), and breaking one word earlier fits at 330 px at the cost
+   of splitting "expected SNV counts". Measure before rewording. The prose pass landed the
+   same day: panel B's markdown cell (three curves, not four; the counterfactual reframed as
+   computed-not-drawn), one sentence in Supporting Fig. 7's cell, and the root `README.md`.
+   BOTH NOTEBOOK EDITS WERE MARKDOWN-ONLY, so all 23 outputs survived and no rerun is owed
+   for them -- only the panel PDF is.
    **The notebook is 39 cells, ALL 22 code cells run, 18 of them print, and no placeholder
    remains anywhere.** Re-executed on the HPC path at `5894724` (2026-09-16), which cleared
    the nine cells this entry used to list as outstanding; the count read 37 here until

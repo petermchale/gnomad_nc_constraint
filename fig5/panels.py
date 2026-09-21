@@ -18,9 +18,9 @@ colour. Two exemptions, both deliberate:
     carry the finding rather than to enumerate categories: green for the two QC-pass
     strata that are merely excluded, red for the QC-fail one that is genuinely
     different. See STRATUM_COLORS.
-  * PANEL B's applied pair, R_eff and its counterfactual, which share one colour and one
-    marker and differ only in linestyle. They are the same quantity under two worlds and
-    should read as a pair; the contrast between them IS that panel. See panel_r_eff.
+  * PANEL B's applied curve, the all-sites adjustment, which takes the one hue in the
+    line panels so that the quantity Gnocchi actually applies is separable at a glance
+    from the two terms it decomposes into. See panel_r_eff.
 
 EVERY PANEL IN THIS FILE IS DRAWN, AND THE RULE HAS NO EXCEPTIONS. Functions the figures
 stop drawing move to fig5/panels_extra.py, which is GITIGNORED: they are cut for composition
@@ -50,17 +50,16 @@ SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "v", "scored": "^"}
 # curves dominant without the hard edge of #000, and it is the ink every monochrome
 # series in A, B, D and E is drawn in.
 MONO = "0.15"
-# The one hue that survives in the line panels, and it is a PAIR's colour rather than a
-# series' -- panel B's R_eff and the counterfactual that removes its non-CpG term.
+# The one hue that survives in the line panels: panel B's all-sites adjustment, the
+# quantity Gnocchi applies, against the two monochrome terms it decomposes into.
 #
-# WARM AND LIGHT, not the palette's violet. The pair has to separate from two things at
-# once: the black R_non and R_CpG curves, and the grey dashed R = 1 reference that the
-# counterfactual lies along for the whole panel. Violet (#4a3aa7) has the hue for the
-# first but not the luminance -- at 0.073 relative luminance against MONO's 0.015 it
-# still reads as a dark line among dark lines, and a dashed dark line sitting on a dashed
-# grey one is exactly the confusion the counterfactual needed rescuing from. This orange
-# sits at 0.278, so the pair is lighter than every black curve and darker and far more
-# saturated than the reference, and it holds 3.2:1 against the surface as a 2 px line.
+# WARM AND LIGHT, not the palette's violet. The curve has to separate from two things at
+# once: the black non-CpG and CpG curves, and the grey dashed R = 1 reference that the
+# CpG curve lies along for the whole panel. Violet (#4a3aa7) has the hue for the first
+# but not the luminance -- at 0.073 relative luminance against MONO's 0.015 it still
+# reads as a dark line among dark lines. This orange sits at 0.278, so it is lighter than
+# every black curve and darker and far more saturated than the reference, and it holds
+# 3.2:1 against the surface as a 2 px line.
 APPLIED_COLOR = "#eb6834"
 # Which of panels A and E's series are drawn with a WHITE marker face. Shape alone
 # separates three black curves in the clear, but they cross near GC 0.40 with markers
@@ -297,38 +296,30 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
     Panel B. The adjustment Gnocchi actually applies to a GC bin, R_eff(g) = sum E2 /
     sum E1, split into its CpG and non-CpG parts. `binned` is data.r_eff_by_gc() output.
 
-    Every label is a symbol from the notebook's panel B derivation, and the legend is
-    ordered as that derivation reads: the applied quantity first, then the two parts it
-    decomposes into, then the hypothetical.
+    The legend is ordered as the notebook's panel B derivation reads: the applied
+    quantity first, then the two parts it decomposes into.
 
         R_eff = Pi*R_CpG + (1-Pi)*R_non          exact, bin by bin
 
-    THE TWO R_eff ENTRIES CARRY THEIR FORMULAE RATHER THAN A GLOSS. The panel's whole
-    content is one identity and one intervention on it, and the legend is where a reader
-    can be shown both at once: the applied curve is written out in full, and the
-    counterfactual is written as the same expression with R_non replaced by 1, under the
-    same name. Side by side, the single substitution IS the argument, which no amount of
-    "what Gnocchi applies" / "if only CpG were adjusted" says as directly. Those glosses
-    are in the caption, where a sentence is the right form for them. R_non and R_CpG keep
-    theirs, since a formula cannot say which contexts a term is summed over.
+    THE LABELS NAME SITE SETS, NOT SYMBOLS. Each curve is the same ratio of summed
+    expected counts -- the published adjustment over the ablated one, r = 1 -- taken over
+    all sites, over non-CpG sites alone, and over CpG sites alone, which is what the y
+    label states once for all three. The formulae the three entries used to carry are in
+    the notebook, where the identity above is derived; a legend that restates an axis in
+    symbols costs a reader the reading it is meant to give them.
 
-    THE COUNTERFACTUAL IS AN INTERVENTION ON THE NON-CpG TERM, not on the CpG one: it
-    sets r_t = 1 for non-CpG contexts and leaves the fitted CpG r_t and the weights Pi
-    untouched, giving Pi*R_CpG + (1-Pi) -- what Gnocchi would apply if it adjusted CpG
-    contexts alone. Its flatness is the claim, and it is not automatic: Pi reaches 0.43 at
-    high GC, so a GC trend in R_CpG would show up here scaled by Pi rather than erased.
+    THE COUNTERFACTUAL CURVE IS NOT DRAWN (removed 2026-09-21). It was R_eff with the
+    non-CpG term switched off -- r_t = 1 for t outside the CpG contexts, the fitted CpG
+    r_t and the weights Pi untouched, giving Pi*R_CpG + (1-Pi) -- drawn in R_eff's colour
+    and diamond but dashed and hollow. Its flatness is still a result and still a
+    measurement (Pi reaches 0.26 in the top bin drawn, so a GC trend in R_CpG would appear
+    scaled rather than erased), and `data.r_eff_by_gc` still returns `r_counterfactual`,
+    which the notebook still derives and prints. The panel now makes the same point with
+    the CpG curve alone, flat at ~1.00 beside an all-sites curve that climbs.
 
-    IT IS DRAWN AS R_eff's TWIN, and this is the one place in the line panels where
-    colour is used. It was a dashed grey line with no marker, which put it in the same
-    ink as the R = 1 reference it sits on top of, underneath R_CpG, in the region of the
-    panel where three curves already converge -- invisible exactly where its flatness is
-    supposed to be read. It now takes R_eff's colour and R_eff's diamond and differs from
-    it only in being dashed and hollow, because that is what it IS: the same applied
-    quantity with the non-CpG term switched off. The gap between the two curves is then
-    the whole result of the panel, drawn as one pair pulling apart rather than as a
-    measured series and an unrelated grey hypothetical. R_non and R_CpG stay monochrome
-    -- they are the decomposition, not the claim -- and are separated from each other by
-    marker and by dash pattern, so the panel still reads in greyscale.
+    THE APPLIED CURVE IS THE ONE PLACE COLOUR IS USED in the line panels: R_non and R_CpG
+    stay monochrome -- they are the decomposition, not the claim -- and are separated from
+    each other by marker and by dash pattern, so the panel still reads in greyscale.
 
     NO MEAN-GC LINE HERE, though A, D, E and F carry one (_gc_mean_line) and uniformity
     would argue for it. It was drawn here for one commit and taken out: measured off the
@@ -356,29 +347,28 @@ def panel_r_eff(ax, binned, min_n: int = 100, xrange=(0.2, 0.73),
     # neither depends on the other surviving a greyscale conversion.
     parts = {}
     for col, marker, dash, label in [
-            ("r_non", "s", (4, 1.6), r"$R_{\mathrm{non}}$ — non-CpG contexts"),
-            ("r_cpg", "^", (1, 1.6), r"$R_{\mathrm{CpG}}$ — CpG contexts")]:
+            ("r_non", "s", (4, 1.6), "non-CpG sites"),
+            ("r_cpg", "^", (1, 1.6), "CpG sites")]:
         parts[col], = ax.plot(df["gc_mid"], df[col], marker=marker, color=MONO,
                               markersize=5, linewidth=2, dashes=dash, label=label)
-    # The applied pair: same colour, same marker, differing only in linestyle. Drawn
-    # after the two parts so neither crosses out the quantity the panel is about.
+    # The applied quantity, in the panel's one hue. Drawn after the two parts so neither
+    # crosses out the quantity the panel is about.
     parts["r_eff"], = ax.plot(
         df["gc_mid"], df["r_eff"], marker="D", color=APPLIED_COLOR, markersize=5,
-        linewidth=2,
-        label=r"$R_{\mathrm{eff}} = \Pi R_{\mathrm{CpG}} + (1-\Pi)R_{\mathrm{non}}$")
-    parts["r_counterfactual"], = ax.plot(
-        df["gc_mid"], df["r_counterfactual"], marker="D", color=APPLIED_COLOR,
-        markersize=4, markerfacecolor="white", markeredgewidth=1.2,
-        linestyle="--", linewidth=1.8,
-        label=r"$R_{\mathrm{eff}}$ (counterfactual)$ = \Pi R_{\mathrm{CpG}} + (1-\Pi)$")
+        linewidth=2, label="All sites")
 
     ax.axhline(1.0, **REF_LINE_KW)
     _log_ratio_axis(ax, df[["r_non", "r_eff", "r_cpg"]].to_numpy())
     # Legend order is the derivation's, not the draw order's: applied quantity, then the
-    # two parts it decomposes into, then the hypothetical.
-    _finish(ax, "Regional adjustment", xrange, show_xlabel,
-            handles=[parts[k] for k in
-                     ("r_eff", "r_non", "r_cpg", "r_counterfactual")])
+    # two parts it decomposes into.
+    # WRAPPED AT THE PHRASE BOUNDARY, and the break is measured rather than guessed: on
+    # one line this label is 586 px against 354 px of axes height, two-thirds again as
+    # tall as the panel it names. Broken here it is 376 px -- 6% over, 11 px past each
+    # end of the frame, and nothing is clipped since the panels save bbox_inches="tight".
+    # Breaking one word earlier fits inside the axes (330 px) at the cost of splitting
+    # "expected SNV counts" across two lines. Measure before rewording.
+    _finish(ax, "Adjustment of expected SNV counts\n(published/ablated)", xrange,
+            show_xlabel, handles=[parts[k] for k in ("r_eff", "r_non", "r_cpg")])
 
 
 # Panel C's two rows share one colour per stratum, defined once here so the band in the

@@ -477,22 +477,23 @@ $$R_{\mathrm{eff}}(g)
 using only that expected counts add and that $\sum_g E_1^{\neg\mathcal K}/\sum_g E_1=1-\Pi(g)$.
 This is an **exact identity**, not a fit, so the panel reads additively.
 
-**Reading the panel.** Its four curves are these symbols, in this order:
-$R_{\mathrm{eff}}$ (solid orange diamonds, what Gnocchi applies), $R_{\mathrm{non}}$
-(black dashed squares) and $R_{\mathrm{CpG}}$ (black dotted triangles) — the two terms it
-decomposes into — and the counterfactual derived next, drawn in $R_{\mathrm{eff}}$'s own
-colour and symbol but dashed and hollow, because it *is* $R_{\mathrm{eff}}$ with one term
-switched off. The y-axis is $R(g)$ itself, a ratio of summed expected
-counts, so 1 means *no adjustment* and the horizontal line at 1 is the null. Since
-$R_{\mathrm{eff}}$ is a $\Pi$-weighted average of the other two, it must lie between
-them: it tracks $R_{\mathrm{non}}$ closely at low GC, where $\Pi$ is small, and is pulled
-down towards $R_{\mathrm{CpG}}\approx1$ as $\Pi$ grows.
+**Reading the panel.** Its three curves are these symbols, in this order:
+$R_{\mathrm{eff}}$ (*all sites*, solid orange diamonds, what Gnocchi applies), and the two
+terms it decomposes into, $R_{\mathrm{non}}$ (*non-CpG sites*, black dashed squares) and
+$R_{\mathrm{CpG}}$ (*CpG sites*, black dotted triangles). The legend names the **site set**
+each ratio is summed over rather than repeating the ratio, because the ratio is the same in
+all three and the y-axis states it once: expected SNV counts under the published adjustment,
+over expected SNV counts with that adjustment **ablated** ($r\equiv1$). So 1 means *no
+adjustment* and the horizontal line at 1 is the null. Since $R_{\mathrm{eff}}$ is a
+$\Pi$-weighted average of the other two, it must lie between them: it tracks
+$R_{\mathrm{non}}$ closely at low GC, where $\Pi$ is small, and is pulled down towards
+$R_{\mathrm{CpG}}\approx1$ as $\Pi$ grows.
 
 **The counterfactual, and what it intervenes on.** The question is how much of
 $R_{\mathrm{eff}}$'s rise the CpG contexts could account for on their own. So switch off
 the *non-CpG* adjustment — set $r_t\equiv1$ for $t\notin\mathcal K$, which sends
 $E_2^{\neg\mathcal K}\!\to\!E_1^{\neg\mathcal K}$ — and change nothing else: the fitted
-$r_t$ for $t\in\mathcal K$ stay, the weights $\Pi(g)$ stay. The dashed orange curve is
+$r_t$ for $t\in\mathcal K$ stay, the weights $\Pi(g)$ stay. What remains is
 
 $$R_{\mathrm{eff}}\big|_{r_t\equiv1,\;t\notin\mathcal K}(g)
 =\frac{\sum_g E_2^{\mathcal K}+\sum_g E_1^{\neg\mathcal K}}{\sum_g E_1}
@@ -504,9 +505,18 @@ applied trend survives the removal of the non-CpG term: the GC dependence of wha
 applies is wholly non-CpG.
 
 Flatness here is a result, not an identity. $\Pi$ reaches **0.26** in the highest bin the
-panel draws, so a GC trend in $R_{\mathrm{CpG}}$ would appear in this curve scaled by
-$\Pi$, not erased — the curve is flat because $R_{\mathrm{CpG}}$ itself is (0.997–1.014),
+panel draws, so a GC trend in $R_{\mathrm{CpG}}$ would appear in the counterfactual scaled
+by $\Pi$, not erased — it is flat because $R_{\mathrm{CpG}}$ itself is (0.997–1.014),
 which is the next paragraph's subject and is *correct* rather than a failure.
+
+**It is computed, not drawn** — the column `r_counterfactual` in the table below, and its
+span among the numbers printed at the end of this notebook. Subtracting 1 from the identity
+gives its departure exactly,
+$\Pi(g)\,\big(R_{\mathrm{CpG}}(g)-1\big)$, so the two curves the panel *does* draw bound
+it without a fourth: $0.264\times0.014=0.0037$. Drawn, it would lie along the $R=1$
+reference and under $R_{\mathrm{CpG}}$ for the whole panel — a line through the region
+where the curves already converge, in a place where nothing can be read off it that the
+flat $R_{\mathrm{CpG}}$ beside a climbing $R_{\mathrm{eff}}$ does not say.
 
 **Where each quantity comes from.** `data._r_eff_components` builds the four per-window
 sums, one SQL query, and `data.r_eff_by_gc` does the binning and the divisions:
@@ -982,9 +992,10 @@ sites; their error bars carry that.
 **D. And these contexts are not a rounding error.** $\Pi$, the CpG share of a bin's step-1
 expected counts — the same weight panel B's identity
 $R_{\mathrm{eff}}=\Pi R_{\mathrm{CpG}}+(1-\Pi)R_{\mathrm{non}}$ uses — rises from
-**0.038 to 0.264** across the GC range. So the flatness of panel B's counterfactual is a
-measurement and not an artifact of negligible weight: had $R_{\mathrm{CpG}}$ carried a GC
-trend, it would have reached the applied multiplier scaled by up to 0.26. This is the
+**0.038 to 0.264** across the GC range. So the flatness of the counterfactual derived
+under panel B is a measurement and not an artifact of negligible weight: had
+$R_{\mathrm{CpG}}$ carried a GC trend, it would have reached the applied multiplier scaled
+by up to 0.26. This is the
 panel that says the A–C mechanism *matters* rather than merely *holds*.
 
 Put together: a large, strongly GC-dependent CpG effect exists, step 1 already applies it,

@@ -191,9 +191,13 @@ through the same code as the intervention itself:
 | control: refit on the full training set | 0.168 | 0.212 | the reimplementation |
 | control: size-matched random subsample | 0.162 | 0.210 | simply having less data |
 
-Panel B rests on a counterfactual rather than a fit: holding non-CpG `r` at 1 leaves the
-adjustment flat within 0.4% across GC (wider run: 0.6%), inside a decomposition
-(`r_eff = Π·r_CpG + (1−Π)·r_non`) that is an exact identity bin by bin. `dnm_training_size/` adds the training-size dose-response
+Panel B rests on an identity rather than a fit: `r_eff = Π·r_CpG + (1−Π)·r_non` holds bin
+by bin, and since 2026-09-21 the panel draws exactly its three terms — the adjustment
+summed over all sites, over non-CpG sites and over CpG sites. The counterfactual that
+holds non-CpG `r` at 1 leaves the adjustment flat within 0.4% across GC (wider run: 0.6%);
+it is computed and printed rather than drawn, because subtracting 1 from the identity
+makes its departure `Π·(r_CpG − 1)`, which the two drawn curves already bound
+(`0.264 × 0.014 = 0.0037` on the narrowed run). `dnm_training_size/` adds the training-size dose-response
 the size-matched control cannot show.
 
 Stated rather than buried: panel D is in-sample (panel E is not); the callability caveat
