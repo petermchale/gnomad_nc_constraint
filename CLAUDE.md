@@ -23,6 +23,9 @@ fig5/                    THE manuscript figure. Five panels, one argument; each 
 fig2d/                   McHale et al. Fig. 2D (over-dispersion at central GC) redrawn with
                          the decontaminated Gnocchi beside the published one, and only that
 dnm_training_size/       the training-set-SIZE dose-response, and only that
+fig4_prevalence/         McHale et al.'s OWN Fig. 4 notebooks (constraint-tools), copied and
+                         edited to report pi and auROC beside normalized auPRC, whose 1/pi
+                         ceiling confounds lax-vs-stringent and metric-vs-metric; HPC only
 preconditions/           what had to be true about Chen et al.'s pipeline for any of the
                          above to mean anything: verify_* (is what we believe about their
                          artifact true?) and validate.py (is our code faithful to theirs?)
