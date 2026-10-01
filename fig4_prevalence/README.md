@@ -70,6 +70,19 @@ $CONSTRAINT_TOOLS/.venv/bin/jupyter nbconvert --to notebook --execute --inplace 
 The first is quick once the lax tables are loaded, because every bootstrap sample is only
 4,933 windows. The second is as slow as the original: it scores the full CDTS table.
 
+An executed notebook can run to tens of MB, which GitHub's notebook viewer will not
+render. Shrink it before committing:
+
+```
+python shrink_notebook.py 11.compare-lax-with-stringent-truth-set.prevalence.ipynb          # report only
+python shrink_notebook.py 11.compare-lax-with-stringent-truth-set.prevalence.ipynb --write  # shrink in place
+```
+
+It removes stderr streams and the HTML copy of DataFrame previews (the plain-text copy
+stays), and re-encodes figures with a 256-colour palette. Every printed table and every
+cell source is left byte-identical. Run without `--write`, it reports which cells hold the
+bytes.
+
 The upstream bootstraps are unseeded (`random_state=None`), and so are these. The means
 will therefore match the published bars to within their error bars, not digit for digit.
 
