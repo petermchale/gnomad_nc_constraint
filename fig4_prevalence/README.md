@@ -90,6 +90,10 @@ will therefore match the published bars to within their error bars, not digit fo
 
 ## Reading the result
 
+The executed `11.compare-lax-with-stringent-truth-set.prevalence.ipynb` ends with a
+**Conclusions** section interpreting every output it prints; what follows is the guide
+written before that run.
+
 **Lax against stringent.** Read the `auROC` block under "stringent minus lax":
 - If Gnocchi and λs are higher on the stringent set by auROC, the "post-hoc validation of
   stringency" stands whatever π did.
