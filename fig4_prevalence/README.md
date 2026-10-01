@@ -53,8 +53,10 @@ The upstream outputs were cleared, since they belong to the unedited code.
   auPRC skill (auPRC − π)/(1 − π), and auROC.
 - It runs for GC (Fig. 4C), BGS and gBGC (Supporting Fig. 5E, F).
 - It prints mean ± s.d. by metric and truth set, then stringent minus lax on each measure.
-- The raw samples are written to `prevalence_check.bootstraps.tsv`, so they can be re-read
-  without a rerun.
+- The raw samples are written to `prevalence_check.bootstraps.tsv` beside the notebook,
+  for a statistic the notebook does not print (a percentile interval, say). It is
+  gitignored: every number quoted is in the notebook's committed output, and a rerun
+  reproduces the conclusions, though not digit for digit, since the bootstraps are unseeded.
 
 ## Running on the HPC
 

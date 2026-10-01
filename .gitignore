@@ -43,3 +43,7 @@ fig5/output/r_eff_components.*.parquet
 # moved out of fig5/panels.py so reviewing that file means reviewing what is published.
 # Cut for composition, not correctness. Last tracked at 582c09d; see the file's docstring.
 fig5/panels_extra.py
+
+# Raw bootstrap samples behind fig4_prevalence's summary tables (~4 MB). Every number
+# quoted is in the executed notebook's output; this is regenerable by rerunning it.
+fig4_prevalence/prevalence_check.bootstraps.tsv
