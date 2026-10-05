@@ -7,8 +7,10 @@ standalone vector file for assembly in Illustrator, plus two supporting figures.
 cited there as 7A-7D (A alone on the left, B-D stacked on the right: A's abscissa is
 methylation level, not the GC content the other three share).
 
-`output/supp_fig8.pdf` — **Supporting Figure 8**, **five panels in three columns** (A over B, one score each;
-C over D sharing an x axis; E alone), which ask what panel E's
+`output/supp_fig8.neutral.pdf` — **Supporting Figure 8**, **nine panels in four slots, two
+rows of two** (row 1: A over B, one score each, beside C at full height; row 2: D over E
+over F, the per-bin threshold at matched calling rates of 99/50/1%, beside G over H over I,
+the gain at those same rates), which ask what panel E's
 intervention buys or costs in *discovery*: McHale et al.'s Fig. 4A/B for published Gnocchi
 against the retrained one, on their GeneHancer enhancer-overlap truth set. It is this
 figure's own pipeline with one filter dropped (`keep_enhancer_windows=True`), so it is a
