@@ -2,23 +2,18 @@
 Data for the six panels of Fig. 5 and for Supporting Figures 7 and 8. Every builder caches its
 result as parquet in fig5/output/, so the notebook is instant after the first pass.
 
-One builder per plotted quantity, grouped by the panel that draws it. Panel C and
-Supporting Figure 7 were a separate module, diagnostics.py, back when they measured
-claims the text asserted in prose and nothing plotted -- panel C gained a lower row and
-the supporting figure was built, so they are ordinary panel data now and live here with
-the rest. Read that history at ea1805c if a comment seems to assume it.
+One builder per plotted quantity, grouped by the panel that draws it. (Panel C and
+Supporting Figure 7 were once a separate diagnostics.py; history at ea1805c.)
 
-Inputs, in three groups:
-
-  * the public gnomAD-NC-constraint bucket, downloaded on demand into published/ by
-    gnocchi_bias.windows.download;
-  * the three refits fig5/refit.py produces (full / scored / sizematched), which live in
-    the repo-root refits/ -- ONE copy, also read directly by dnm_training_size/;
-  * two files that are NOT in this repo, read from fig5/config.py (NOT set in the
-    notebook -- refit.py reads the same module, and the two must agree) -- a
-    depletion-rank BED (panel A's third curve) and McHale et al.'s neutral-window file
-    (which narrows the analyzed set to their 693,270 windows). Both default to None;
-    the figure builds without them.
+Inputs:
+  * the public gnomAD-NC-constraint bucket, downloaded on demand into published/;
+  * the three refits fig5/refit.py writes (full / scored / sizematched) to the repo-root
+    refits/, one copy, also read by dnm_training_size/;
+  * two files NOT in this repo, read from fig5/config.py (not the notebook -- refit.py
+    reads the same module, and the two must agree): a depletion-rank BED (panel A's third
+    curve) and McHale et al.'s window file (their 693,270 putatively neutral windows, and
+    the enhancer flag that is Supporting Fig. 8's truth set). Both are set, to HPC paths.
+    Unset, Fig. 5 builds on the wider window set and Supporting Fig. 8 not at all.
 """
 import contextlib
 import hashlib
@@ -47,22 +42,13 @@ REFITS_DIR = os.path.join(REPO_ROOT, "refits")  # the shared refit outputs
 @contextlib.contextmanager
 def quiet():
     """
-    Swallow a builder's progress output. For the notebook's REPEAT calls only.
+    Swallow a builder's stdout, for the notebook's REPEAT calls: Supporting Fig. 8's
+    builders each reprint the same preamble, so the first call of each kind runs loud and
+    the repeats run in here. Exceptions still propagate; the captured text is yielded.
 
-    WHY THIS AND NOT A `verbose` PARAMETER. The preamble every Supporting Fig. 8 builder
-    emits -- the window-file join, the z sanity check, the evaluated count -- is printed by
-    `gnocchi_bias/windows.py`, which `preconditions/` and `dnm_training_size/` import too,
-    so threading a flag down to it would change three other entry points to tidy one
-    notebook. This stays inside fig5.
-
-    HOW THE NOTEBOOK USES IT. Supporting Fig. 8 calls threshold_metrics and paired_deltas
-    five times over, and each call reprints that preamble plus its own per-bin dump -- about
-    110 lines, nearly all of it identical. The FIRST call of each kind runs loud, so the
-    population, the class balancing and the dropped bins are all on the page once; the
-    repeats run in here, and one consolidated table prints their numbers instead.
-
-    It captures stdout, not exceptions, so a failure still propagates and still shows its
-    traceback. The captured text is yielded, so a caller that wants a line of it can look.
+    A context manager, not a `verbose` parameter, because much of that preamble is printed
+    by gnocchi_bias/windows.py, which preconditions/ and dnm_training_size/ import too --
+    a flag would change three other entry points to tidy one notebook.
     """
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -91,10 +77,9 @@ ELEMENT_ID_FROM_LOCUS = (
 def refit_path(kind: str, pop: str, refits_dir: str = REFITS_DIR) -> str:
     """
     A refit table, verified to have been built under the CURRENT
-    config.NEUTRAL_WINDOWS_BED.
-    That check is the reason to route every read through here: `scored` is fit on the
-    analyzed window set, so a refit built under a different setting than the panels are
-    evaluated under is trained on one population and scored on another.
+    config.NEUTRAL_WINDOWS_BED. Route every read through here: `scored` is fit on the
+    analyzed window set, so a stale refit is trained on one population and scored on
+    another.
     """
     path = os.path.join(refits_dir, REFIT_FILES[kind].format(pop=config.tagged(pop)))
     if not os.path.exists(path):
@@ -125,15 +110,10 @@ def duck(memory_limit: str = "8GB") -> duckdb.DuckDBPyConnection:
 
 def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
     """
-    Wilson score interval for a binomial proportion.
-
-    NOT a bootstrap, and not for want of one. Precision and recall at a fixed threshold are
-    plain proportions, so their sampling error has a closed form. Where a panel plots two
-    LEVELS -- Fig. 5F's two calling-rate curves -- an interval on each is exactly the right
-    object. Where it plots a DIFFERENCE, it takes the paired bootstrap instead, and the
-    `deltas` argument in panels.py replaces these bars with that. Wilson rather than the normal
-    approximation because the counts get small in the thin GC bins and at a threshold only
-    ~1% of windows clear, which is where Wald intervals run outside [0, 1].
+    Wilson score interval for a binomial proportion -- for a panel plotting LEVELS (e.g.
+    Fig. 5F's calling rates), where each proportion has a closed-form error. A panel
+    plotting a DIFFERENCE between scores takes the paired bootstrap instead. Wilson, not
+    Wald, because counts get small in thin GC bins, where Wald runs outside [0, 1].
     """
     if n == 0:
         return (float("nan"), float("nan"))
@@ -149,10 +129,8 @@ def _wilson(k: int, n: int, z: float = 1.959963985) -> tuple[float, float]:
 def gc_edges(gc: np.ndarray, n_bins: int = N_BINS) -> np.ndarray:
     """
     Fixed-width edges spanning the observed GC range, matching windows.bin_by_gc's
-    "fixed" branch exactly. Returned explicitly rather than recomputed per consumer
-    because three populations get binned on this axis -- genome-wide windows,
-    per-(context, bin) expected counts aggregated in duckdb, and DNM training sites --
-    and they are only comparable if the edges are identical.
+    "fixed" branch. Passed explicitly to every consumer -- windows, duckdb-aggregated
+    expected counts, DNM training sites -- since they compare only on identical edges.
     """
     edges = np.unique(np.linspace(float(np.min(gc)), float(np.max(gc)), n_bins + 1))
     edges[-1] += 1e-9
@@ -164,9 +142,8 @@ def assign_bin(gc: np.ndarray, edges: np.ndarray) -> np.ndarray:
 
 
 def sql_bin_expr(gc_expr: str, edges: np.ndarray) -> str:
-    """duckdb equivalent of assign_bin, for grouping inside a query rather than
-    materializing tens of millions of rows. Edges are uniform, so it is a clipped
-    floor-divide -- no CASE ladder needed."""
+    """duckdb equivalent of assign_bin, to group inside a query rather than materialize
+    tens of millions of rows. Edges are uniform, so a clipped floor-divide suffices."""
     lo, hi, n = float(edges[0]), float(edges[-1]), len(edges) - 1
     width = (hi - lo) / n
     return f"LEAST(GREATEST(CAST(FLOOR(({gc_expr} - {lo!r}) / {width!r}) AS INTEGER), 0), {n - 1})"
@@ -183,24 +160,20 @@ def window_table(cache_dir: str = CACHE_DIR,
                  neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED
                  ) -> pl.DataFrame:
     """
-    The analyzed window population: noncoding, pass_qc, autosome/PAR, with GC content
-    as a 0-1 fraction -- and, if config.NEUTRAL_WINDOWS_BED is set, narrowed by a join
-    to McHale et al.'s own 693,270 putatively neutral windows. This is both the test set
-    Gnocchi is scored on and (in panels C-E) the population the retrained adjustment is
-    fit on.
-
-    The default comes from fig5/config.py, which fig5/refit.py reads too -- so the
-    population fit on and the population scored on cannot drift apart. Do not pass this
-    explicitly unless you also rerun the refits with the same value.
+    The analyzed window population: noncoding, pass_qc, autosome/PAR, GC as a 0-1
+    fraction -- or, if config.NEUTRAL_WINDOWS_BED is set, McHale et al.'s 693,270
+    putatively neutral windows. Both the set Gnocchi is scored on and (panels C-E) the
+    one the retrained adjustment is fit on. The default is read from fig5/config.py, as
+    refit.py reads it; pass another value only if you rerun the refits with it.
     """
     return W.build_window_table(cache_dir, neutral_windows_bed=neutral_windows_bed)
 
 
 def rank_bias(binned: pl.DataFrame, label: str, min_n: int = 0) -> float:
     """
-    Mean |mean rank - 0.5| over GC bins holding at least min_n windows: one number for
-    "how GC-biased is this metric". Bins are unweighted. Pass the SAME min_n the panel
-    plots with, or this summarizes bins the reader cannot see.
+    Mean |mean rank - 0.5| over GC bins with >= min_n windows, unweighted: one number for
+    "how GC-biased is this metric". Pass the panel's own min_n, or this summarizes bins
+    the reader cannot see.
     """
     b = binned.filter(pl.col("n") >= min_n) if min_n else binned
     return float((b[f"mean_{label}"] - 0.5).abs().mean())
@@ -209,10 +182,9 @@ def rank_bias(binned: pl.DataFrame, label: str, min_n: int = 0) -> float:
 def rank_curves(df_win: pl.DataFrame, extra: list[tuple[str, str]] = (),
                 min_n: int = 100):
     """
-    The Fig. 2A rank statistic for the context-only model (r == 1), published Gnocchi,
-    and any `extra` (label, expected-table path) refits, on ONE window population with
-    ONE set of GC bins -- all curves are z-filtered jointly and ranked after that
-    filter, so no curve is advantaged by its own filtering.
+    The Fig. 2A rank statistic for the context-only model (r == 1), published Gnocchi and
+    any `extra` (label, expected-table path) refits, on one window population and one set
+    of GC bins, z-filtered jointly so no curve is advantaged by its own filtering.
     """
     curves = [("step1", "expected_step1"), ("step2", "expected_step2")]
     for label, path in extra:
@@ -243,18 +215,14 @@ def _r_eff_components(pop: str, cache_dir: str, refits_dir: str,
         e1_cpg  E1^K(w)          sum_t E1^t(w) over the four CpG contexts K
         e2_cpg  E2^K(w)          sum_t E1^t(w) r_t(w) over those same four
 
-    Non-CpG is then a subtraction the caller does (e1_non = e1 - e1_cpg), which is why
-    only the CpG slice of the two multi-GB per-context files is ever joined -- an
-    85M x 85M join becomes 10M x 10M.
+    The caller gets non-CpG by subtraction (e1_non = e1 - e1_cpg), so only the CpG slice
+    of the multi-GB per-context files is joined (10M x 10M rows, not 85M x 85M). That
+    mixes two published files, totals from the summed export and CpG parts from the
+    per-context one; preconditions/verify_expected_r1.py shows they agree (`possible`
+    exactly, `expected` to 4.6e-5 relative).
 
-    That subtraction mixes two published files -- the totals come from the summed export,
-    the CpG parts from the per-context one -- so it needs them to describe the same
-    counts. They do: preconditions/verify_expected_r1.py regenerates the first from the
-    second genome-wide, `possible` exactly and `expected` to 4.6e-5 relative.
-
-    The published pipeline writes its per-context r to a local dir, not the bucket, so
-    the refit's rr table stands in. That substitution is validated per GC bin in
-    r_eff_by_gc, since the published r_eff is separately computable as E2/E1.
+    Chen et al. never published per-context r, so the refit's rr table stands in;
+    r_eff_by_gc validates that per GC bin against the published E2/E1.
     """
     ctx = ", ".join(f"'{c}'" for c in M.CPG_CONTEXTS)
     percontext = W.download(M.GENOME_EXPECTED_PERCONTEXT_FILE, cache_dir)
@@ -306,22 +274,15 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
     """
     Panel B's table: r_eff = E2/E1 per GC bin, decomposed by CpG status.
 
-    Aggregated as RATIOS OF SUMMED expected counts, not means of per-window ratios.
-    Expected counts add, so sum(E2)/sum(E1) is the adjustment the bin actually
-    receives -- and it keeps the decomposition r_eff = Pi*r_CpG + (1-Pi)*r_non exact
-    bin by bin, which an average of per-window ratios would only satisfy approximately.
-
-    Prints the published-vs-refit agreement in r_eff. Read it before trusting the
-    CpG/non-CpG split: it is what licenses using the refit's per-context r at all.
+    RATIOS OF SUMMED expected counts, not means of per-window ratios: sum(E2)/sum(E1) is
+    the adjustment the bin actually receives, and it keeps r_eff = Pi*r_CpG + (1-Pi)*r_non
+    exact bin by bin. Prints the published-vs-refit agreement in r_eff, which is what
+    licenses using the refit's per-context r for the CpG/non-CpG split.
     """
-    # config.tagged, not a bare `pop`, and today that changes NOTHING: panel B is the only
-    # caller, it passes pop="full", and `full` is not WINDOW_DEPENDENT -- its refit never
-    # builds the window table, so its tables are identical under either window set and one
-    # cache correctly serves both. The tag matters only if this is ever called with
-    # "scored" or "sizematched", whose content DOES move with config.NEUTRAL_WINDOWS_BED.
-    # It would move silently: cached() short-circuits before the builder runs, so
-    # refit_path -- and therefore config.check -- is never reached on a cache hit. Naming
-    # the cache the way the refit it is built from is named closes that off in advance.
+    # config.tagged(pop) is a no-op for the only caller (pop="full", not WINDOW_DEPENDENT).
+    # It guards a future "scored"/"sizematched" caller: cached() returns before
+    # refit_path's config.check runs, so an untagged cache would be reused silently
+    # across window sets.
     comp = cached(f"r_eff_components.{config.tagged(pop)}.parquet",
                   lambda: _r_eff_components(pop, cache_dir, refits_dir, memory_limit),
                   force)
@@ -354,82 +315,42 @@ def r_eff_by_gc(df_win: pl.DataFrame, edges: np.ndarray, pop: str = "full",
 
 # --------------------------------------------- panel C, and Supporting Figure 7
 #
-# Both of panel C's rows are views of ONE table, dnm_rate_by_stratum() below: the upper
-# row is its per-stratum site counts (a composition -- how much of the training set sits
-# outside the scored population) and the lower row is its per-stratum DNM rates (whether
-# the territory outside is also DIFFERENT). One query, so the two rows cannot end up
-# describing different sites.
-#
-# Both rows count BOTH training classes, DNMs and background alike: the fit minimizes its
-# loss over the mixture, so the mixture is the training distribution, and it is the training
-# distribution the panel compares against the scored one. (Counting the background class
-# alone would describe the case-control DESIGN rather than the fit.)
+# Both of panel C's rows are views of ONE query, dnm_rate_by_stratum(): per-stratum site
+# counts above (how much of the training set sits outside the scored population),
+# per-stratum DNM rates below (whether that territory is also DIFFERENT). Both count DNMs
+# and background alike, since the fit's loss is over that mixture; the background class
+# alone would describe the case-control design, not the fit.
 
-# The strata a training site can fall into, relative to the scored population.
-#
-# THE FIRST STRATUM IS ASSIGNED BY A LOOKUP, NOT BY A TEST. A site is `scored` iff its
-# 1 kb window has a row in the analyzed window table -- the CASE arm below is a join on
-# element_id (`sw.element_id IS NOT NULL`), and nothing in this file re-states the
-# conditions that put the window in that table.
-#
-# Those conditions live in one place, windows.build_window_table, and they are not fixed:
-# with config.NEUTRAL_WINDOWS_BED unset the table is the coding restriction + QC filter +
-# autosome/PAR restriction; with it set the table is McHale et al.'s own 693,270-window
-# file, with none of those applied on top. The same table is what
-# dnm_model.restrict_to_analyzed_windows filters the training set with, so joining
-# against it makes `scored` here mean exactly "survives the panel D/E intervention" under
-# whichever of the two definitions is in force -- automatically, with no second copy of
-# the definition to keep in step.
-#
-# The remaining three strata are for sites OUTSIDE the scored population, and each
-# names the reason it is outside. In stacking order, bottom to top:
-#   coding          scored by Chen et al., but the window overlaps coding exons -- and,
-#                   once NEUTRAL_WINDOWS_BED is set, is outside their set too, since a
-#                   coding window their file lists is tested by the `scored` arm first
-#                   and kept.
-#   other_noncoding QC-pass and noncoding and in the constraint table, but NOT in McHale
-#                   et al.'s window set -- the rest of the QC-pass noncoding territory,
-#                   the part given up in going from 1,843,559 windows to their 693,270
-#                   (enhancer-overlapping windows, plus their assembly-gap /
-#                   ENCODE-exclude / low-coverage exclusions; the file does not say
-#                   which, and this band does not need to).
-#                   NAMED FOR WHERE IT SITS, NOT FOR WHAT IT IS, since a name like
-#                   `non_neutral` would assert more than the data does: these
-#                   windows are outside a set McHale et al. call putatively neutral,
-#                   which is not evidence that they are under selection. Whether they
-#                   differ from the scored population at all is the open question this
-#                   band exists to answer -- if the given-up territory has the scored
-#                   population's own DNM rate, restricting to their set costs sample
-#                   size and nothing else -- so the name must not presume the answer.
-#                   Necessarily empty while config.NEUTRAL_WINDOWS_BED is None, and an
-#                   empty stratum draws no band and no legend entry (panels.py). Note
-#                   the asymmetry with `coding` above: this arm is reached only by
-#                   windows their file does not list at all.
-#   failed_qc       no row in the constraint table at all, so no coding_prop to test.
-#                   `failed_qc` and not `no_coverage`: every absent window has its QC
-#                   inputs on file and fails one of the paper's three conditions (>= 80%
-#                   of observed variants PASS, mean coverage 25-35x, >= 1000 possible
-#                   variants), the first dominating. preconditions/verify_qc_filter.py
-#                   measures the split.
-#
-# This tuple's order is the DRAWING order -- bottom to top in panel C's stacked bars,
-# matching panels.COMPOSITION_STYLE. It is not the order the CASE arms are tested in;
-# see _stratum_expr for that.
+# The strata a training site can fall into, in DRAWING order (bottom to top, matching
+# panels.COMPOSITION_STYLE; _stratum_expr tests them in a different order):
+#   scored          its 1 kb window is in the analyzed window table -- a join, not a
+#                   re-statement of that table's filters, so `scored` means "survives the
+#                   panel D/E intervention" under whichever definition
+#                   windows.build_window_table is applying (the same table
+#                   dnm_model.restrict_to_analyzed_windows filters the training set with).
+#   coding          in the constraint table, but overlapping coding exons.
+#   other_noncoding QC-pass noncoding but outside McHale et al.'s neutral set: windows their
+#                   file flags as enhancer-overlapping, plus ones it does not list (their
+#                   assembly-gap / ENCODE-exclude / low-coverage exclusions). Named for
+#                   where it sits, not what it is: being outside a putatively neutral set
+#                   is not evidence of selection, and whether this territory differs at all
+#                   is what the band measures. Empty, and undrawn, while
+#                   config.NEUTRAL_WINDOWS_BED is None.
+#   failed_qc       no row in the constraint table. Not `no_coverage`: every such window
+#                   has its QC inputs on file and fails one of the paper's three
+#                   conditions, mostly the >= 80% PASS rule (preconditions/
+#                   verify_qc_filter.py).
 _STRATA = ("scored", "coding", "other_noncoding", "failed_qc")
 
 
 def _stratum_expr() -> str:
     """
-    Panel C's CASE expression. `sw` is the analyzed window table registered as a duckdb
-    relation by dnm_rate_by_stratum; `an` is the published constraint table.
+    Panel C's CASE expression. `sw` is the analyzed window table, registered by
+    dnm_rate_by_stratum; `an` is the published constraint table. The coding threshold is
+    windows.NONCODING_MAX_CODING_PROP, the one restrict_to_noncoding uses.
 
-    The coding arm reads its threshold from windows.NONCODING_MAX_CODING_PROP -- the same
-    constant restrict_to_noncoding filters on -- rather than repeating a literal, so
-    "overlaps coding exons" means one thing in this figure.
-
-    The genome's 1 kb windows partition three ways (top row). `sw` is drawn over that
-    partition twice, once per setting of config.NEUTRAL_WINDOWS_BED, with the stratum
-    each region gets underneath it:
+    The genome's 1 kb windows partition three ways (top row); below it, the stratum each
+    region gets under each setting of config.NEUTRAL_WINDOWS_BED:
 
     |<------------------ QC-pass: a row in `an` ------------------->||<- QC-fail ->|
     +-----------------------------------------+---------------------+--------------+
@@ -442,20 +363,14 @@ def _stratum_expr() -> str:
     |<--- sw, BED set ---->|                  |<- * ->|
     |   scored (693,270)   | other_noncoding  | scored|    coding   |  failed_qc   |
 
-    Unset, `sw` IS the noncoding cell -- build_window_table produces it by filtering on
-    coding_prop and QC, so the two coincide and every arm below `scored` is reached only
-    by windows outside it. Set, `sw` is McHale et al.'s file taken whole, and it respects
-    neither internal boundary: it covers part of the noncoding cell (the rest becomes
-    `other_noncoding`, empty and undrawn in the unset case) and MAY reach into the coding
-    cell (*), since nothing filters their file on coding_prop.
+    Unset, `sw` IS the noncoding cell. Set, it is McHale et al.'s file filtered to
+    enhancer == False and nothing else, so it covers part of the noncoding cell and MAY
+    reach into the coding one (*), since nothing filters their file on coding_prop.
 
-    THAT OVERLAP IS WHY THE `scored` ARM MUST COME FIRST. A window in (*) satisfies both
-    `sw.element_id IS NOT NULL` and `an.coding_prop > threshold`; panels D/E fit and score
-    on it, so `scored` is its true label, and testing membership before coding is what
-    makes this CASE agree with them. windows.restrict_to_mchale_neutral_windows prints
-    how many such windows there are -- 0 means (*) is empty and the two drawings differ
-    only inside the noncoding cell. (693,270 is their file's own row count, before the
-    three-way join drops windows with no constraint/expected/features row.)
+    HENCE `scored` IS TESTED FIRST: panels D/E fit and score on a window in (*), so that is
+    its true label. windows.restrict_to_mchale_neutral_windows prints how many there are.
+    (693,270 is their enhancer == False row count, before the join drops windows lacking
+    a constraint/expected/features row.)
     """
     return f"""CASE WHEN sw.element_id IS NOT NULL THEN 'scored'
                     WHEN an.element_id IS NULL THEN 'failed_qc'
@@ -463,8 +378,7 @@ def _stratum_expr() -> str:
                     ELSE 'other_noncoding' END"""
 
 # chrX/chrY dropped from BOTH classes. The published fitting code drops chrX from the
-# background class only, which inflates the apparent rate there; an empirical reference
-# must not inherit that asymmetry.
+# background class only, which inflates the apparent rate there.
 _TRAINING_SITES = """
     SELECT context, methyl_level, {eid} AS element_id, 1 AS label
     FROM read_csv_auto('{dnm1}', delim='\t', header=True)
@@ -488,18 +402,14 @@ def _binned_training_query(cache_dir: str, edges: np.ndarray, where: str,
                            extra_joins: str = "") -> str:
     """
     Training sites joined to their 1 kb tile's GC and constraint annotation, aggregated
-    per GC bin. `extra_group_by` adds further grouping keys alongside the GC bin, each an
-    (expression, alias) pair that goes into BOTH the select list and the GROUP BY -- panel
-    C passes one, the stratum CASE expression. `aggs` adds further aggregate select items.
-    `extra_joins` appends further join clauses, for a relation the caller registered on
-    its own connection -- panel C joins the analyzed window table that way, rather than
-    re-deriving it from `an`.
+    per GC bin. `extra_group_by`: further (expression, alias) grouping keys, e.g. panel C's
+    stratum CASE. `aggs`: further aggregate select items. `extra_joins`: join clauses for a
+    relation the caller registered on its own connection, e.g. the analyzed window table.
     """
     gc_bin = sql_bin_expr("ft.GC_content_1k / 100.0", edges)
     key_select = "".join(f"{expr} AS {alias}, " for expr, alias in extra_group_by)
-    # GROUP BY names the select aliases -- duckdb resolves them -- so each grouping
-    # expression is written once. Safe only while no alias collides with a column of
-    # `s`, `ft`, `an` or a registered relation: a collision binds to the column instead.
+    # GROUP BY names the select aliases, which duckdb resolves -- safe only while no alias
+    # collides with a column of `s`, `ft`, `an` or a registered relation.
     group_by = ", ".join([alias for _, alias in extra_group_by] + ["gc_bin"])
     return f"""
         WITH an AS (SELECT element_id, pass_qc, coding_prop
@@ -522,16 +432,11 @@ def _binned_training_query(cache_dir: str, edges: np.ndarray, where: str,
 
 def _fingerprint(edges: np.ndarray, df_win: pl.DataFrame | None = None) -> str:
     """
-    Six hex characters standing for "these GC edges over this window population", for a
-    cache key. `df_win` is omitted by builders that bin the whole training population
-    rather than a window set -- they still depend on the edges, which move with it.
-
-    Both inputs move when config.NEUTRAL_WINDOWS_BED changes -- the window set directly,
-    the edges because gc_edges spans its GC min and max -- and neither is visible in the
-    old `{n}bins` key, so a cached table built under one setting would be silently
-    reused under the other. It also keeps the two window sets' tables side by side in
-    fig5/output/ instead of one overwriting the other. Order-independent (xor over per-id hashes), and a polars
-    version bump can only cost a rebuild, never a wrong answer.
+    Six hex characters for "these GC edges over this window population", for a cache key.
+    Both move with config.NEUTRAL_WINDOWS_BED (gc_edges spans the window set's GC range),
+    so without this a table cached under one setting would be silently reused under the
+    other. `df_win` is omitted by builders that bin the whole training population.
+    Order-independent; a polars version bump can only cost a rebuild.
     """
     h = hashlib.blake2s(np.asarray(edges, float).tobytes(), digest_size=3)
     if df_win is not None:
@@ -545,33 +450,24 @@ def dnm_rate_by_stratum(edges: np.ndarray, df_win: pl.DataFrame,
                         cache_dir: str = CACHE_DIR, force: bool = False,
                         memory_limit: str = "10GB") -> pl.DataFrame:
     """
-    Empirical P(DNM) over non-CpG training sites, per GC bin, split by where the site
-    sits relative to the scored population: inside it, or outside it because the window
-    is coding, outside McHale et al.'s neutral set, or absent from the constraint table
-    for failing gnomAD variant-call QC. See _STRATA above for what defines each.
+    Empirical P(DNM) over non-CpG training sites, per GC bin and _STRATA stratum. `df_win`
+    must be the analyzed window table the panels use (data.window_table), or sites are
+    labelled against a population no panel shows. On the wider window set, 72,801 of the
+    non-CpG autosomal DNMs are QC-failing, 17,545 coding and 241,479 scored.
 
-    `df_win` is the analyzed window table (data.window_table). It is required, and it is
-    the SAME frame the panels are evaluated on -- passing a different one would label
-    sites against a population no panel uses.
-
-    Both classes are labelled, DNMs included -- that is what makes this a rate rather
-    than a composition. 72,801 of the non-CpG autosomal DNMs sit in the QC-failing
-    stratum, against 17,545 coding and 241,479 in the scored population.
-
-    THE POINT. The scored and coding curves are both nearly flat in GC and nearly
-    equal, so the coding exclusion is not what makes the training set's GC dependence
-    steep. The QC-failing curve is not flat: it runs ~1.6x the scored rate in the GC
-    bulk and ~4.1x by GC 0.61. Essentially all of the original training set's GC
-    dependence is contributed by sequence gnomAD could not call reliably -- which is also
-    where trio DNM calling is least reliable, so part of the excess is plausibly
-    false-positive DNM calls rather than real mutation.
+    THE POINT. The scored and coding curves are nearly flat and nearly equal, so the
+    coding exclusion is not what makes the training set's GC dependence steep. The
+    QC-failing curve is not flat: 1.50-1.63x the scored rate in the GC bulk and 3.39x by
+    GC 0.58 on the committed (narrowed) run (wider: 1.55x, 4.06x by GC 0.61). Essentially
+    all of the training set's GC dependence comes from sequence gnomAD could not call
+    reliably -- also where trio DNM calling is least reliable, so part of the excess is
+    plausibly false-positive DNM calls.
 
     Columns: stratum, gc_bin, gc_pct, k (DNMs), n (sites), p = k/n.
     """
     def build():
         con = duck(memory_limit)
-        # Registered rather than written out: duckdb reads the polars frame in place, so
-        # the analyzed window set enters the query as itself, not as a re-derivation.
+        # Registered, so the analyzed window set enters the query as itself.
         con.register("scored_windows", df_win.select("element_id"))
         q = _binned_training_query(
             cache_dir, edges, extra_group_by=[(_stratum_expr(), "stratum")],
@@ -586,27 +482,18 @@ def dnm_rate_by_stratum(edges: np.ndarray, df_win: pl.DataFrame,
 
 def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
     """
-    Panel C's upper row: each GC bin's non-CpG training sites split by stratum, as counts
-    and as fractions of the bin. `st` is dnm_rate_by_stratum() output, whose `n` is
-    exactly this count -- so the composition is a reshape of the table the lower row takes
-    its rates from, not a second query that could drift from it.
-
-    Both training classes are counted, DNMs and background alike. Restricted to the
-    background class (n - k) this reproduces the standalone dnm0-only query it replaced
-    exactly, bin by bin and stratum by stratum, on all 20 bins; what the mixture adds is
-    the DNM class's own, steeper drift out of the scored population.
-
-    The strata partition the bin by construction -- _stratum_expr() is a CASE expression,
-    so a site lands in exactly one -- which is why nothing is asserted here.
+    Panel C's upper row: each GC bin's non-CpG training sites by stratum, as counts and
+    fractions -- a reshape of dnm_rate_by_stratum()'s `n`, so it cannot drift from the
+    lower row. Its background class alone (n - k) reproduces the dnm0-only query it
+    replaced exactly; the mixture adds the DNM class's steeper drift out of the scored
+    population. The CASE expression puts each site in exactly one stratum, so nothing is
+    asserted.
 
     Columns: gc_bin, gc_mid, n_total, n_{stratum}, frac_{stratum}, for every stratum in
-    _STRATA including any that is empty genome-wide (`other_noncoding`, while
-    NEUTRAL_WINDOWS_BED is None) -- the shape does not depend on the configuration, and panels.py drops a band
-    that is zero everywhere rather than drawing an invisible one with a legend entry.
+    _STRATA, empty ones included; panels.py drops a band that is zero everywhere.
     """
-    # A GC bin can be missing a stratum entirely (the lowest two hold no coding sites),
-    # which pivots to null rather than to an absent row. A stratum missing from EVERY bin
-    # has no column at all, hence the explicit zero fill below.
+    # A stratum missing from a bin pivots to null; one missing from EVERY bin has no
+    # column at all, hence the zero fill.
     wide = (st.pivot(values="n", index="gc_bin", on="stratum", aggregate_function="first")
               .fill_null(0).sort("gc_bin"))
     absent = [s for s in _STRATA if s not in wide.columns]
@@ -619,9 +506,8 @@ def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
     df = df.with_columns(
         [(pl.col(s) / pl.col("n_total")).alias(f"frac_{s}") for s in _STRATA]
     ).rename({s: f"n_{s}" for s in _STRATA})
-    # Deliberately no fraction range printed here: the lowest-GC bins hold a handful of
-    # sites that are essentially all QC-failing, so an unrestricted min() reads 0.00 and
-    # would get copied into a caption. The notebook reports the range over plotted bins.
+    # No fraction range printed: the near-empty lowest-GC bins would make min() read 0.00.
+    # The notebook reports it over plotted bins.
     print(f"training composition: {int(df['n_total'].sum()):,} non-CpG training sites "
           f"over {df.height} GC bins")
     return df
@@ -629,23 +515,17 @@ def training_composition(st: pl.DataFrame, edges: np.ndarray) -> pl.DataFrame:
 
 def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl.DataFrame:
     """
-    dnm_rate_by_stratum() reshaped to the ratios panel C plots: each excluded stratum's
-    non-CpG DNM rate over the scored population's, per GC bin.
+    Panel C's lower row: each excluded stratum's non-CpG DNM rate over the scored
+    population's, per GC bin. A ratio, because the question is whether the excluded
+    territory DIFFERS, and it divides out the scored rate's own mild GC drift.
 
-    Ratios rather than raw rates because the question is comparative -- is the excluded
-    territory DIFFERENT from the territory Gnocchi is scored on -- and because the
-    scored population's own rate drifts mildly with GC, which a ratio divides out.
+    `{stratum}_se_log` is the delta-method SE of log(ratio), sqrt((1-p_a)/k_a +
+    (1-p_b)/k_b) with k the DNM count -- the SE of the LOG ratio only, which is why panel
+    C plots log(ratio) on a linear axis with plain +/- se bars. min_n drops bins where
+    either stratum has fewer sites.
 
-    `{stratum}_se_log` is the delta-method SE of log(ratio), SE = sqrt((1-p_a)/k_a +
-    (1-p_b)/k_b), i.e. binomial noise in both strata (Var(log p_hat) = Var(p_hat)/p^2 =
-    (1-p)/(n p) = (1-p)/k, with k the DNM count). It is the SE of the LOG ratio and of
-    nothing else, which is why panel C plots log(ratio) on a linear axis and draws the
-    bars as a plain +/- se there. min_n drops bins where either stratum holds fewer than
-    that many sites.
-
-    Columns: gc_bin, gc_mid, and {stratum}_{ratio,se_log} for each excluded stratum that
-    has any bin left after min_n -- so an empty `other_noncoding` stratum contributes no
-    columns rather than a column of nulls, and panels.py plots whichever it finds.
+    Columns: gc_bin, gc_mid, and {stratum}_{ratio,se_log} for each excluded stratum with
+    any bin left after min_n; panels.py plots whichever it finds.
     """
     keep = st.filter(pl.col("n") >= min_n)
     base = keep.filter(pl.col("stratum") == "scored").select(
@@ -670,17 +550,13 @@ def stratum_ratios(st: pl.DataFrame, edges: np.ndarray, min_n: int = 2000) -> pl
 def dnm_probability(populations=("full", "scored", "sizematched"), n_bins: int = N_BINS,
                     refits_dir: str = REFITS_DIR, min_n: int = 500) -> dict:
     """
-    Panel D's tables: per-GC-bin fitted and empirical P(DNM) over the non-CpG training
-    sites of each population, from the per-site predictions fig5/refit.py wrote.
+    Panel D's tables: per-GC-bin fitted and empirical P(DNM) over each population's
+    non-CpG training sites, from refit.py's per-site predictions. Binned on edges SHARED
+    across populations, whose GC ranges differ. GC is in 0-100 percent units here
+    (GC_content_1k); panel_dnm_probability_pairs divides by 100.
 
-    Binned on SHARED edges across populations -- they have different GC ranges, so
-    letting each pick its own linspace would misalign them. GC here is in this repo's
-    native 0-100 percent units (the GC_content_1k regional feature at the site);
-    panel_dnm_probability_pairs divides by 100.
-
-    The empirical column is the fraction of that bin's training examples that are
-    DNMs, so its level reflects the case-control design (dnm0:dnm1 ~ 10:1), not the
-    genome-wide DNM rate. Only shape is interpretable across populations.
+    The empirical level reflects the case-control design (dnm0:dnm1 ~ 10:1), not the
+    genome-wide DNM rate; only shape compares across populations.
     """
     preds = {}
     for pop in populations:
@@ -709,9 +585,9 @@ def dnm_probability(populations=("full", "scored", "sizematched"), n_bins: int =
 
 # ------------------------------------------------------ Supporting Figure 7
 #
-# Why r_CpG ~ 1 is CORRECT and not a failure: the effect that would need adjusting is
-# already applied in step 1. These two builders measure its size and its GC dependence;
-# the fourth row of that figure, Pi, comes from r_eff_by_gc above rather than here.
+# Why r_CpG ~ 1 is CORRECT: the effect that would need adjusting is already applied in
+# step 1. These two builders measure its size and GC dependence; the figure's fourth row,
+# Pi, comes from r_eff_by_gc.
 
 def cpg_methylation_by_gc(edges: np.ndarray, cache_dir: str = CACHE_DIR,
                           force: bool = False, memory_limit: str = "10GB") -> pl.DataFrame:
@@ -719,17 +595,14 @@ def cpg_methylation_by_gc(edges: np.ndarray, cache_dir: str = CACHE_DIR,
     CpG-context training sites per GC bin: mean methylation level, the fraction that are
     hypomethylated (level <= 1), and the empirical DNM rate.
 
-    THE POINT. High-GC CpGs are CpG islands -- 94-98% hypomethylated above GC 0.7,
-    against ~2% in the GC bulk -- and their DNM rate collapses by ~2.6x. That is a large,
-    strongly GC-dependent effect, and it is exactly the effect step 1 already models,
-    since fitted_po is keyed by methylation level. Which is why r_CpG ~ 1 in panel B is
-    the CORRECT behaviour and not a failure: there is nothing left for the regional
-    adjustment to correct.
+    THE POINT. High-GC CpGs are CpG islands -- 92% hypomethylated in the top GC bin on
+    the committed (narrowed) run, 90-100% above GC 0.70 on the wider one, against ~2% in
+    the GC bulk -- and their DNM rate collapses 1.9x (wider: 2.7x). Step 1 already models
+    exactly that, fitted_po being keyed by methylation, so r_CpG ~ 1 in panel B is correct:
+    nothing is left for the regional adjustment to correct.
 
-    Measured over the whole training population, not restricted to the analyzed windows:
-    the claim is about CpG biology, not about the scored population. The GC bin EDGES
-    still come from the analyzed windows, though, which is why the cache key
-    fingerprints them.
+    Over the whole training population, since the claim is about CpG biology; only the
+    bin EDGES come from the analyzed windows, hence the fingerprinted cache key.
 
     Columns: gc_bin, gc_pct, n, k, p (DNM rate), mean_methyl, frac_hypomethylated.
     """
@@ -752,14 +625,12 @@ def cpg_rate_by_methyl(cache_dir: str = CACHE_DIR) -> pl.DataFrame:
     The CpG C>T mutation rate by methylation level, straight from the published
     per-(context, ref, alt, methylation) table -- the size of the effect step 1 absorbs.
 
-    Two columns matter. `fitted_po` is what the pipeline actually uses as the per-site
-    step-1 probability; across methylation 0 -> 15 it spans ~4.3x within a single
-    trinucleotide context, the largest single rate effect in the model. `mu` is the
-    independent pre-saturation estimate, and it spans ~10-15x over the same range --
-    the gap between the two IS the saturation of fitted_po, which is why a naive
-    D/E1 ratio understates the CpG rate at high methylation. (That is a control on the
-    CpG story, not part of the figure's argument; panel B's claim rests on r being a
-    ratio in which such level effects cancel.)
+    `fitted_po`, the per-site step-1 probability the pipeline uses, spans ~4.3x across
+    methylation 0 -> 15 within one context, the largest single rate effect in the model.
+    `mu`, the pre-saturation estimate, spans ~10-15x; the gap IS fitted_po's saturation,
+    which is why a naive D/E1 ratio understates the CpG rate at high methylation. A
+    control on the CpG story only: panel B rests on r being a ratio, where level effects
+    cancel.
     """
     rate = pl.read_csv(W.download(M.MUTATION_RATE_FILE, cache_dir), separator="\t")
     ct = (rate.filter(pl.col("context").is_in(M.CPG_CONTEXTS)
@@ -781,45 +652,28 @@ def cpg_rate_by_methyl(cache_dir: str = CACHE_DIR) -> pl.DataFrame:
 # ------------------------------------------------------------------- panel F
 
 def calling_rate_by_gc(df: pl.DataFrame, threshold: float = 4.0,
-                       labels=(("step2", "as published"),
-                               ("scored", "decontaminated DNM training set")),
+                       labels=(("step2", "published"), ("scored", "decontaminated")),
                        reference: str = "step2", n_bins: int = N_BINS,
-                       min_n: int = 100) -> tuple[pl.DataFrame, dict]:
+                       min_n: int = 100) -> tuple[pl.DataFrame, dict, float]:
     """
     Panel F: the fraction of windows in each GC bin whose z clears a fixed threshold.
 
-    WHY THIS BELONGS IN FIG. 5 AND NOT IN A SUPPORTING FIGURE. Panels A and E measure the
-    bias as a RANK -- the statistic is uniform on (0,1) by construction, so the departure
-    from 0.5 is interpretable but abstract. This is the same fact in the units the score is
-    used in: at Chen et al.'s own cutoff, what fraction of each part of the genome gets
-    called constrained? It is the consequence of E for anyone applying the score, and it
-    uses NO LABELS -- it is a property of the score and of GC content -- so it belongs with
-    the other label-free panels rather than with the discovery analyses.
+    Panels A and E's bias in the units the score is used in: at Chen et al.'s own cutoff,
+    what fraction of each part of the genome is called constrained? It uses NO LABELS, so
+    it sits with Fig. 5's label-free panels. Computed on panel E's own table and bins, so
+    E (rank returning to 0.5) and F (calling rate flattening) are one fix on one window
+    set.
 
-    SAME POPULATION AND SAME BINS AS PANEL E, which is the point of computing it from
-    panel E's own table rather than from the truth-set table. E and F then read as two
-    views of one fix on one set of windows: E shows the rank returning to 0.5, F shows the
-    calling rate flattening. A different population underneath them would make that pairing
-    a coincidence rather than an identity.
+    THE SCORES ARE MATCHED ON OVERALL CALLING RATE, not a common number: retraining moves
+    the whole z distribution. `reference` is held at `threshold`; every other score gets
+    the quantile of its own z calling the same fraction of the whole population. The swing
+    ACROSS GC is within one score, so that choice does not touch it.
 
-    THE TWO SCORES ARE MATCHED ON OVERALL CALLING RATE, not given a common number.
-    Retraining moves the whole z distribution, so the same numeral is a stricter cutoff for
-    one score than the other and a common-threshold comparison would confound level with
-    GC dependence. `reference` is held at `threshold` and every other score takes the
-    quantile of its own z that calls the same fraction of the whole population; the swing
-    ACROSS GC is a ratio computed within one score, so it is untouched by that choice.
-
-    Returns (binned, thresholds, target): one row per GC bin with gc_mid, n, and rate/lo/hi
-    per label (Wilson intervals -- these are plain proportions), the threshold each score
-    was given, and the matched genome-wide calling rate itself.
-
-    THAT THIRD RETURN VALUE IS A PANEL ELEMENT, not a diagnostic. `target` is the fraction
-    of the WHOLE population `reference` calls at `threshold`, and the matching hands the
-    same fraction to every other score -- so it is the one horizontal line both curves are
-    pinned to, and panels.panel_calling_rate draws it as `matched_rate`. It is computed
-    over every window in `df`, INCLUDING the bins `min_n` drops from the drawing, so it is
-    the genome-wide operating point rather than a mean over the plotted points. The two
-    differ, and only the first is what the thresholds were chosen to equalise.
+    Returns (binned, thresholds, target): per GC bin, gc_mid, n and rate/lo/hi per label
+    (Wilson); each score's threshold; and the matched calling rate. `target` IS A PANEL
+    ELEMENT -- the horizontal line both curves are pinned to (panels.panel_calling_rate's
+    `matched_rate`). It is over every window in `df`, INCLUDING bins `min_n` drops, so it
+    is the genome-wide operating point, not a mean over plotted points.
     """
     gc = df["GC_content"].to_numpy()
     edges = gc_edges(gc, n_bins)
@@ -852,148 +706,92 @@ def calling_rate_by_gc(df: pl.DataFrame, threshold: float = 4.0,
     for key, disp in labels:
         r = out[f"rate_{key}"].to_numpy()
         nz = r[r > 0]
-        # The swing is quoted over bins where the score calls ANYTHING. At this resolution
-        # published Gnocchi calls nothing at all in the most AT-rich bins, which makes the
-        # raw ratio infinite -- a stronger statement than any finite number, and one the
-        # range carries better than a fold-change.
+        # Swing quoted over bins where the score calls anything: published calls nothing
+        # in the most AT-rich bins, which would make the raw ratio infinite.
         span = (f"{r.max() / nz.min():.0f}x over bins it calls in"
                 if len(nz) < len(r) else f"{r.max() / r.min():.0f}x across GC")
         zeros = len(r) - len(nz)
         print(f"  {disp:<38} calling rate {100 * r.min():.3f}% - {100 * r.max():.3f}%  "
               f"({span}" + (f", and 0% in {zeros} bin(s))" if zeros else ")"))
-    return out, thresholds, target # type: ignore
+    return out, thresholds, target
 
 
 # --------------------------------------------------------- Supporting Figure 8
 
-# WHAT THIS SECTION IS FOR. Panel E says the retrained score is no longer GC-biased. It
-# cannot say whether the biased score was nevertheless the better DETECTOR: bias and
-# signal-to-noise act on discovery jointly (McHale et al.'s Fig. 3), and only one of the
-# two has been changed. Supporting Figure 8 is that test, built as their Fig. 4A/B -- a
-# classifier that calls a window constrained when its Gnocchi z exceeds a threshold, and
-# performance read off the precision-recall curve within each GC bin -- with TWO GNOCCHI
-# VARIANTS in place of their four constraint metrics.
+# WHAT THIS SECTION IS FOR. Panel E says the retrained score is no longer GC-biased, not
+# whether the biased score was nevertheless the better DETECTOR: bias and signal-to-noise
+# act on discovery jointly (McHale et al.'s Fig. 3). Supporting Figure 8 is that test,
+# built as their Fig. 4A/B -- call a window constrained when its z exceeds a threshold,
+# read performance within each GC bin -- with two Gnocchi variants as the classifiers.
 #
-# LAX AND STRINGENT, WHICH IS MCHALE ET AL.'S OWN VOCABULARY AND THE AXIS THESE NAMES ARE
-# ORGANIZED ON. A truth set says which windows are "constrained", and their paper uses two:
+# Names are organized on LAX vs STRINGENT, McHale et al.'s two truth sets:
+#   LAX        constrained = overlaps a GeneHancer enhancer. Large enough to resolve the GC
+#              tails; lax because GeneHancer covers 18.4% of the noncoding genome while
+#              perhaps 4.51% is under human-specific selection. Their Fig. 4A/B. BUILT HERE.
+#   STRINGENT  essential-gene enhancers, plus an equal number of no-enhancer windows. Their
+#              Fig. 4C/D (papers/neutral_models_are_biased/
+#              11.compare-lax-with-stringent-truth-set.ipynb). DELIBERATELY NOT BUILT
+#              (2026-09-04): Fig. 5F needs no truth set, 4,933 windows cannot resolve a
+#              ~1.5% pooled gap, and its positives are plausibly MORE GC-skewed. If ever
+#              revisited, three things are not guessable (read from that notebook):
+#     1. It is a third hand-supplied file, stringent_truth_set/
+#        truth-set.gnocchi.lambda_s.depletion_rank.CDTS.bed under CONSTRAINT_TOOLS_DATA:
+#        4,933 rows, target column `truly constrained`, coordinates in `chromosome` (not
+#        `chrom`) -- its own config entry and preflight check.
+#     2. Its positives are NOT on Chen's 1 kb grid (e.g. chr1-2128961-2129161, 200 bp), so
+#        mapping them to the retrained score needs an interval overlap plus a spanning
+#        rule -- and it must be THEIR rule (their `gnocchi` column was carried over by one;
+#        cell 9 shows it for lambda_s), or the two scores are mapped differently.
+#     3. 4C/D are a different statistic, so new builders, not a pr_curves() value: 1,000
+#        bootstrap replicates (resample with replacement), exactly TWO feature bins (GC
+#        (0.20, 0.375) / (0.40, 0.70); BGS (0.5, 0.76) / (0.9, 1.0); gBGC (-0.3, 0.2) /
+#        (0.4, 1.2)), the same balancing, then auPRCnorm = auc/r pooled (4C) and
+#        delta = (auc[low] - auc[high]) / auc[pooled] (4D), mean and sd of each. Bin floor
+#        500, a thinner bin skipping that feature; the lax set first .sample(n=len(stringent)).
 #
-#   LAX        a window is constrained if it overlaps a GeneHancer enhancer. Large enough
-#              to resolve performance deep in the GC tails, and lax because not every
-#              enhancer-overlapping window is under strong selection -- GeneHancer covers
-#              18.4% of the noncoding genome while perhaps 4.51% is under human-specific
-#              selection. Their Fig. 4A/B. THIS IS WHAT IS IMPLEMENTED HERE.
-#   STRINGENT  noncoding windows conjectured to be under strong negative selection because
-#              they regulate essential genes, plus an equal number overlapping no enhancer
-#              at all. Small, so noisy in the tails, but a post-hoc validation of the lax
-#              set: overall performance rises on moving to it. Their Fig. 4C/D, from
-#              papers/neutral_models_are_biased/11.compare-lax-with-stringent-truth-set.ipynb.
-#              NOT BUILT YET -- and what that will take is written down below, because two
-#              things about it are not guessable from this section.
+# Truth-set-specific constants carry the set's name (LAX_GC_BINS); shared ones do not
+# (PR_SCORES, TRUTH_TARGET). Not "enhancer": that is how LAX is defined, not what this is.
 #
-# WHAT BUILDING THE STRINGENT SET WILL ACTUALLY TAKE (read from that notebook, 2026-09-03).
+# Reference implementation for the lax set (bins, balancing, bin floor, trapezoidal
+# auc(recall, precision)): constraint-tools papers/neutral_models_are_biased/7.CDTS/main.2.ipynb.
 #
-#   1. A THIRD HAND-SUPPLIED FILE, not a relabelling of the lax windows:
-#      {CONSTRAINT_TOOLS_DATA}/stringent_truth_set/truth-set.gnocchi.lambda_s.depletion_rank.CDTS.bed
-#      4,933 rows, columns `chromosome, start, end, gnocchi, truly constrained, B,
-#      B_M1star.EUR, GC_content_1000bp, lambda_s,
-#      depletion_rank_constraint_score_complement,
-#      percentile_rank_of_observed_minus_expected_complement`. Note the target is
-#      `truly constrained`, and the coordinate column is `chromosome` where the lax file
-#      says `chrom` -- so it needs its own config entry and its own preflight check.
-#
-#   2. ITS INTERVALS ARE NOT ON CHEN'S 1 kb GRID, and this is the load-bearing problem for
-#      US specifically. The positives are enhancer intervals of arbitrary length and offset
-#      (chr1-2128961-2129161 is 200 bp; chr1-6240740-6241540 is 800 bp); only the negatives
-#      are 1 kb tiles. Every other truth set here is joined by building an element_id from
-#      chrom-start-end, and that cannot work: the retrained score exists per Chen 1 kb
-#      window, so mapping a stringent interval onto it needs an INTERVAL OVERLAP plus a
-#      rule for an interval spanning two tiles. Their file's own `gnocchi` column was
-#      presumably carried over by exactly such an intersection (cell 9 says so explicitly
-#      for lambda_s), so the first job is to establish what rule they used and reuse it --
-#      not to invent one, or the retrained and published scores would be mapped
-#      differently and the comparison would be meaningless.
-#
-#   3. FIG. 4C/D ARE A DIFFERENT STATISTIC FROM THIS SECTION'S, so they are new builders
-#      rather than another value threaded through pr_curves():
-#        - bootstrap: resample the truth set WITH replacement (sample(frac=1, replace=True)),
-#          cut into exactly TWO feature bins, then the same class balancing as here;
-#        - per replicate compute auPRCnorm = auc/r pooled, and
-#          delta = (auc[low bin] - auc[high bin]) / auc[pooled];
-#        - 1,000 replicates; report mean and sd of each. 4C is the auPRCnorm bar chart,
-#          4D the delta one.
-#        - bins are pairs, not a sweep: GC (0.20, 0.375) and (0.40, 0.70); BGS (0.5, 0.76)
-#          and (0.9, 1.0); gBGC (-0.3, 0.2) and (0.4, 1.2).
-#        - their bin floor there is 500, not LAX_MIN_BIN_WINDOWS, and a bin under it raises,
-#          which skips that truth set for that feature entirely.
-#        - the lax set is first .sample(n=len(stringent)) so the two are size-matched; that
-#          is what makes 4C a comparison of truth sets rather than of sample sizes.
-#
-# So the constants that are properties of a truth set carry its name (LAX_GC_BINS,
-# LAX_MIN_BIN_WINDOWS) and the ones that are not do not (PR_SCORES, TRUTH_TARGET);
-# pr_curves() takes `truth_set` and accepts only "lax" so far. Adding the stringent set
-# should mean adding names beside these, never renaming them. Do not reach for "enhancer"
-# in a name here: enhancer overlap is how the LAX set is defined, not what this section is.
-#
-# Reference implementation for the lax set, followed for the bins, the balancing, the
-# bin-size floor and the trapezoidal auc(recall, precision):
-# constraint-tools papers/neutral_models_are_biased/7.CDTS/main.2.ipynb.
-#
-# THE LAX TRUTH SET IS GENEHANCER AND THERE IS NO SUBSTITUTE FOR IT. `window overlaps
-# enhancer` in config.NEUTRAL_WINDOWS_BED -- licensed, not redistributable, not derivable
-# from the public bucket, and nothing in Chen et al.'s annotation table is the same truth
-# set under another name. So UNLIKE every other quantity here, this one does not build
-# without that file: pr_curves raises, and the notebook checks and skips.
+# THE LAX TRUTH SET IS GENEHANCER AND HAS NO SUBSTITUTE: `window overlaps enhancer` in
+# config.NEUTRAL_WINDOWS_BED is licensed and not derivable from the public bucket. So unlike
+# everything else here this does not build without that file: pr_curves raises, and the
+# notebook checks and skips.
 
-# The tail bins of LAX_GC_BINS merged into one, for the paired-difference panel. McHale et
-# al.'s window file is nearly empty above GC 0.60 -- after class balancing the three bins
-# there hold 1,086, 65 and 2 windows -- so drawing them separately says nothing and drawing
-# none of them throws the tail away. One (0.55, 0.80] bin is the honest use of it, and the
-# tail is where the whole question lives, since that is where panel E's bias reduction is
-# largest. The lower bins are LAX_GC_BINS's, unchanged, so the two panels' x axes line up
-# everywhere below 0.55.
-DELTA_GC_BINS = [(0.20, 0.30), (0.30, 0.40), (0.40, 0.50), (0.50, 0.55), (0.55, 0.80)]
+# The GC bins of Supporting Fig. 8's fixed-threshold panels (A, B, D-I) and of
+# budget_comparison: LAX_GC_BINS with the tail merged. McHale et al.'s window file is nearly
+# empty above GC 0.60 -- after class balancing the three bins there hold 1,086, 65 and 2
+# windows -- so one (0.55, 0.80] bin is the honest use of the tail, which is where panel E's
+# bias reduction is largest. Below 0.55 the bins are LAX_GC_BINS's, so these panels' x axes
+# line up with panel C's.
+THRESHOLD_GC_BINS = [(0.20, 0.30), (0.30, 0.40), (0.40, 0.50), (0.50, 0.55), (0.55, 0.80)]
 
-# A bin thinner than this is dropped from the difference panel. FAR below
-# LAX_MIN_BIN_WINDOWS, and legitimately so: that floor guards a per-bin precision-recall
-# CURVE, which is a staircase when windows are few, whereas this panel draws one number per
-# bin with a bootstrap interval that widens honestly as the bin thins. The interval is the
-# guard, so the floor only has to exclude bins where the bootstrap itself is degenerate.
-DELTA_MIN_BIN_WINDOWS = 500
+# Their bin floor. Far below LAX_MIN_BIN_WINDOWS, which guards a precision-recall CURVE (a
+# staircase on few windows); these panels draw one number per bin with an honest interval.
+THRESHOLD_MIN_BIN_WINDOWS = 500
 
-# The reference notebook's GC bins for the lax set, verbatim -- wide at the ends where
-# windows are scarce, narrow through the bulk where the performance trend actually turns.
-# NOT the N_BINS fixed-width edges the other panels share: after the class balancing below,
-# 20 equal bins would leave almost all of them under the window floor, and a
-# precision-recall curve needs far more windows per bin than a conditional mean rank does.
-# Reused rather than re-derived so the panel's x axis is comparable to McHale et al.'s
-# Fig. 4B. LAX_, because the stringent set is orders of magnitude smaller and will need its
-# own, coarser edges rather than these.
+# The reference notebook's lax-set GC bins, verbatim, so panel C compares with McHale et
+# al.'s Fig. 4B: wide at the scarce ends, narrow through the bulk. Not N_BINS fixed-width
+# edges -- after balancing, 20 equal bins would mostly fall under the window floor.
 LAX_GC_BINS = [(0.20, 0.30), (0.30, 0.40), (0.40, 0.50), (0.50, 0.55),
                (0.55, 0.60), (0.60, 0.65), (0.65, 0.70), (0.70, 0.80)]
 
-# A GC bin thinner than this is dropped before any curve is drawn: the notebook's
-# threshold for the lax set, and it is doing real work at both ends of the axis, where a
-# precision-recall curve built on a few hundred windows is mostly staircase. LAX_ for the
-# same reason as the bins -- a truth set of a few thousand windows cannot clear 4,000 in
-# any bin, so the stringent set will need its own floor, not a re-tuning of this one.
+# The reference notebook's bin floor for the lax set: a precision-recall curve on a few
+# hundred windows is mostly staircase.
 LAX_MIN_BIN_WINDOWS = 4_000
 
-# The two curves. NOT truth-set specific -- the same two scores are evaluated against
-# whichever truth set is in play, which is the whole point of having more than one.
-# key -> (expected-count column, long name, legend word). The long name is for a panel that
-# gives each score a whole axes; the short word is what a shared legend has room for once
-# each entry also carries a pooled figure or a threshold. Both strings travel in the curve dicts, which is
-# what keeps panels.py from having to import this module.
+# The two scores: key -> (expected-count column, long name, legend word). Both names
+# travel in the returned dicts, so panels.py need not import this module.
 PR_SCORES = {
     "published": (W.PUBLISHED_EXPECTED_COL, "Gnocchi (published)", "published"),
     "scored": ("expected_scored", "Gnocchi (decontaminated training set)",
                "decontaminated"),
 }
 
-# The label column, whichever truth set produced it -- for the lax set it is
-# windows.MCHALE_ENHANCER_FLAG renamed. Every truth set writes this one column, so the
-# binning, the balancing and the curves never have to know which one they are working on,
-# and adding the stringent set adds a builder rather than a code path.
+# The label column, whichever truth set produced it (for lax, windows.MCHALE_ENHANCER_FLAG
+# renamed), so nothing downstream needs to know which one it is working on.
 TRUTH_TARGET = "constrained"
 
 
@@ -1001,31 +799,14 @@ def _lax_labelled_windows(cache_dir: str, neutral_windows_bed: str | None,
                           refit_expected: str | None) -> pl.DataFrame:
     """
     The LAX truth set: one row per evaluated window -- element_id, GC_content (0-1),
-    `constrained` (does it overlap a GeneHancer enhancer), and one z column per entry of
-    PR_SCORES.
+    `constrained` (overlaps a GeneHancer enhancer), and a z column per PR_SCORES entry.
 
-    The stringent set gets its own builder beside this one, returning the same columns, so
-    everything downstream of here is shared.
-
-    IT IS window_table()'s PIPELINE WITH ONE FILTER DROPPED. The population comes from the
-    same windows.build_window_table() call, on the same config.NEUTRAL_WINDOWS_BED, with
-    `keep_enhancer_windows=True` -- so their file is still the definition, this repo's
-    noncoding/QC/autosome filters are still skipped, and the GC units and the join are
-    still theirs. The only difference is that the `enhancer == False` step does not run
-    and the flag comes back as a column instead. Panel E must NOT have those windows (a
-    window under selection has a low z for a reason that is not bias); this figure cannot
-    do without them (they are the positive class). Nothing else about the two populations
-    differs, which is what makes the figure a statement ABOUT panel E rather than about a
-    different window set.
-
-    Note which population is which: the `scored` refit is still FIT on the putatively
-    neutral windows alone -- that is the intervention -- and is EVALUATED here on neutral
-    AND enhancer windows. Fit on the negatives, scored on both, which is what a classifier
-    requires, and what the caption should say.
-
-    Both z columns are filtered JOINTLY to the pipeline's [-10, 10] (windows.
-    filter_z_in_range), so the two scores describe one identical set of windows and
-    neither is advantaged by its own filtering.
+    window_table()'s PIPELINE WITH ONE FILTER DROPPED (`keep_enhancer_windows=True`): the
+    enhancer == False step does not run and the flag comes back as a column. Panel E must
+    not have those windows (selection lowers z for a reason that is not bias); this figure
+    needs them as its positive class. Nothing else differs, so the figure is a statement
+    ABOUT panel E. The `scored` refit is still FIT on the neutral windows alone and
+    EVALUATED here on both. Both z columns are filtered JOINTLY to [-10, 10].
     """
     if not neutral_windows_bed:
         raise ValueError(
@@ -1058,9 +839,8 @@ def _lax_labelled_windows(cache_dir: str, neutral_windows_bed: str | None,
 
 
 def _assign_gc_bins(df: pl.DataFrame, gc_bins: list) -> pl.DataFrame:
-    """Add `gc_bin` (index into gc_bins) and drop windows outside every bin. Intervals are
-    left-open and right-closed, matching the pandas.cut default the reference notebook
-    relies on."""
+    """Add `gc_bin` (index into gc_bins), dropping windows outside every bin. Intervals
+    are (lo, hi], the pandas.cut default the reference notebook relies on."""
     gc = df["GC_content"].to_numpy()
     idx = np.full(gc.shape, -1, dtype=int)
     for i, (lo, hi) in enumerate(gc_bins):
@@ -1070,41 +850,19 @@ def _assign_gc_bins(df: pl.DataFrame, gc_bins: list) -> pl.DataFrame:
 
 def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
     """
-    Downsample the positive class within each GC bin so that every bin carries the SAME
-    positive fraction -- the reference notebook's `downsample`, reproduced.
+    Downsample positives within each GC bin to the smallest positive:negative ratio
+    present, so every bin carries the SAME positive fraction -- the reference notebook's
+    `downsample`. NECESSARY: a random classifier's precision IS the positive fraction, and
+    that rises ~7.7x with GC (from 0.083 in (0.20, 0.30]), so raw precision would report
+    enhancer density as performance. It is what makes one random-classifier line valid for
+    every bin. Panel C's /r is then a constant rescale (putting random at 1.0), not a
+    second correction -- and could not be one, auPRC/r not being prevalence-invariant for
+    a real classifier.
 
-    WHY IT IS NECESSARY, AND IT IS NOT A NICETY. Precision is anchored to the positive
-    fraction -- a random classifier's precision IS that fraction -- and enhancer density
-    rises steeply with GC content. Over the bins this figure draws, the raw positive
-    fraction runs from about 0.06 in (0.20, 0.30] to about 0.45 in (0.55, 0.60], a
-    SEVENFOLD span (measured on a stand-in truth set of similar overall prevalence; the
-    real GeneHancer flag will differ in level, not in the fact of the gradient). Plot raw
-    precision against that and the GC-rich bins win by construction: the panel would be
-    measuring enhancer density and reporting it as performance, which is the opposite of
-    the figure's claim. Each bin is thinned to the smallest positive:negative ratio
-    present, negatives untouched, which pegs every bin to the same fraction and is what
-    makes ONE dashed random-classifier line valid for every GC bin's curve.
-
-    WHAT IT COSTS, AND WHAT IT DOES NOT. It discards roughly four fifths of the positives,
-    because the peg is set by the GC-poorest bin. It does NOT cost any drawn GC bin: the
-    two bins the LAX_MIN_BIN_WINDOWS floor drops are already below that floor before
-    any downsampling, so the balancing changes which windows are in a bin, never which
-    bins survive. Worth re-checking on the real truth set, since a different enhancer
-    annotation moves the peg.
-
-    ONCE, ON THE LABELLED TABLE, not once per score -- the two scores are columns of the
-    same rows. (The reference notebook balances per metric because its four metrics are
-    carried on four different window files and it has no choice.) One balancing means the
-    two curves in Supporting Fig. 8C are computed on an identical set of windows and an
-    identical set of positives, so a difference between them is the score and nothing else.
-
-    PANEL C'S /r IS NOT A SECOND GUARD ON THIS, once the balancing has run: r is then the
-    same number in every bin, so dividing by it is a constant rescale that cannot change
-    the panel's shape. Its job is to put the random classifier at exactly 1.0 so the axis
-    reads "times better than guessing". The notebook computes it per bin and so does
-    pr_curves, which is what would keep the bins comparable if the balancing were
-    ever skipped -- but only partly, since auPRC/r is not prevalence-invariant for a real
-    classifier the way it is for a random one. The downsampling is doing the work.
+    COST: four fifths of the positives (246,930 of 309,908 on the committed run), the peg
+    being set by the GC-poorest bin; after it the three bins above GC 0.60 hold 1,086, 65
+    and 2 windows, under LAX_MIN_BIN_WINDOWS. Done ONCE on the labelled table, not per
+    score, so both of 8C's curves see identical windows and positives.
     """
     rng = np.random.default_rng(seed)
     bins = sorted(df["gc_bin"].unique().to_list())
@@ -1132,9 +890,8 @@ def _balance_positive_fraction(df: pl.DataFrame, seed: int) -> pl.DataFrame:
 
 
 def _positive_fraction(df: pl.DataFrame) -> float:
-    """The random classifier's precision on `df`: the dashed baseline of a per-bin
-    precision-recall curve, and the normalizer of Supporting Fig. 8C's y axis. It is `r` in
-    the baseline-classifier theory of McHale et al.'s Methods."""
+    """The random classifier's precision on `df` -- `r` in McHale et al.'s Methods, and
+    the normalizer of Supporting Fig. 8C's y axis."""
     return float(df[TRUTH_TARGET].mean())  # type: ignore[arg-type]
 
 
@@ -1143,25 +900,10 @@ def pr_curves(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
               refit_expected: str | None = None, seed: int = 0,
               gc_bins: list | None = None, min_n: int | None = None) -> dict:
     """
-    Everything Supporting Fig. 8C draws, against one truth set: labelled
-    table -> GC bins -> class balancing -> precision-recall curves, in one call.
-
-    `truth_set` is "lax" (GeneHancer enhancer overlap; McHale et al.'s Fig. 4A/B) and so
-    far only that. "stringent" -- their essential-gene set -- is the planned second value,
-    needing its own labelled-window builder beside _lax_labelled_windows, its own GC bins
-    and its own bin floor; `gc_bins` and `min_n` default to the named truth set's own
-    (LAX_*).
-
-    BUT DO NOT EXPECT THE STRINGENT SET TO ARRIVE ONLY THROUGH THIS FUNCTION. Their
-    Fig. 4C/D are a bootstrap statistic over two feature bins, not a per-bin PR sweep, and
-    at 4,933 windows a curve per bin would be hopeless anyway -- see item 3 of the section
-    header. This function is where the stringent set gets LABELLED and SCORED; the 4C/D
-    statistic is separate builders that will want the labelled table, not these curves.
-
-    ONE BUILDER, like every other entry point in this module, and the steps between are
-    private because none of them is separately quotable. It is also the expensive one --
-    it builds a SECOND window table, on a population panel E does not have -- so it should
-    run exactly once per truth set per notebook execution.
+    Everything Supporting Fig. 8C draws: labelled table -> GC bins -> class balancing ->
+    precision-recall curves. `truth_set` accepts only "lax" (see the section header);
+    `gc_bins` and `min_n` default to LAX_*. Expensive -- it builds a second window table --
+    so run it once per notebook execution.
 
     Returns, per score key:
         display, short   the two names for the curve (panel title, legend word)
@@ -1169,15 +911,9 @@ def pr_curves(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
         all              the same, pooled across GC bins -- the "all GC content" curve
         r                the positive fraction, identical across bins after balancing
 
-    auPRC is sklearn's trapezoidal auc() over (recall, precision) -- the reference
-    notebook's `auc(recall, precision)`, not `average_precision_score`. They differ
-    slightly, and matching the notebook is what makes these numbers comparable with McHale
-    et al.'s Fig. 4B rather than merely similar to it.
-
-    `aupr_norm` divides by the bin's own positive fraction, so 1.0 is the random classifier
-    and the axis reads "times better than guessing". After the balancing that divisor is
-    the same in every bin, so it is a constant rescale rather than a second prevalence
-    correction -- see _balance_positive_fraction, which is where the correction happens.
+    auPRC is the trapezoidal auc(recall, precision), as in the reference notebook, not
+    average_precision_score, so the numbers compare with McHale et al.'s Fig. 4B.
+    `aupr_norm` divides by the bin's positive fraction, putting random at 1.0.
     """
     if truth_set != "lax":
         raise ValueError(
@@ -1226,9 +962,7 @@ def pr_curves(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
 
 
 def _aupr(y: np.ndarray, score: np.ndarray) -> float:
-    """Trapezoidal auc() over the precision-recall curve -- the same estimator
-    enhancer_pr_curves uses, so a delta computed here is a delta between the numbers that
-    panel plots."""
+    """Trapezoidal auc() over the precision-recall curve, the estimator pr_curves uses."""
     precision, recall, _ = precision_recall_curve(y, score)
     return float(auc(recall, precision))
 
@@ -1236,61 +970,35 @@ def _aupr(y: np.ndarray, score: np.ndarray) -> float:
 def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
                     neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
                     refit_expected: str | None = None, seed: int = 0,
-                    gc_bins: list | None = None, min_n: int = DELTA_MIN_BIN_WINDOWS,
+                    gc_bins: list | None = None, min_n: int = LAX_MIN_BIN_WINDOWS,
                     n_bootstrap: int = 500, balance: bool = False) -> pl.DataFrame:
     """
-    The PAIRED difference in performance between the two scores, per GC bin, with a
-    bootstrap confidence interval. This is the panel that decides whether the retrained
-    score is actually better anywhere, or whether the per-bin wobble in the auPRC curves is
-    noise.
+    The PAIRED difference in auPRC between the two scores, per GC bin, with a bootstrap
+    interval: Supporting Fig. 8C's error bars. Defaults to C's bins and floor (LAX_*); the
+    notebook passes them, and balance=True, explicitly.
 
-    THE STATISTIC IS A RELATIVE GAIN:
+        delta(g) = auPRC_scored(g) / auPRC_published(g) - 1
 
-        delta(g) = [auPRC_scored(g) - auPRC_published(g)] / auPRC_published(g)
+    r cancels, both of C's curves being divided by the same per-bin r, so this is the
+    comparison C invites the eye to make.
 
-    and the normalizer r CANCELS from it, since both curves in Supporting Fig. 8C are the
-    same auPRCs divided by the same per-bin r. So this is the same comparison that panel C
-    invites the eye to make, with the prevalence normalization taken out rather than applied twice, and it is
-    dimensionless -- "the retrained score finds x% more of the enhancers, at equal recall".
+    PAIRED because the two scores are columns of ONE table: almost all of auPRC's sampling
+    variability is in WHICH windows the truth set contains, which is common to both and
+    cancels in the difference -- independent bars on each level would understate the
+    evidence about the gap. Each replicate resamples a bin's rows once and scores BOTH
+    models on it. Stratified by bin, since the bins are fixed strata of a covariate.
 
-    WHY PAIRED, AND WHY IT MATTERS SO MUCH HERE. The two scores are columns of ONE table:
-    identical windows, identical positives, identical GC bins (_lax_labelled_windows joins
-    both expected-count tables onto one window set and z-filters them jointly). Almost all
-    of the sampling variability in auPRC is variability in WHICH WINDOWS the truth set
-    happens to contain, and that is common to both scores, so it cancels in the difference.
-    Independent error bars on Supporting Fig. 8C's two curves would therefore be a much
-    weaker -- and misleading -- statement than this: they would show the uncertainty of each level, when
-    the question is about the gap. Each bootstrap replicate here resamples the bin's rows
-    once and scores BOTH models on that same resample, which is what preserves the pairing.
-
-    RESAMPLING IS STRATIFIED BY BIN, i.e. within each GC bin separately. The bins are fixed
-    strata defined by a covariate, not a random draw, so the inference wanted is conditional
-    on them: "given these windows at this GC, how sure are we of the gap?"
-
-    `balance=False` BY DEFAULT, WHICH IS THE OPPOSITE OF Supporting Fig. 8C, and
-    deliberately. _balance_positive_fraction exists to make bins comparable in LEVEL -- it
-    is what makes a single dashed baseline valid for every GC bin's precision-recall curve. A within-bin,
-    between-score comparison needs none of that: both scores see the same rows and the same
-    prevalence, and r cancels from the statistic anyway. Meanwhile the balancing discards
-    about four fifths of the positives, and it bites hardest exactly at high GC where
-    positives are densest and the bins are already thin. Keeping them is a large gain in
-    power precisely where the question is. Pass balance=True to compute the difference on
-    Supporting Fig. 8C's own rows instead -- which is not a check but a REQUIREMENT when
-    the result is drawn as that panel's error bars, since an interval computed on a
-    different population belongs to a different statistic than the markers it sits on.
-
-    n_bootstrap=500 gives a percentile interval whose own Monte-Carlo error is small
-    against the widths involved; the cost is roughly n_bootstrap x one pass of
-    precision_recall_curve over every drawn bin, twice.
+    balance=False by default: within a bin r cancels anyway, and balancing discards four
+    fifths of the positives, most at high GC. But pass True when the result is drawn as
+    C's error bars -- an interval on different rows belongs to a different statistic.
 
     Returns one row per drawn bin: lo, hi, mid, n, n_pos, r, aupr_published, aupr_scored,
-    delta (the point estimate, from the observed data -- not the bootstrap mean), ci_lo,
-    ci_hi (2.5 and 97.5 percentiles), and p_gt0, the fraction of replicates with a positive
-    gap.
+    delta (observed, not the bootstrap mean), ci_lo, ci_hi (2.5/97.5 percentiles) and
+    p_gt0, the fraction of replicates with a positive gap.
     """
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
-    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+    gc_bins = LAX_GC_BINS if gc_bins is None else gc_bins
 
     df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
     df = _assign_gc_bins(df, gc_bins)
@@ -1338,61 +1046,43 @@ def pr_curve_deltas(truth_set: str = "lax", cache_dir: str = CACHE_DIR,
     return pl.DataFrame(rows)
 
 
-# --------------------- Fig. 5F and Supporting Figure 8A/8B: at a fixed threshold
+# ----------------- Supporting Figure 8A/B and D-I: fixed thresholds, matched calling rates
 
-# Chen et al.'s OWN cutoff for calling a window constrained, not a choice of ours: the
-# paper says "constrained non-coding regions (Gnocchi >= 4)" and counts "19,471 constrained
-# windows (Gnocchi >= 4)". Using it is what makes Fig. 5F and Supporting Fig. 8A/8B
-# statements about the score as people actually apply it.
+# Chen et al.'s OWN cutoff ("constrained non-coding regions (Gnocchi >= 4)"), so Fig. 5F
+# and Supporting Fig. 8A/B describe the score as people actually apply it.
 GNOCCHI_THRESHOLD = 4.0
 
-# THE MATCHED OPERATING POINT OF SUPPORTING FIGURE 8's F AND I: the top 1% of each GC bin
-# by each score. F draws the thresholds that delivers and I the gain measured at them, so
-# the two panels are one construction seen twice and must read the same number. The other
-# two rates in LAX_CALL_RATES pair D with G and E with H the same way.
+# Supporting Fig. 8F and I's operating point: the top 1% of each GC bin by each score. F
+# draws the thresholds, I the gain measured at them -- one construction seen twice. The
+# other LAX_CALL_RATES pair D with G and E with H the same way.
 #
-# IT IS NOT A AND B's OPERATING POINT, AND THE DIFFERENCE IS THE FIGURE'S SPINE. A and B
-# apply ONE FIXED GLOBAL CUTOFF per score -- published at Chen et al.'s own z >= 4 -- and let
-# the fraction of each bin that clears it fall where it may. That freedom IS the bias, and
-# those are the panels that show what it does to discovery, so imposing a per-bin rate there
-# would delete the very thing they measure. D through I impose the rate precisely to remove
-# it, which is what isolates ranking from threshold placement. Two operating points, two
-# questions; the figure is incoherent only if they are confused, which is why they are named
-# apart.
-#
-# WHY A ROUND 1% FOR F AND I rather than "whatever published calls at z >= 4" (1.002%):
-# with the rate imposed per bin, the cutoff is no longer a number anyone applies -- it is a
-# construction -- so it should be stated in the roundest form a caption can carry rather
-# than inherited from a cutoff whose provenance then has to be explained. The two differ by
-# 0.002 pp, about one window in five hundred.
+# NOT A AND B's OPERATING POINT. A and B apply ONE GLOBAL CUTOFF per score and let each
+# bin's calling fraction fall where it may; that freedom IS the bias, so a per-bin rate
+# there would delete what they measure. D-I impose the rate to remove it, isolating
+# ranking from threshold placement. A round 1%, not published's 1.002% at z >= 4, because
+# a per-bin cutoff is a construction nobody applies.
 LAX_CALL_RATE = 0.01
 
-# THE THREE MATCHED CALLING RATES Supporting Fig. 8 reads the same comparison at, added
-# 2026-09-11 when the figure stopped asking about the left tail. Each is a fraction of a GC
-# BIN, matched between the scores within that bin, and in every one of them A CALL IS
-# z > t AND A HIT IS AN ENHANCER -- one hypothesis, one truth set, three points along the
-# recall axis:
+# The three per-bin calling rates Supporting Fig. 8 reads one comparison at, each matched
+# between the scores within the bin. In all three A CALL IS z > t AND A HIT IS AN
+# ENHANCER -- one hypothesis, three points along the recall axis:
 #
 #     0.01   the top 1% of a bin           low recall    the most constrained sequence
 #     0.50   the upper half of a bin       mid recall    where most of C's area lives
 #     0.99   all but the bottom 1%         high recall   precision pinned near prevalence
 #
-# WHICH IS A DECOMPOSITION OF 8C. auPRC integrates over the whole recall axis, so a wash
-# there is consistent with a gain at one end and a loss at another; reading one comparison
-# at three points says WHERE along that axis the two scores differ. The 99% point replaced
-# a bottom-1% construction that called z <= t and scored a NON-enhancer as the hit -- see
-# the note below for why that reading was retired.
+# A DECOMPOSITION OF 8C: auPRC integrates over the whole recall axis, so a wash there can
+# hide a gain at one end and a loss at the other. The 99% point replaced a bottom-1%
+# construction (call z <= t, hit a NON-enhancer) -- see the left-tail note below.
 LAX_CALL_RATES = (LAX_CALL_RATE, 0.50, 0.99)
 
 # The column each score is ranked by, as _lax_labelled_windows built it.
 #
-# NO GC-ONLY ARM, DELIBERATELY. Ranking windows by GC content alone measures how much of
-# this truth set's precision-recall is a GC-content contest -- a true fact about GeneHancer,
-# and the wrong comparison to carry: the manuscript's claim is published against
-# decontaminated, that comparison is paired and computed within a GC bin, and a score with
-# no constraint information in it adjudicates nothing between two constraint scores. What the truth set's GC skew actually does to the comparison is give PUBLISHED a
-# tailwind, since published is the GC-biased one -- so Supporting Fig. 8I is conservative,
-# which is a sentence in the caption and needs no third classifier to support it.
+# NO GC-ONLY ARM, DELIBERATELY. It would measure how much of this truth set is a GC
+# contest -- true of GeneHancer, but the claim is published against decontaminated,
+# paired within a GC bin, and a score with no constraint information adjudicates nothing
+# between two constraint scores. The truth set's GC skew gives PUBLISHED a tailwind, so
+# Supporting Fig. 8I is conservative without a third classifier.
 def _score_column(key: str) -> str:
     return f"z_{key}"
 
@@ -1402,11 +1092,9 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
                      match_call_rate: bool, reference_score: str,
                      call_rate: float | None = None):
     """
-    The labelled table, the drawn bins, and each score's threshold -- shared by
-    threshold_metrics and paired_deltas so the two cannot disagree about which windows are
-    called. Extracted rather than duplicated because the matching is the subtle part: get
-    it different between the panel and its confidence interval and the interval is for a
-    different statistic than the one plotted.
+    The labelled table, the drawn bins and each score's threshold -- shared by
+    threshold_metrics and paired_deltas so a panel and its interval cannot disagree about
+    which windows are called.
     """
     if reference_score not in PR_SCORES:
         raise ValueError(f"reference_score={reference_score!r} is not one of {list(PR_SCORES)}")
@@ -1414,8 +1102,7 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
     df = _lax_labelled_windows(cache_dir, neutral_windows_bed, refit_expected)
     df = _assign_gc_bins(df, gc_bins)
 
-    # Which bins get drawn, decided before the matching so the fraction being matched is
-    # the one the panels cover.
+    # Drawn bins decided before matching, so the matched fraction is the one drawn.
     drawn = []
     for b, (lo, hi) in enumerate(gc_bins):
         n = df.filter(pl.col("gc_bin") == b).height
@@ -1427,13 +1114,8 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
 
     keys = list(PR_SCORES)
     # `call_rate` sets the REFERENCE score's threshold by quantile instead of taking the
-    # absolute z. Loosening the cutoff is the cheapest way to buy precision in every
-    # threshold statistic here -- the intervals close as sqrt(calls) while lift itself is
-    # nearly flat in the calling rate (1.67 -> 1.56 over 1% -> 10% in the GC-poorest bin,
-    # against a CI half-width falling 17.2% -> 4.2%). It measures a DIFFERENT quantity
-    # though: "the top q of the genome by Gnocchi" is not "Gnocchi >= 4", and only the
-    # latter is Chen et al.'s own cutoff and therefore the score as people apply it. So
-    # this is for a sweep reported ALONGSIDE the anchored result, never instead of it.
+    # absolute z: "the top q" rather than "Gnocchi >= 4". That is how Supporting Fig. 8's
+    # D-I are built (LAX_CALL_RATES); A and B keep the absolute z, Chen et al.'s own cutoff.
     if call_rate is not None:
         threshold = float(np.quantile(df[f"z_{reference_score}"].to_numpy(), 1.0 - call_rate))
         print(f"  calling rate {100 * call_rate:.2f}% sets {reference_score} at "
@@ -1457,75 +1139,50 @@ def _threshold_setup(threshold: float, cache_dir: str, neutral_windows_bed: str 
 
 def _odds_ratio(p: float, r: float) -> float:
     """
-    LR+ as an odds ratio: the odds that a called window is a positive, over the odds in
-    the bin at large. See the note beside `lr_pos` in threshold_metrics for why this is
-    the same number as TPR/FPR and why it makes the interval a change of variable rather
-    than a second bootstrap.
-
-    THE POINT OF PREFERRING IT TO LIFT FOR ANY CROSS-BIN STATEMENT: the base rate enters
-    both sides here and cancels, so LR+ is comparable between bins whose prevalence
-    differs -- which over the lax truth set's GC bins is a 7.7x span. Lift divides by r
-    and skill by (1 - r); over that span those two corrections disagree about the SIGN of
-    the trend, which is the demonstration that neither is a prevalence correction at all.
+    LR+ as an odds ratio: odds that a called window is positive over the odds in the bin
+    at large (equal to TPR/FPR -- see `lr_pos` in threshold_metrics). The base rate
+    cancels, so LR+ compares ACROSS bins whose prevalence spans 7.7x; lift (/r) and skill
+    (/(1 - r)) disagree about the SIGN of the trend over that span, so neither is a
+    prevalence correction.
     """
     if not 0 < p < 1 or not 0 < r < 1:
         return float("inf") if p >= 1 else float("nan")
     return (p / (1 - p)) / (r / (1 - r))
 
 
-# WHY THE LEFT TAIL IS NOT READ AS A DISCOVERY PROBLEM, recorded here because the code that
-# did read it that way was deleted on 2026-09-11 and the prose in fig5/README.md and the
-# notebook both point at this note. (fig5/captions.txt and fig5/results.txt pointed here
-# too until they were deleted, at e593d1d and 5bd253f.)
+# THE LEFT-TAIL NOTE: why the left tail is not read as a discovery problem (the notebook
+# and fig5/README.md point here; the code that did so was deleted 2026-09-11).
 #
-# Until then Supporting Fig. 8 reached the far end of the ranking by calling z <= t and
-# counting a NON-enhancer as the hit, on the grounds that a low Gnocchi claims a window is
-# unconstrained. IT DOES NOT. Gnocchi is a two-sided z against a neutral expectation, so
-# UNCONSTRAINED SEQUENCE SITS AT z ~ 0, which is most of the genome; the left tail is the
-# OPPOSITE anomaly, MORE variation than expected, whose leading explanations are
-# hypermutability or mutation-model misspecification rather than an absence of selection.
-# The repo's own numbers agree: under the neutral null the 1st percentile would be
-# z = -2.33, and published's bottom-1% cutoffs run -5.67, -6.04, -5.03, -4.14, -2.98, so
-# four of five bins are far heavier than sampling noise. A non-enhancer label is evidence
-# about ENHANCER STATUS, and there is no truth set for the left tail, so that construction
-# swapped one hypothesis for another. DO NOT REBUILD IT; a DNM-rate test would need no
-# labels at all.
+# Supporting Fig. 8 once called z <= t and counted a NON-enhancer as the hit, on the
+# grounds that a low Gnocchi claims a window is unconstrained. IT DOES NOT: Gnocchi is a
+# two-sided z, so UNCONSTRAINED SEQUENCE SITS AT z ~ 0 and the left tail is the OPPOSITE
+# anomaly, MORE variation than expected -- hypermutability or model misspecification,
+# not absent selection. Under the null the 1st percentile is z = -2.33; published's
+# bottom-1% cutoffs run -5.67, -6.04, -5.03, -4.14, -2.98. There is no truth set for that
+# tail, so DO NOT REBUILD IT; a DNM-rate test would need no labels.
 #
-# THE SWITCH COST NO EVIDENCE, ONLY MAGNITUDE, which is why the question survives intact at
-# call_rate = 0.99. With a = P(z <= t | enhancer) and b = P(z <= t | non-enhancer), the
-# retired reading was b/a and the kept one is (1 - a)/(1 - b); at a matched rate inside a bin
-# these are a monotone reparametrisation of one 2x2 table (see paired_deltas' one-free-count
-# note), so they order the scores identically in every bin and every bootstrap replicate.
-# Only the numbers compress: 42.2% of effect in the retired reading against 0.53% in the kept
-# one, 5/5 bins agreeing.
+# THE SWITCH COST NO EVIDENCE, ONLY MAGNITUDE. With a = P(z <= t | enhancer) and
+# b = P(z <= t | non-enhancer), the retired reading was b/a and the kept one (call_rate =
+# 0.99) is (1 - a)/(1 - b): at a matched rate in a bin, monotone in the same single free
+# count (paired_deltas), so they order the scores identically in every bin and replicate.
+# Only the numbers compress: 42.2% of effect against 0.53%, 5/5 bins agreeing.
 
 
 def _bin_thresholds(sub: pl.DataFrame, keys, target: float) -> dict:
     """
-    Per-BIN thresholds: within this bin, each score's own quantile at 1 - target, so every
+    Per-BIN thresholds: each score's own quantile at 1 - target within this bin, so every
     score calls the same fraction OF THIS BIN.
 
-    WHY THIS EXISTS, AND WHAT IT FIXES. The global matching in _threshold_setup equalises
-    the fraction of the WHOLE population each score calls; it does not equalise the
-    fraction of each BIN. That is not a defect of the matching -- the per-bin difference IS
-    the bias, and Fig. 5F is precisely a picture of it -- but it means every per-bin
-    comparison of precision, lift or skill between the two scores is made at two DIFFERENT
-    operating points. In the top GC bin published calls 13.97% of windows and the retrained
-    score 0.82%, a 17-fold difference, and skill falls as a threshold loosens, so published
-    would show the lower skill there even if the two scores ranked windows identically.
+    The global matching in _threshold_setup equalises each score's calling fraction over
+    the WHOLE population, not per bin -- the per-bin difference IS the bias (Fig. 5F) -- so
+    without this a per-bin comparison is made at two DIFFERENT operating points: in the
+    top GC bin published calls 13.97% and the retrained score 0.82%.
 
-    AND SUPPORTING FIG. 8C SAYS THEY VERY NEARLY DO. auPRC integrates over all thresholds,
-    so it is this same within-bin comparison with the operating point removed, and it finds
-    differences of order 1% with the one significant bin NEGATIVE. Two measurements of the
-    same thing that disagree by an order of magnitude have to be reconciled; matching
-    within the bin is what settled it, and the answer was that both are right -- auPRC
-    weights the whole recall axis, lift at 1% only its top, and the two scores' curves
-    cross. So this is not a diagnostic that failed; it is Supporting Fig. 8I.
-
-    IT IS A DIAGNOSTIC AS WELL AS A PANEL. Forcing published to call 1% of GC-rich sequence
-    describes a score nobody is using -- the whole point of Fig. 5F is that it calls 14%
-    there. Supporting Fig. 8I says what the score CONTAINS; Fig. 5F says what happens when
-    it is USED.
+    It is how 8C (order-1% auPRC differences, one significant bin NEGATIVE) and the large
+    top-1% gains were reconciled: both are right, the scores' curves crossing along the
+    recall axis. Note it describes a score nobody uses -- published at z >= 4 calls 14% of
+    GC-rich sequence. Supporting Fig. 8I says what the score CONTAINS; Fig. 5F what
+    happens when it is USED.
     """
     q = 1.0 - target
     return {k: float(np.quantile(sub[_score_column(k)].to_numpy(), q)) for k in keys}
@@ -1535,79 +1192,49 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       cache_dir: str = CACHE_DIR,
                       neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
                       refit_expected: str | None = None, gc_bins: list | None = None,
-                      min_n: int = DELTA_MIN_BIN_WINDOWS,
+                      min_n: int = THRESHOLD_MIN_BIN_WINDOWS,
                       match_call_rate: bool = True,
                       reference_score: str = "published",
                       match_within_bin: bool = False,
                       call_rate: float | None = None,
                       ) -> pl.DataFrame:
     """
-    Precision, recall and calling rate at a FIXED Gnocchi threshold, per GC bin, for both
-    scores. Feeds Fig. 5F and Supporting Fig. 8's A, B and D-I, and the numbers behind them.
+    Precision, recall and calling rate at a threshold, per GC bin, for both scores. Feeds
+    Supporting Fig. 8's A, B and D-I, and the numbers behind them.
 
-    WHY A FIXED THRESHOLD CHANGES WHAT IS MEASURED. Supporting Fig. 8C is a within-bin
-    RANKING statistic, and a bias that is a function of GC is very nearly a common shift on
-    every window in a narrow bin, positives and negatives alike -- a shift that cannot change
-    a within-bin ranking, which is why C's two curves nearly coincide. Fix the threshold
-    instead and the shift stops cancelling: it decides how many windows in each bin are
-    CALLED at all. The analyst's question lives here too -- someone handed a window with
-    Gnocchi >= 4 wants P(constrained | called), and if that depends on GC then the score
-    cannot be used as a single genome-wide cutoff, which is a stronger practical claim than
-    any ranking statistic can make.
+    WHY A THRESHOLD CHANGES WHAT IS MEASURED. A GC-dependent bias is nearly a common shift
+    within a narrow bin, so it cannot change a within-bin RANKING (why 8C's curves nearly
+    coincide). At a fixed threshold it stops cancelling: it decides how many windows per
+    bin are CALLED. That is also the analyst's question -- given Gnocchi >= 4, what is
+    P(constrained | called), and does it depend on GC?
 
-    SEVERAL QUANTITIES, BECAUSE PRECISION ALONE CONFOUNDS TWO EFFECTS. Per bin g and score:
+    Per bin g and score:
 
-        call_rate(g)  = P(z >= t | g)                 -- pure exposure to the bias,
-                                                        and it needs NO truth set
+        call_rate(g)  = P(z >= t | g)                 -- exposure to the bias; no labels
         precision(g)  = P(constrained | z >= t, g)    -- the analyst's number
-        recall(g)     = P(z >= t | constrained, g)    -- what fraction is caught
-        lift(g)       = precision(g) / r(g)           -- precision over the bin's base rate
-        lr_pos(g)     = P(call | Y=1) / P(call | Y=0) -- the base rate cancels, so this one
-                                                        is comparable BETWEEN bins
-        skill(g)      = (precision - r) / (1 - r)     -- its ceiling-free companion
+        recall(g)     = P(z >= t | constrained, g)
+        lift(g)       = precision(g) / r(g)           -- within-bin only: ceiling 1/r
+        lr_pos(g)     = P(call | Y=1) / P(call | Y=0) -- base rate cancels: compares
+                                                        BETWEEN bins
+        skill(g)      = (precision - r) / (1 - r)
 
-    NOT ALL ARE DRAWN. The panels take recall and lr_pos (8A, 8B), call_rate (Fig. 5F) and
-    the per-bin thresholds (8D-8F); precision, lift and skill are computed and PRINTED as
-    diagnostics and plotted nowhere. Keep computing them: precision is the analyst's number
-    and belongs in a caption, lift is the within-bin translation the caption quotes.
+    DRAWN: recall and lr_pos (8A, 8B), the per-bin thresholds (8D-F). The rest are printed
+    only; precision and lift are what the caption quotes. Precision need NOT be flat even
+    for a perfect score, r(g) climbing ~7.7x across these bins, and a residual slope after
+    debiasing is signal-to-noise (8C's finding), not residual bias.
 
-    call_rate is where the bias lives undiluted -- with no GC bias the fraction clearing a
-    fixed cutoff should not track GC -- and it is the ONE quantity here involving no labels,
-    so it rests on neither GeneHancer nor the laxness of an enhancer proxy. Quote it
-    accordingly. Precision need NOT be flat even for a perfect score, since r(g) climbs ~7.7x
-    across these bins and a bin with more enhancers yields higher precision at any threshold;
-    `lift` and `lr_pos` are the base-rate-free versions, dividing it out differently (lift
-    from the precision, lr_pos from its odds), which is what makes only the second comparable
-    across bins. Expect the correction to flatten call_rate strongly and precision and recall
-    less so, and do not read a residual slope in precision as residual bias: declining
-    signal-to-noise with GC survives debiasing (Supporting Fig. 8C's finding) and shows up
-    here too.
+    MATCHED CALLING RATE, NOT A COMMON NUMBER. Retraining moves the whole z distribution:
+    at Gnocchi >= 4 published calls ~1.00% and the retrained score ~0.13%. So
+    `reference_score` is held at `threshold` and every other score gets the quantile of its
+    own z calling the SAME fraction of the DRAWN bins (`threshold_used`).
+    match_call_rate=False gives the naive common-threshold comparison, for understanding
+    the confound only. `call_rate` replaces `threshold` as the anchor -- the reference
+    cutoff becomes its own quantile at 1 - call_rate -- which is how D-I are built; pass one
+    of LAX_CALL_RATES. match_within_bin matches per bin instead (_bin_thresholds).
 
-    THE TWO SCORES ARE COMPARED AT A MATCHED CALLING RATE, NOT A COMMON NUMBER, without which
-    these panels would be uninterpretable. Retraining moves the whole z distribution: at
-    Gnocchi >= 4 published calls ~1.00% of windows and the retrained score ~0.13%, EIGHT
-    TIMES fewer, so the same numeral is a far stricter cutoff for one than the other, and a
-    naive comparison would credit the retrained score for being strict and penalise its
-    recall for the same reason. So `reference_score` is held at `threshold` and every other
-    score gets the quantile of its own z calling the SAME fraction; each score's threshold is
-    reported in `threshold_used`, printed, and put in the panel legends. `match_call_rate=
-    False` recovers the naive common-threshold comparison, worth seeing once to understand
-    the confound rather than to quote. Matching is computed over the windows in the DRAWN
-    bins, so the fraction matched is the one the panels cover.
-
-    `call_rate` REPLACES `threshold` AS THE ANCHOR, and is how Supporting Fig. 8's D through
-    I are built: the reference score's cutoff becomes its own quantile at 1 - call_rate
-    rather than an absolute z, so the operating point is "the top q of the population" and
-    not "z >= 4". Pass one of LAX_CALL_RATES. `threshold` is then ignored for the reference
-    score.
-
-    UNBALANCED, unlike Supporting Fig. 8C: the base rate an analyst faces is the real one,
-    and reporting it per bin is what keeps the bins comparable. Intervals are Wilson, per
-    curve -- see _wilson for why not a bootstrap.
-
-    A CALL IS ALWAYS z >= t AND A HIT IS ALWAYS AN ENHANCER. The far end of the ranking is
-    reached by raising `call_rate` towards 1, not by mirroring the problem onto the left tail
-    -- see the LEFT-TAIL note below LAX_CALL_RATES for why that reading has no truth set.
+    UNBALANCED, unlike 8C: the base rate an analyst faces is the real one. Wilson
+    intervals, per curve. A CALL IS ALWAYS z >= t AND A HIT ALWAYS AN ENHANCER (see the
+    left-tail note).
 
     Returns one row per (GC bin, score): lo, hi, mid, score, threshold_used, n, n_pos,
     r, n_called, call_rate, precision, recall, lift, skill, lr_pos, the last six each with
@@ -1615,7 +1242,7 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
     """
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
-    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+    gc_bins = THRESHOLD_GC_BINS if gc_bins is None else gc_bins
 
     df, drawn, thresholds, target = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
@@ -1623,8 +1250,8 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
 
     if match_within_bin:
         print(f"  MATCHING WITHIN EACH BIN at {100 * target:.3f}%: every score calls that "
-              "fraction of every bin, so per-bin comparisons are at one operating point. "
-              "Diagnostic -- see _bin_thresholds.")
+              "fraction of every bin, so per-bin comparisons are at one operating point "
+              "-- see _bin_thresholds.")
 
     rows = []
     for b in drawn:
@@ -1655,49 +1282,31 @@ def threshold_metrics(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                 "recall": tp / n_pos if n_pos else float("nan"),
                 "recall_lo": rec_lo, "recall_hi": rec_hi,
                 "lift": (tp / n_called) / r if n_called and r else float("nan"),
-                # CEILING-FREE COMPANIONS TO LIFT, for statements made ACROSS bins.
-                # lift <= 1/r, and that ceiling falls from 12.0 to 1.57 over these bins, so
-                # a lift declining with GC is partly the ceiling coming down. skill
-                # normalises by the headroom (0 = random, 1 = perfect); lr_pos conditions
-                # on the true class on both sides, so the base rate cancels outright and it
-                # is the standard diagnostic-test choice. Neither is plotted; they exist so
-                # a cross-bin sentence can be written without the ceiling caveat.
+                # CEILING-FREE COMPANIONS TO LIFT, for cross-bin statements: lift <= 1/r,
+                # a ceiling falling 12.0 -> 1.57 over these bins. skill normalises by the
+                # headroom (0 = random, 1 = perfect); lr_pos, below, cancels r outright.
                 "skill": ((tp / n_called) - r) / (1 - r)
                          if n_called and r < 1 else float("nan"),
-                # The skill interval is the PRECISION interval pushed through the same
-                # affine map. r is a property of the bin, not of the score, so within a bin
-                # skill is a linear function of precision and the transform is exact --
-                # no second bootstrap, and the bounds inherit Wilson's behaviour at small
-                # counts. (Across bins r does move, which is the whole reason skill exists;
-                # it just does not move inside one.)
+                # Within a bin r is a constant, so skill, lift and LR+ are each monotone in
+                # precision and its Wilson bounds map through exactly -- no second bootstrap.
                 "skill_lo": (prec_lo - r) / (1 - r) if n_called and r < 1 else float("nan"),
                 "skill_hi": (prec_hi - r) / (1 - r) if n_called and r < 1 else float("nan"),
-                # Same argument for lift: within a bin r is a constant, so lift is
-                # precision/r and the Wilson bounds carry over exactly.
                 "lift_lo": (prec_lo / r) if n_called and r else float("nan"),
                 "lift_hi": (prec_hi / r) if n_called and r else float("nan"),
                 "lr_pos": ((tp / n_pos) / ((n_called - tp) / (sub.height - n_pos)))
                           if n_pos and (n_called - tp) and sub.height > n_pos
                           else float("nan"),
-                # AT A CALLING RATE NEAR 1, LR+ IS PINNED NEAR 1 BY ARITHMETIC, which is
-                # the one thing to know before reading Supporting Fig. 8G as a null. Calling
-                # 99% of a bin forces the precision p to the base rate r, and with e = 1 - k
-                # the uncalled fraction and a = 1 - recall,
-                #     LR+ = 1 + (e - a)/(1 - r) + O(e^2) = 1 + (recall - k)/(1 - r) + O(e^2),
-                # bounded by 1 + e/(1 - r). So a ratio of two LR+ values there lives within
-                # about a percent of 1.0 however sharp the scores are. THE SIGNIFICANCE IS NOT
-                # COMPRESSED WITH IT -- see the one-free-count argument in paired_deltas --
-                # only the magnitude. The notebook prints this check.
-                #
-                # LR+ IS AN ODDS RATIO, which is what makes its interval free. Writing
-                # p = tp/n_called and r = n_pos/n, the n_called in TPR and FPR cancels and
+                # LR+ IS AN ODDS RATIO: with p = tp/n_called and r = n_pos/n,
                 #     LR+ = [p / (1 - p)] / [r / (1 - r)],
-                # i.e. the odds of a call being a positive over the odds of the bin at
-                # large. That is strictly increasing in p and r is a constant within the
-                # bin, so the Wilson bounds on precision map straight through -- the same
-                # argument that gives lift and skill their bounds, and exact in the same
-                # sense. Checked against the printed values: p = 0.718, r = 0.639 gives
-                # 2.546 / 1.770 = 1.44.
+                # increasing in p, hence the bounds below (e.g. p = 0.718, r = 0.639 -> 1.44).
+                #
+                # AT A CALLING RATE k NEAR 1 IT IS PINNED NEAR 1 BY ARITHMETIC -- read
+                # Supporting Fig. 8G with this in mind. p is forced to r, and
+                #     LR+ = 1 + (recall - k)/(1 - r) + O((1 - k)^2),
+                # bounded to first order by 1 + (1 - k)/(1 - r), so a ratio of two LR+ values
+                # there sits within ~1% of 1.0 however sharp the scores. Only the magnitude
+                # is compressed, not the significance (the one-free-count argument in
+                # paired_deltas).
                 "lr_pos_lo": _odds_ratio(prec_lo, r) if n_called and 0 < r < 1
                              else float("nan"),
                 "lr_pos_hi": _odds_ratio(prec_hi, r) if n_called and 0 < r < 1
@@ -1715,84 +1324,51 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
                   cache_dir: str = CACHE_DIR,
                   neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
                   refit_expected: str | None = None, gc_bins: list | None = None,
-                  min_n: int = DELTA_MIN_BIN_WINDOWS, match_call_rate: bool = True,
+                  min_n: int = THRESHOLD_MIN_BIN_WINDOWS, match_call_rate: bool = True,
                   reference_score: str = "published", n_bootstrap: int = 500,
                   seed: int = 0, call_rate: float | None = None,
                   match_within_bin: bool = False,
                   metric: str = "lr_pos") -> pl.DataFrame:
     """
     The PAIRED difference between the two scores in one effect measure, per GC bin, with a
-    bootstrap confidence interval. `metric` chooses the measure and DEFAULTS TO "lr_pos";
-    Supporting Fig. 8G, 8H and 8I plot the ratio as their curves and this interval as their
-    error bars.
+    bootstrap interval. Supporting Fig. 8G, 8H and 8I plot the ratio and this interval.
 
-    LIFT IS THE RIGHT CONTROL WITHIN A BIN AND THE WRONG ONE ACROSS BINS.
+    `metric` DEFAULTS TO "lr_pos" BECAUSE THE PANELS ARE CURVES ACROSS BINS. Lift
+    (= precision / r) is the right control WITHIN a bin but has a ceiling 1/r that moves
+    with the base rate -- 12.0 at r = 0.083, 1.57 at r = 0.639 -- so a lift falling 2.64 to
+    1.14 across GC (the retrained score at panel B's cutoff) is partly that ceiling coming
+    down. LR+ = P(call|Y=1)/P(call|Y=0) has no such ceiling. "lift" keeps the older measure.
 
-        lift = P(Y=1 | called) / P(Y=1) = precision / base rate = recall / calling rate
-
-    the factor by which a call beats picking a window of that bin at random. Enhancer
-    prevalence climbs ~7.7x across these bins, so raw precision rises with GC for ANY score
-    and must be divided out. But precision cannot exceed 1, so lift cannot exceed 1/r -- a
-    CEILING that moves with the base rate, 12.0 at r = 0.083 and 1.57 at r = 0.639 -- and a
-    lift falling 2.6 to 1.1 across GC is partly that ceiling coming down. Prevalence-free
-    alternatives: LR+ = P(call|Y=1)/P(call|Y=0), or skill = (precision - r)/(1 - r). WITHIN a
-    bin none of this bites, both scores facing one r and one ceiling, which is why this
-    function compares them there and nowhere else.
-
-    `metric` DEFAULTS TO "lr_pos" BECAUSE THE PANEL DRAWS CURVES ACROSS BINS. Panel I's claim
-    is within-bin, but its artwork is a curve over GC and a reader compares along it whatever
-    the prose says. "lift" keeps the older statistic.
-
-    THE BASE RATE CANCELS FROM THE RATIO EITHER WAY:
+    Either way r cancels from the RATIO, in every replicate too, both scores seeing the
+    same rows:
 
         lift_scored / lift_published = precision_scored / precision_published
         LR+_scored / LR+_published   = odds(precision_scored) / odds(precision_published)
 
-    since both scores see the same rows and r is a property of the bin (for LR+ because
-    LR+ = odds(precision)/odds(r)). It cancels inside every bootstrap replicate too -- a
-    resample changes r identically for both -- so the interval is equally one on the
-    precision or the odds ratio. Reported as that ratio minus one, matching pr_curve_deltas'
-    form. THE TWO MEASURES DISAGREE ON MAGNITUDE, NEVER ON SIGN: both increase strictly in
-    the precision difference, but the odds ratio amplifies wherever precision is high (0.73
-    in the top bin here), so expect every LR+ gain to exceed its lift counterpart. That is a
-    property of the measure, not evidence, which is why the choice rests on the cross-bin
-    argument above and not on which yields larger numbers.
+    Reported as ratio minus one, like pr_curve_deltas. The two disagree on magnitude, never
+    sign: the odds ratio amplifies where precision is high (0.73 in the top bin), so every
+    LR+ gain exceeds its lift counterpart -- a property of the measure, not evidence.
 
-    ONE FREE COUNT, WHICH IS WHY THE CHOICE OF EFFECT MEASURE CANNOT CHANGE THE VERDICT.
-    At a matched calling rate inside a bin, n, n_pos and n_called are all fixed and shared by
-    the two scores, so the 2x2 table has a single free count. Every measure here is a
-    monotone function of it -- precision, lift, skill and LR+ all increasing -- so they agree
-    on which score is ahead in a bin and in every bootstrap replicate, and differ only in
-    dynamic range and in whether they are comparable ACROSS bins. That is the whole content
-    of "the switch costs no evidence, only magnitude" in the LEFT-TAIL note below
-    LAX_CALL_RATES: the
-    reading the figure retired was another monotone function of the same count.
+    ONE FREE COUNT. At a matched rate inside a bin, n, n_pos and n_called are fixed and
+    shared, so the 2x2 table has a single free count and precision, lift, skill and LR+
+    are all increasing in it: they agree on which score is ahead in every bin and replicate,
+    and differ only in dynamic range and cross-bin comparability. The retired left-tail
+    reading was another monotone function of the same count (the left-tail note).
 
-    PAIRED, for the reason in pr_curve_deltas: one index vector per replicate, both scores
-    scored on it, so the variability in WHICH windows a bin contains cancels. Independent
-    Wilson intervals -- correct where a panel shows two LEVELS, as Fig. 5F does -- would
-    badly understate the evidence about a difference. THRESHOLDS ARE HELD FIXED across
-    replicates: they are quantiles of ~10^6 windows, so their sampling error is negligible
-    beside the per-bin counts, and re-matching within a bin would be wrong anyway, the
-    matching being defined over the whole drawn population.
+    PAIRED as in pr_curve_deltas: one index vector per replicate, both scores scored on it.
+    THRESHOLDS ARE HELD FIXED across replicates, being quantiles of ~10^6 windows.
 
     Returns one row per drawn bin: lo, hi, mid, n, n_pos, r, ceiling (1/r),
-    threshold_published, threshold_scored, n_called_*, BOTH
-    measures' observed levels regardless of `metric` (lift_published, lift_scored,
-    lr_pos_published, lr_pos_scored), `metric` recording which pair `delta` came from, delta
-    itself, n_boot (surviving replicates), ci_lo, ci_hi, p_gt0.
-
-    THE LEVEL COLUMNS ARE FOR INSPECTION; THE CODE PATH USES ONLY THE PAIR `metric` NAMES.
-    Nothing downstream reads lift_* -- the panels take `delta` and the print line indexes
-    f"{metric}_published" -- so `delta`, `ci_lo` and `ci_hi` always belong to `metric`, and a
-    level column is only ever a level. Both pairs are kept because the caption needs both: with the rate matched inside a bin, lift_scored / lift_published IS
-    the precision ratio (the analyst-legible "33% more likely to be an enhancer here") while
-    `delta` on the lr_pos default is the larger odds ratio. 8I quotes both, so neither pair
-    can go until those placeholders are filled.
+    threshold_published, threshold_scored, n_called_*, both measures' levels whatever
+    `metric` is (lift_*, lr_pos_*), `metric`, delta, n_boot (surviving replicates), ci_lo,
+    ci_hi, p_gt0. `delta` and its interval always belong to `metric`; the level columns are
+    for inspection. Keep both pairs: with the rate matched in a bin, lift_scored /
+    lift_published IS the precision ratio the caption quotes (1.30x in the most AT-rich
+    bin), smaller than the odds ratio `delta` reports.
     """
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
-    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+    gc_bins = THRESHOLD_GC_BINS if gc_bins is None else gc_bins
     df, drawn, thresholds, target = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
         match_call_rate, reference_score, call_rate=call_rate)
@@ -1821,8 +1397,7 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
             k = int(mask.sum())
             return (yy[mask].sum() / k) if k else np.nan
 
-        # The ratio whose relative gain is reported, as a function of the two precisions.
-        # Both cancel r; see the docstring.
+        # The reported ratio, as a function of the two precisions; both forms cancel r.
         def _ratio(p_lo, p_hi):
             if metric == "lift":
                 return p_hi / p_lo
@@ -1844,13 +1419,10 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
             boot[k] = (_ratio(a, c) - 1.0) if (a and np.isfinite(a) and np.isfinite(c)) \
                 else np.nan
         boot = boot[np.isfinite(boot)]
-        # A SATURATED PRECISION LEAVES NO ODDS RATIO, and a high calling rate is where that can
-        # actually happen: there the hit is a NON-enhancer, whose base rate reaches 91.7% in
-        # the most AT-rich bin, so the bottom 1% of a bin -- 219 windows there -- can be
-        # entirely negative. precision = 1 makes LR+ infinite and _ratio returns nan, and if
-        # enough replicates saturate there is nothing left to take a percentile of. Report
-        # that as a missing interval rather than raising or letting an empty-slice warning
-        # stand in for it; n_boot says how much of the resampling survived.
+        # A SATURATED PRECISION (0 or 1) LEAVES NO ODDS RATIO: _ratio returns nan, and if
+        # enough replicates saturate there is nothing left to take a percentile of. Unlikely
+        # with an enhancer as the hit, but report it as a missing interval rather than
+        # raising; n_boot says how much of the resampling survived.
         ci_lo, ci_hi, p_gt0 = (float(np.percentile(boot, 2.5)),
                                float(np.percentile(boot, 97.5)),
                                float((boot > 0).mean())) if boot.size else \
@@ -1888,44 +1460,32 @@ def budget_comparison(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "la
                       cache_dir: str = CACHE_DIR,
                       neutral_windows_bed: str | None = config.NEUTRAL_WINDOWS_BED,
                       refit_expected: str | None = None, gc_bins: list | None = None,
-                      min_n: int = DELTA_MIN_BIN_WINDOWS,
+                      min_n: int = THRESHOLD_MIN_BIN_WINDOWS,
                       reference_score: str = "published") -> pl.DataFrame:
     """
-    The GENOME-WIDE comparison at a fixed calling budget. Not a panel -- a table of three
-    numbers that settles what the UNCONDITIONAL precision-recall of this truth set is
-    actually measuring, and in particular why published Gnocchi wins it.
+    The GENOME-WIDE comparison at a fixed calling budget. Not a panel: a table of three
+    arms (published, scored, random) that settles what the UNCONDITIONAL precision-recall
+    of this truth set measures, and why published wins it.
 
-    AT A FIXED BUDGET, PRECISION AND RECALL ARE THE SAME QUESTION. The number of calls is
-    fixed by construction and the number of positives is a property of the truth set, so
-    precision = TP/N_called and recall = TP/P are both monotone in TP. There is one
-    quantity to reason about, and the arms below differ only in how they spend the budget.
+    At a fixed budget precision = TP/N_called and recall = TP/P are both monotone in TP, so
+    there is one quantity. TP is maximised by ranking on P(Y=1 | window), so any covariate
+    correlated with the label raises it -- and here the base rate climbs ~7.7x with GC,
+    while published is precisely the score that calls GC-rich sequence constrained.
+    PUBLISHED WINS THIS TABLE BECAUSE ITS BIAS ACTS AS AN ENHANCER DETECTOR: 5,485
+    positives against 4,396 at a common budget. A real cost, but not evidence against the
+    correction -- judging a debiasing by a statistic the bias inflates is circular.
 
-    PUBLISHED WINS THIS TABLE, AND THAT IS THE BIAS BEING REWARDED. At a fixed budget TP is
-    maximised by ranking on P(Y=1 | window), so any covariate correlated with the label
-    raises TP. In this truth set the base rate climbs about 7.7x with GC -- GeneHancer
-    enhancers are GC-rich -- and published Gnocchi is precisely the score that calls GC-rich
-    sequence constrained. Its unconditional advantage is therefore its GC bias acting as an
-    enhancer detector, and REMOVING that bias must cost unconditional TP. The cost is real
-    and is reported (5,485 positives against 4,396 at a common budget); what it is not is
-    evidence against the correction, because the quantity it wins on is the one the
-    correction was built to remove. Judging a debiasing by a statistic the bias inflates is
-    circular.
+    The same skew makes the WITHIN-bin comparison conservative: positives stay enriched at
+    the high-GC end of every bin, so published keeps a tailwind there, and the
+    decontaminated score wins every bin at the top 1% anyway. Read this table beside
+    Fig. 5F, never instead of it.
 
-    THE SAME SKEW MAKES THE WITHIN-BIN COMPARISON CONSERVATIVE, which is the form of this
-    argument that belongs in a caption: positives stay enriched at the high-GC end of every
-    bin, so the truth set hands published a tailwind even after conditioning -- and the
-    decontaminated score wins in every bin anyway.
-
-    Read this table beside Fig. 5F, never instead of it: what the correction buys is
-    conditional (within a GC stratum, and threshold portability across strata), and a
-    genome-wide average marginalises over exactly the variable being fixed.
-
-    Returns one row per arm (published / scored / random): n_called, tp, precision, recall,
-    lift. `random` is the analytic expectation, budget x base rate.
+    Returns one row per arm: n_called, tp, precision, recall, lift. `random` is the
+    analytic expectation, budget x base rate.
     """
     if truth_set != "lax":
         raise ValueError(f"truth_set={truth_set!r}: only 'lax' is built.")
-    gc_bins = DELTA_GC_BINS if gc_bins is None else gc_bins
+    gc_bins = THRESHOLD_GC_BINS if gc_bins is None else gc_bins
     df, drawn, thresholds, _ = _threshold_setup(
         threshold, cache_dir, neutral_windows_bed, refit_expected, gc_bins, min_n,
         match_call_rate=True, reference_score=reference_score)

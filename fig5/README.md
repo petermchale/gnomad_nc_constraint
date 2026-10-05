@@ -285,8 +285,8 @@ hypermutability or mutation-model misspecification. The repo's own numbers agree
 neutral null the 1st percentile would be `z = −2.33`, and published's bottom-1% cutoffs run
 −5.67, −6.04, −5.03, −4.14, −2.98, so four of five bins are far heavier than sampling noise. A
 non-enhancer label is evidence about **enhancer status**, so the mirror swapped one hypothesis
-for another. the note above `data.LAX_CALL_RATES` records it. **Do not
-reinstate it.** The `tail` parameter survives, correct and callerless.
+for another. The left-tail note below `data.LAX_CALL_RATES` records it. **Do not
+reinstate it.**
 
 **The switch costs no evidence, only magnitude** — worth knowing before anyone calls 8G a null.
 With `a = P(z ≤ t | enhancer)` and `b = P(z ≤ t | non-enhancer)`, the retired reading was `b/a`
