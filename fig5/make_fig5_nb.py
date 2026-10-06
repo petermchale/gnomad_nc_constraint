@@ -1186,12 +1186,20 @@ A call's **evidential weight** is the positive likelihood ratio
 
 $$\mathrm{LR}^{+}=\frac{P(\text{call}\mid\text{constrained})}{P(\text{call}\mid\text{not constrained})}.$$
 
-It conditions on the true class on both sides, so the positive-class fraction $r$ cancels and
-the number is comparable between bins — which matters because $r$ climbs $7.7\times$ across
-them. Lift, $\text{precision}/r$, does not cancel it, and the difference is not cosmetic: on
-these rows lift falls $1.81 \to 1.12$ while ceiling-free skill *rises* $0.074 \to 0.218$, so
-the choice of measure decides the **sign** of the trend. Lift survives only as the within-bin
-translation a caption quotes.
+Its meaning follows from Bayes' theorem. Writing it once for each class and dividing, the
+common factor $1/P(\text{call})$ cancels:
+
+$$\underbrace{\frac{P(\text{constrained}\mid\text{call})}{P(\text{not constrained}\mid\text{call})}}_{\text{odds}(p)}
+= \underbrace{\frac{P(\text{call}\mid\text{constrained})}{P(\text{call}\mid\text{not constrained})}}_{\mathrm{LR}^{+}}
+\times \underbrace{\frac{P(\text{constrained})}{P(\text{not constrained})}}_{\text{odds}(r)},$$
+
+where $p$ is precision, $r$ the positive-class fraction and $\text{odds}(x) = x/(1-x)$. So
+
+$$\mathrm{LR}^{+} = \frac{\text{odds}(p)}{\text{odds}(r)}:$$
+
+**$\mathrm{LR}^{+}$ is the factor by which a call multiplies the odds that a window is
+constrained**, from the odds before the call to the odds after it. A call carries evidence when
+$\mathrm{LR}^{+} > 1$ and none at $\mathrm{LR}^{+} = 1$, where precision equals prevalence.
 
 **A and B fix the threshold and let the calling rate vary** — published at Chen et al.'s
 $z \ge 4$, decontaminated at $z \ge 3.14$, the value calling the same 1.00% of the whole
