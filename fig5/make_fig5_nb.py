@@ -1678,7 +1678,7 @@ first and drops the second below threshold. But **14% of GC-rich windows clear 4
 0.17% of AT-rich ones**, so the second variant is in far rarer company and is the more
 surprising observation. The ranking is backwards, and nothing in the score says so. The same
 arithmetic puts **44% of all "constrained noncoding" calls in the 7% of the noncoding genome
-that is most GC-rich**, where lift is ~1.1 and a call is barely distinguishable from picking
+that is most GC-rich**, where the positive likelihood ratio is ~1.25 and a call is barely distinguishable from picking
 a GC-rich window at random.
 
 **The workaround, if you know the bias.** Convert Gnocchi to a percentile *within GC
