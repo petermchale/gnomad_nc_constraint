@@ -1265,6 +1265,28 @@ Two guards. The claim is about the GC **slope** of discriminative power, not its
 decontaminating does move. And a wash over the whole recall axis is an *average*, consistent
 with a gain at one depth and a loss at another — which is what D–I exist to resolve.
 
+**Reading C's error bars.** The bar on each decontaminated point is an interval for the
+*ratio* of the two scores, not for the decontaminated level. Write $\hat P$ and $\hat S$ for
+the two observed auPRC$/r$ values in a bin, and $[\rho_{\text{lo}}, \rho_{\text{hi}}]$ for the
+95% paired-bootstrap interval of $S/P$ (`data.pr_curve_deltas`). The bar spans
+$[\hat P\rho_{\text{lo}},\ \hat P\rho_{\text{hi}}]$: the ratio's interval redrawn in the panel's
+units, anchored at the published value. Three things follow.
+
+* Since $\hat P > 0$, the bar excludes the published marker exactly when the interval for
+  $S/P$ excludes 1. **The bar is a test of the gap, read by eye.**
+* $\hat S = \hat P \cdot (\hat S/\hat P)$, so the bar surrounds the *decontaminated* marker and
+  shrinks onto it as the gap becomes better determined; its distance from the published marker
+  is the gap. (A percentile interval need not contain its point estimate, but in every bin
+  drawn here it does.)
+* It does **not** carry the uncertainty of either level. Most of that is which windows the
+  truth set happens to contain, which both scores share and the pairing cancels, so an interval
+  on the decontaminated curve itself would be far wider. That is also why published's points
+  carry no bar.
+
+For example, in GC $(0.40, 0.50]$ published sits at 1.292 and decontaminated at 1.271, and the
+interval on the gain, $[-2.35\%, -0.79\%]$, becomes a bar from 1.262 to 1.282, which stops short
+of 1.292.
+
 ### D–I: fix the discovery budget and the two scores diverge
 
 To call the same fraction of every GC bin, what threshold would each score need? Published
@@ -1692,7 +1714,7 @@ if curves_s8 is not None:
 if deltas_s8 is not None:
     # The per-bin gain AND its interval in one block -- printing the bare differences first and
     # the intervals second invited quoting a gap whose CI spans zero.
-    print("\npanel C: paired gain of the decontaminated score per GC bin, unbalanced, 95% CI.")
+    print("\npanel C: paired gain of the decontaminated score per GC bin, balanced, 95% CI.")
     print("A bin whose CI excludes 0 is a real difference; P is the bootstrap fraction above")
     print("0, so it reads as a one-sided posterior-style probability, not a p-value.")
     for r in deltas_s8.iter_rows(named=True):
