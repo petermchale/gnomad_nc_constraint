@@ -1398,12 +1398,12 @@ def paired_deltas(threshold: float = GNOCCHI_THRESHOLD, truth_set: str = "lax",
             return (yy[mask].sum() / k) if k else np.nan
 
         # The reported ratio, as a function of the two precisions; both forms cancel r.
-        def _ratio(p_lo, p_hi):
+        def _ratio(p_ref, p_oth):
             if metric == "lift":
-                return p_hi / p_lo
-            if not 0 < p_lo < 1 or not 0 < p_hi < 1:
+                return p_oth / p_ref
+            if not 0 < p_ref < 1 or not 0 < p_oth < 1:
                 return np.nan
-            return (p_hi / (1 - p_hi)) / (p_lo / (1 - p_lo))
+            return (p_oth / (1 - p_oth)) / (p_ref / (1 - p_ref))
 
         thr = _bin_thresholds(sub, [reference_score, other], target) \
             if match_within_bin else thresholds
