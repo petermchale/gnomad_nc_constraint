@@ -1,13 +1,14 @@
 """
-The five panels of Fig. 5, as ax-accepting functions. Nothing here creates a figure,
-sets a matplotlib backend, or writes a file -- fig5.ipynb owns all of that.
+The six panels of Fig. 5 and those of Supporting Figs 7 and 8, as ax-accepting
+functions. Nothing here creates a figure, sets a matplotlib backend, or writes a file --
+fig5.ipynb owns all of that.
 
-Every panel's x-axis is the GC content of a 1 kb window, on a 0-1 fraction scale, but
-over two populations: A/B/E bin Chen windows by their own GC, C/D bin DNM training
+Every Fig. 5 panel's x-axis is the GC content of a 1 kb window, on a 0-1 fraction scale,
+but over two populations: A/B/E/F bin Chen windows by their own GC, C/D bin DNM training
 SITES by the GC_content_1k regional feature at that site. Same quantity, two
 populations; the caption should say so.
 
-IDENTITY IS CARRIED BY SYMBOL, NOT COLOUR, in the line panels. A, D and E are drawn
+IDENTITY IS CARRIED BY SYMBOL, NOT COLOUR, in the line panels. A, D, E and F are drawn
 entirely in near-black (MONO): a curve is named by its marker shape, its fill, its
 linestyle and whether it carries error bars, so every one of them survives greyscale
 printing, a photocopy and colour-blind readers without the legend having to be read in
@@ -28,20 +29,22 @@ rather than correctness and are worth having back if the figures change again, b
 should not be in the file someone reviews to see what the manuscript draws. That file's
 docstring says what each was and where to recover it.
 
-The Supporting Figure follows the same rule. Its single-series rows are monochrome --
+Supporting Fig. 7 follows the same rule. Its single-series rows are monochrome --
 one curve and no legend leaves a hue naming nothing -- and colour survives only in its
 hypomethylation row, where two curves share an x axis and have separate y axes, and the
-hue is what says which curve reads against which scale.
+hue is what says which curve reads against which scale. Supporting Fig. 8 is
+monochrome throughout, the two scores told apart by open and filled markers.
 """
 import matplotlib.ticker as mticker
 import numpy as np
 
 # Categorical slots of the validated default palette (dataviz skill,
-# references/palette.md). SERIES_COLORS is down to one reader, the Supporting Figure's
+# references/palette.md). SERIES_COLORS is down to one reader, Supporting Fig. 7's
 # hypomethylation row, where the two hues tie each curve to its own y axis; everything
-# else is monochrome (see the module docstring). SERIES_MARKERS still keys panels A and
-# E, where the marker is the whole of a curve's identity. Both keep the same key per
-# series so the two figures agree on which quantity is which.
+# else is monochrome (see the module docstring). SERIES_MARKERS still keys panels A, E
+# and F, and Supporting Fig. 8 through SCORE_MARKERS, where the marker is the whole of a
+# curve's identity. Both keep the same key per series so the figures agree on which
+# quantity is which.
 SERIES_COLORS = {"step1": "#2a78d6", "step2": "#eb6834",
                  "dr": "#1baf7a", "scored": "#4a3aa7"}
 SERIES_MARKERS = {"step1": "o", "step2": "s", "dr": "v", "scored": "^"}
@@ -117,9 +120,9 @@ def _finish(ax, ylabel, xrange, show_xlabel, legend_loc="upper left",
 
     `legend=False` draws no legend at all. For a panel with ONE series whose y-axis
     label already names it, a legend restates the ylabel in smaller type and takes a
-    corner of the artwork to do it -- the Supporting Figure's rows B, C and D. It is the
-    ylabel that has to carry the identity then, so a panel that switches the legend off
-    must say in its ylabel everything the legend entry said.
+    corner of the artwork to do it -- Supporting Fig. 7's rows B, C and D, and Supporting
+    Fig. 8G-I. It is the ylabel that has to carry the identity then, so a panel that
+    switches the legend off must say in its ylabel everything the legend entry said.
 
     `legend_bbox` (+ `legend_ncol`) puts the legend OUTSIDE the axes, as bbox_to_anchor in
     axes coordinates. For a stacked composition there is no empty region inside the axes
@@ -910,23 +913,24 @@ SCORE_MARKERS = {"published": SERIES_MARKERS["step2"],
 def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = True,
                      legend_loc: str = "lower right", deltas=None) -> None:
     """
-    Supporting Figure 8, panel E -- the LAST panel, and the figure's caveat. Normalized
-    auPRC against GC content, one curve per score.
+    Supporting Figure 8, panel C -- the figure's caveat and its hinge. Normalized auPRC
+    against GC content, one curve per score.
 
-    IT CLOSES THE FIGURE RATHER THAN OPENING IT. Panel D reports the retrained score's gain
-    at the top 1% in every bin; this is the same comparison with NO threshold at all, over
-    the whole recall axis, and it finds a wash -- one significant bin, and that one NEGATIVE.
-    Both are true, the two scores' PR curves crossing (retrained higher at low recall,
-    converging by mid-recall), so a gain at the operating point coexists with no gain
-    overall. D without E reads as a general improvement in ranking, which the data does not
-    support.
+    IT SITS BETWEEN THE OPERATING-POINT PANELS AND THEIR DECOMPOSITION. Panel I reports the
+    retrained score's gain at the top 1% in every bin; this is the same comparison with NO
+    threshold at all, over the whole recall axis, and it finds a wash -- one significant bin,
+    and that one NEGATIVE. Both are true, the two scores' PR curves crossing (retrained higher
+    at the top of the ranking, slightly lower through the rest), so a gain at the operating
+    point coexists with no gain overall; G, H and I below say where along the recall axis
+    each part lies. I without C reads as a general improvement in ranking, which the data
+    does not support.
 
     IT IS ALSO THE PANEL THE MAIN TEXT CITES FOR SIGNAL-TO-NOISE. The decline with GC
     survives debiasing, so it belongs to the DATA rather than to either score, and this is
     the only panel with no operating point, so that decline cannot be an artefact of where a
     cutoff sits. A and B corroborate it in LR+, which is prevalence-free and therefore
     legitimately cross-bin; what they cannot rule out is that the decline is specific to the
-    top 1%, and that is what makes E the one to cite.
+    top 1%, and that is what makes C the one to cite.
 
     y = 1 is the random classifier by construction, and the only meaningful horizontal line:
     a curve at 1.4 finds enhancers 40% more precisely than guessing, averaged over the recall
@@ -983,7 +987,7 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
                     markerfacecolor="white" if key == "published" else MONO,
                     markeredgewidth=1.2, markersize=6, linewidth=2,
                     capsize=3, elinewidth=1.2, label=label)
-    # PANEL D'S LINE STYLE, NOT REF_LINE_KW's. Both panels draw a null a reader has to
+    # FIG. 5F'S LINE STYLE, NOT REF_LINE_KW's. Both panels draw a null a reader has to
     # judge every marker against, and the argument at MATCHED_RATE_LINE_KW applies here
     # too: at 0.45 grey and 0.8 pt a dashed rule is barely heavier than this panel's own
     # dotted gridlines and, at set_axisbelow(True)'s zorder 0.5, can be painted over by
@@ -1001,9 +1005,9 @@ def panel_aupr_by_gc(ax, curves: dict, xrange=(0.2, 0.8), show_xlabel: bool = Tr
     lo, hi = min(min(ys), 1.0), max(ys)
     ax.set_ylim(lo - 0.22 * (hi - lo), hi + 0.04 * (hi - lo))
 
-    # A size down: each label carries a name AND a number, and this panel is a third of
-    # the figure's width, where the default size overflows the axes to the left and lands
-    # the legend on the y tick labels.
+    # Two sizes down, like the rest of Supporting Fig. 8's legends. The labels used to carry
+    # a pooled value as well as a name, which is what first forced the smaller type; they
+    # are names only now.
     _finish(ax, "auPRC (normalized by\npositive-class fraction)", xrange, show_xlabel,
             legend_loc=legend_loc, legend_fontsize=LEGEND_FONTSIZE - 2)
 
@@ -1029,17 +1033,17 @@ def panel_recall_and_enrichment(ax, tm, key: str, xrange=(0.2, 0.8),
     they disagree about the SIGN of the trend (lift falls 1.80 -> 1.12 while skill rises
     0.073 -> 0.218 on the same rows), which shows that dividing by a function of r is not a
     prevalence correction. LR+ = TPR/FPR conditions on the true class on both sides, so r
-    cancels. Panel D keeps LIFT, correctly: it compares two SCORES WITHIN a bin, where r is
-    one number and lift is the more interpretable. Do not unify them -- the metrics differ
-    because the comparisons do.
+    cancels. G-I use LR+ too, as a ratio of the two scores within a bin; there r is one
+    number, so the lift ratio is the precision ratio, and that survives only as the
+    analyst-legible translation the caption quotes.
 
-    THE COMPARISON IS BETWEEN THE TWO CURVES, NOT BETWEEN THE TWO PANELS. D puts one metric
+    THE COMPARISON IS BETWEEN THE TWO CURVES, NOT BETWEEN THE TWO PANELS. G-I put one metric
     on both scores and asks which is better; these put both metrics on one score and ask
     whether it sends its calls where they are worth anything -- answerable without a second
     score. Published's curves run in OPPOSITE directions (recall climbing 45.7x with GC while
     LR+ falls, so it calls most where a call is worth least); the retrained score's recall is
-    flat while LR+ still declines, that residual being panel E's signal-to-noise and no part
-    of the bias. A reader who takes B as "still not fixed" has read E's quantity off B's axes.
+    flat while LR+ still declines, that residual being panel C's signal-to-noise and no part
+    of the bias. A reader who takes B as "still not fixed" has read C's quantity off B's axes.
 
     TWO Y AXES, NOT A STYLE CHOICE. Recall spans 0.33% to 15.07% and LR+ 1.25 to 3.11: no
     shared scale shows both, and no transform makes a probability and a ratio of
@@ -1141,15 +1145,14 @@ def panel_lr_ratio(ax, deltas, call_rate: float, xrange=(0.2, 0.8),
     the scores agreeing -- LR+ = odds(p)/odds(r), and a rate near 1 forces p to r. It is
     NOT a weaker result: at a matched rate the 2x2 table has one free count and every
     measure is monotone in it, so the significance carries over and only the numbers
-    shrink. See data.paired_deltas.
-    shrink. Each panel therefore keeps its OWN y range; three curves on one axis would draw
-    the 99% one as a flat line.
+    shrink (see data.paired_deltas). Each panel therefore keeps its OWN y range; three
+    curves on one axis would draw the 99% one as a flat line.
 
-    A RATIO PANEL RATHER THAN TWO LEVELS, which is a different claim from D's and worth
-    being clear about. Two level curves invite the reader to compare each curve with
-    itself across GC -- the cross-bin reading -- and that is B and C's job, on the two
+    A RATIO PANEL RATHER THAN TWO LEVELS, which is a different claim from A and B's and
+    worth being clear about. Two level curves invite the reader to compare each curve with
+    itself across GC -- the cross-bin reading -- and that is A and B's job, on the two
     scores separately. Here the question is only whether retraining helps IN a bin, so the
-    within-bin ratio is plotted directly and the levels are left to B and C. One curve, one
+    within-bin ratio is plotted directly and the levels are left to A and B. One curve, one
     reference line, and no way to misread it as a statement about GC.
 
     WHY THE ODDS RATIO AND NOT THE PRECISION RATIO, which is the same choice made in
@@ -1164,8 +1167,7 @@ def panel_lr_ratio(ax, deltas, call_rate: float, xrange=(0.2, 0.8),
 
     So this curve is comparable bin to bin in a way a precision ratio is not. The precision
     ratio is still the analyst-legible number WITHIN a bin -- "33% more likely to be an
-    enhancer here" -- and belongs in the caption, exactly as the lift-to-recall translation
-    does.
+    enhancer here" -- and belongs in the caption.
 
     1.0 IS THE NULL AND IS DRAWN. A bar clear of it is a real difference in that bin; one
     spanning it is not. There is no second curve to compare against, so the line is the
@@ -1227,20 +1229,20 @@ def panel_bin_thresholds(ax, tm, call_rate: float, xrange=(0.2, 0.8),
     published Gnocchi answers with a curve rather than a constant. The retrained score
     answers with something close to a constant. Neither answer involves GeneHancer, an
     enhancer proxy or any truth set at all -- like Fig. 5F, this panel rests only on the
-    score and on GC content, which is why it sits between the two panels that do need
-    labels rather than among them.
+    score and on GC content, which is why this stack needs no truth set while every other
+    panel in the figure does.
 
     WHY IT IS NOT FIG. 5F REDRAWN, since the two are the same fact and a reader will ask.
     5F fixes the threshold and reads off the calling rate; this fixes the calling rate and
     reads off the threshold. They are inverse views of one function, and each is the
     natural one for a different reader: 5F for someone holding a cutoff and asking what it
-    does, C for someone holding a discovery budget and asking what cutoff delivers it. C
-    also earns its place HERE rather than beside 5F, because it is the construction D
-    depends on -- D's per-bin lift is measured at exactly these thresholds, so C is D's
-    x-axis made visible, and a reader who finds D's matching artificial should be able to
-    see how far it had to reach.
+    does, D-F for someone holding a discovery budget and asking what cutoff delivers it.
+    D-F also earn their place HERE rather than beside 5F, because they are the construction
+    G-I depend on -- each row's LR+ ratio is measured at exactly the thresholds drawn beside
+    it (D with G, E with H, F with I), so D-F are G-I's operating points made visible, and a
+    reader who finds the matching artificial should be able to see how far it had to reach.
 
-NO REFERENCE LINE. A horizontal at Chen et al.'s z = 4 would be the obvious addition, but a
+    NO REFERENCE LINE. A horizontal at Chen et al.'s z = 4 would be the obvious addition, but a
     rule crossing one row of a stack reads as a gridline belonging to all of them -- and what
     the line would say, the published curve already says by being a curve.
     """
