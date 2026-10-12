@@ -1383,7 +1383,7 @@ if curves_s8 is None:
 code(r"""
 # PANEL C's ERROR BARS: the paired bootstrap. Its own cell because it is the one slow step
 # in this figure -- ~500 resamples x one precision-recall pass per drawn bin, twice -- and
-# because re-running it should not mean rebuilding the other six panels. A couple of
+# because re-running it should not mean rebuilding the other eight panels. A couple of
 # minutes.
 # ON PANEL C's OWN BINS AND BALANCING, because its output is drawn as C's error bars and
 # an interval computed on a different population would belong to a different statistic
@@ -1406,7 +1406,7 @@ code(r"""
 # -- no bootstrap, Wilson intervals in closed form, since each panel draws two LEVELS for
 # ONE score rather than a paired difference between scores, and the two panels sit at
 # different operating points by construction so the gap BETWEEN them is not the object
-# (that is D).
+# (that is G-I, at a rate matched within each bin).
 # QUIET for the same reason: the caption cell prints these per-bin rows once, with the
 # Wilson intervals the panels actually draw.
 with D.quiet():
@@ -1501,8 +1501,8 @@ if curves_s8 is not None:
     # range: at 99% the ratio is pinned near 1.0 by arithmetic, so one shared axis would draw
     # it flat.
     #
-    # Letters moved on 2026-09-11; CLAUDE.md carries the map from the old ones, which captions
-    # and git history predating that date still use.
+    # Letters moved on 2026-09-11; CLAUDE.md carries the map from the old ones, which git
+    # history predating that date still uses.
     fig = plt.figure(figsize=(13.0, 11.5))
     # THE COLUMN GAP IS A SPACER COLUMN rather than a wspace, so its width is stated in
     # inches rather than inferred: 13.0 / (2 + 0.76) gives 4.71 in per panel and 3.58 in of
@@ -1620,8 +1620,8 @@ if curves_s8 is not None:
 code(r"""
 # THE THREE DEPTHS IN ONE TABLE, which is the figure's whole argument and is easier to read
 # here than off six stacked panels. It is the ONLY place D-I's numbers are printed: the cells
-# that computed them ran under D.quiet(), because five builders each reprinting the population
-# preamble and its own per-bin dump is about 110 lines, nearly all identical.
+# that computed them ran under D.quiet(), because six builder calls each reprinting the
+# population preamble and their own per-bin dump would fill the page with near-identical lines.
 #
 # EVERY COLUMN COMES FROM THE `gains_wb_*` FRAMES ALONE. paired_deltas carries both scores'
 # thresholds and both their LR+ levels beside the ratio, so the left half of this table is
@@ -1705,7 +1705,7 @@ and is not done here.
 
 
 code(r"""
-# Guarded for the same reason as the cell above.
+# Guarded for the same reason as the figure cell above.
 if curves_s8 is not None:
     # Numbers for Supporting Figure 8's caption. Computed over the bins the panels actually
     # draw -- pr_curves() has already dropped those below the window floor -- so a caption
