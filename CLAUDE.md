@@ -22,7 +22,6 @@ fig5/                    THE manuscript figure. Five panels, one argument; each 
 
 fig2d/                   McHale et al. Fig. 2D (over-dispersion at central GC) redrawn with
                          the decontaminated Gnocchi beside the published one, and only that
-dnm_training_size/       the training-set-SIZE dose-response, and only that
 fig4_prevalence/         McHale et al.'s OWN Fig. 4 notebooks (constraint-tools), copied and
                          edited to report pi and auROC beside normalized auPRC, whose 1/pi
                          ceiling confounds lax-vs-stringent and metric-vs-metric; HPC only
@@ -40,8 +39,8 @@ refits/                  one copy of each regional-adjustment refit (gitignored,
 METHODS.md               the rank statistic's methodological record -- the citation trail
                          into McHale et al. that 9 of windows.py's docstrings point into,
                          and nothing the notebook carries. Kept at the root, not under
-                         fig5/, because windows.py is imported from preconditions/ and
-                         dnm_training_size/ too.
+                         fig5/, because windows.py is imported from preconditions/
+                         too.
 ```
 
 Each directory has its own README with operational detail, and METHODS.md holds the
@@ -184,8 +183,9 @@ range. Code for this figure went with `fig3/`; it is at `070fee9`.
   just not what changes the curve. *(Wider run; not recomputed on the narrowed set.)*
 - **Training-set *size* is not the explanation either**, though it is a real effect:
   shrinking moves Gnocchi *toward* the context-only model (1% is indistinguishable from
-  it) but never past it. The population fix goes past it. `dnm_training_size/` keeps that
-  contrast. *(Wider run; not recomputed on the narrowed set.)*
+  it) but never past it. The population fix goes past it. The experiment that measured
+  this, `dnm_training_size/`, was retired 2026-10-12; recover it from git at `0fcaac3`.
+  *(Wider run; not recomputed on the narrowed set.)*
 - **Calibration-gap / reliability panels measure a LEVEL error**, which cancels in
   `r = sigma(b0 + b.z)/sigma(b0)` and never reaches the score. They diagnose the fit; only
   panel E measures the bias.
@@ -362,9 +362,8 @@ anything in `gnocchi_bias/windows.py`.
    near-identical repeats. The FIRST call of each kind still runs loud (cells 23 and 26), so
    the population, the balancing and the dropped bins are on the page once; cells 24, 25, 27
    and 28 run inside `quiet()`. It is a context manager and NOT a `verbose` parameter because
-   that preamble is printed by `gnocchi_bias/windows.py`, which `preconditions/` and
-   `dnm_training_size/` import too -- a flag would have changed three other entry points to
-   tidy one notebook. Exceptions still propagate.
+   that preamble is printed by `gnocchi_bias/windows.py`, which `preconditions/`
+   imports too -- a flag would have changed other entry points to tidy one notebook. Exceptions still propagate.
    **CELL 31 IS NOW THE ONLY PLACE D-I's NUMBERS PRINT**, as one table over all three depths,
    and it reads them from the `gains_wb_*` frames ALONE -- `paired_deltas` already returns
    `threshold_published`/`threshold_scored` beside the ratio, so the left half of the table is

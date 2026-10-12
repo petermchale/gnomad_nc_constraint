@@ -18,8 +18,8 @@ pipeline: univariate Bonferroni selection -> standardize -> IncrementalPCA -> L1
 per context -> genome-wide apply. So any change downstream is attributable to the
 training population (or, for `sizematched`, to its size).
 
-Writes into the repo-root refits/ -- ONE copy of each table, also read directly by
-dnm_training_size/. ~6 min and ~4 GB per population, dominated by the genome-wide apply and the
+Writes into the repo-root refits/ -- ONE copy of each table.
+~6 min and ~4 GB per population, dominated by the genome-wide apply and the
 per-context rr table (the whole directory is gitignored):
 
     expected_counts_by_context_methyl_genome_1kb.{pop}.txt   panels B, E

@@ -1,16 +1,13 @@
 """
 Shared library for the Gnocchi GC-bias analyses in this repo.
 
-Two independent figure directories import from here, so that the fitting and
-window-table code lives in exactly one place (see CLAUDE.md):
+fig5/ and preconditions/ import from here, so that the fitting and window-table
+code lives in exactly one place (see CLAUDE.md):
 
   fig5/               -- Fig. 5 for McHale, Goldberg & Quinlan: the GC bias is
                          introduced by the regional adjustment, that adjustment is
                          fit on the wrong population, and refitting it on the
                          scored population removes the bias.
-  dnm_training_size/  -- the DNM training-set-size experiment (regime 1):
-                         does Gnocchi's bias collapse toward the context-only
-                         model's as the training set shrinks?
 
 Modules:
   windows.py    genome-wide 1kb window table -- download, duckdb join, the

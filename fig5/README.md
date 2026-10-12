@@ -395,10 +395,10 @@ preflight.py        checks the two hand-supplied files' schemas before the expen
 RUNBOOK.md          the ordered procedure for rebuilding with both files set (HPC)
 window_set_sensitivity.py  does the answer change on 693,270 windows? stand-in subsets
 output/             panel PDFs, the supporting figure, and this figure's own caches
-../refits/          the refit tables, shared with dnm_training_size/
+../refits/          the refit tables
 ```
 
-Shared with `dnm_training_size/`, so deliberately outside this directory:
+Shared with `preconditions/`, so deliberately outside this directory:
 `gnocchi_bias/windows.py` (the window table, z-scores, ranks, GC binning) and
 `gnocchi_bias/dnm_model.py` (the DNM training set and the per-context refit pipeline).
 
@@ -470,7 +470,7 @@ the artwork renders byte-identically, fonts stay embedded, `AIPrivateData` survi
 
 Each writes ~4 GB into the **repo-root `refits/`** (gitignored) as
 `{table}.{population}.txt`. That directory holds one copy of each table, read directly by
-`fig5/` and `dnm_training_size/`.
+`fig5/`.
 
 `data.refit_path` raises with the exact command if one is missing. The `full` refit is
 needed even though it changes nothing:

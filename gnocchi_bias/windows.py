@@ -409,7 +409,7 @@ def add_bias_columns(df: pl.DataFrame) -> pl.DataFrame:
 
 # The r-adjusted expected count Chen et al. actually published. A curve built on
 # this column is the published Gnocchi, whatever the caller labels it (fig5 says
-# "step2", dnm_training_size says "step2_published"), so the sanity check below
+# "step2", for instance), so the sanity check below
 # keys on the column, not the label.
 PUBLISHED_EXPECTED_COL = "expected_step2"
 

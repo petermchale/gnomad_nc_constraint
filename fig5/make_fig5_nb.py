@@ -152,8 +152,8 @@ refit to rerun.
 .venv/bin/python fig5/refit.py -population sizematched
 ```
 
-(~6 min each), into the repo-root `refits/` — one copy of each table, also read
-directly by `dnm_training_size/`. `D.refit_path` raises with the exact
+(~6 min each), into the repo-root `refits/` — one copy of each table.
+`D.refit_path` raises with the exact
 command if one is missing or was built under a different `NEUTRAL_WINDOWS_BED`.
 """)
 

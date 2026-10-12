@@ -8,7 +8,7 @@ Supporting Figure 7 were once a separate diagnostics.py; history at ea1805c.)
 Inputs:
   * the public gnomAD-NC-constraint bucket, downloaded on demand into published/;
   * the three refits fig5/refit.py writes (full / scored / sizematched) to the repo-root
-    refits/, one copy, also read by dnm_training_size/;
+    refits/, one copy;
   * two files NOT in this repo, read from fig5/config.py (not the notebook -- refit.py
     reads the same module, and the two must agree): a depletion-rank BED (panel A's third
     curve) and McHale et al.'s window file (their 693,270 putatively neutral windows, and
@@ -47,8 +47,8 @@ def quiet():
     the repeats run in here. Exceptions still propagate; the captured text is yielded.
 
     A context manager, not a `verbose` parameter, because much of that preamble is printed
-    by gnocchi_bias/windows.py, which preconditions/ and dnm_training_size/ import too --
-    a flag would change three other entry points to tidy one notebook.
+    by gnocchi_bias/windows.py, which preconditions/ imports too --
+    a flag would change other entry points to tidy one notebook.
     """
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):

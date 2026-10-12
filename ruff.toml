@@ -21,8 +21,8 @@ exclude = [
 ]
 
 [lint.isort]
-# 2. These modules are OURS. fig5/ and dnm_training_size/ put their own directory on
-#    sys.path rather than being packages, so their siblings are imported bare -- and
+# 2. These modules are OURS. fig5/ puts its own directory on
+#    sys.path rather than being a package, so their siblings are imported bare -- and
 #    without this, isort sorts them into the third-party block. That autofix has been
 #    applied by accident before.
 known-first-party = [

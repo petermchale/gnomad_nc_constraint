@@ -3,7 +3,7 @@ Does this repo's reimplementation of Chen et al.'s fitting pipeline reproduce th
 
     .venv/bin/python preconditions/validate.py [-check {both,coefficients,expected}]
 
-fig5/ and dnm_training_size/ both rest on gnocchi_bias/dnm_model.py reproducing the
+fig5/ rests on gnocchi_bias/dnm_model.py reproducing the
 published pipeline, because the multivariate PCA+logit step that produces r(w) has no
 published source (the bucket ships fitted .pkl models and the apply side, never the
 fitting code). This script holds the two checks that claim rests on:

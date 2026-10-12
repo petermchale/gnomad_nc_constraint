@@ -24,7 +24,8 @@ place.
   entry point until it was deleted (2026-08-07, superseded by fig5 panel A; recoverable from git).
   The extraction was verified behavior-preserving at the time: byte-identical binned output on the
   full 1,843,559-window path before and after.
-- `dnm_model.py` was extracted verbatim from `dnm_training_size/run_dnm_training_experiment.py`.
+- `dnm_model.py` was extracted verbatim from `dnm_training_size/run_dnm_training_experiment.py`
+  (retired 2026-10-12; recoverable from git at `0fcaac3`).
   Validation of the reimplementation against Chen et al.'s own published outputs lives in
   `preconditions/` — the comparison code too, not just the run: a module under test should
   not ship its own grader. The one exception is deliberate:

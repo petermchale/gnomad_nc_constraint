@@ -76,7 +76,6 @@ the figure.
 | `gnocchi_bias/` | 946 | Shared library. `windows.py` — the genome-wide 1 kb window table, z-scores, standardized ranks, GC binning. `dnm_model.py` — the DNM training set and the reimplemented per-context refit pipeline. |
 | `preconditions/` | 527 | The claims about Chen et al.'s pipeline that everything else assumes. `verify_*.py` — is what we believe about their published artifact true? `validate.py` — is our reimplementation faithful to theirs? |
 | `fig5/` | 1,951 + notebook | The figure. `fig5.ipynb` (578 source lines, 23 cells) carries the mathematical derivation of every plotted quantity and calls the code; `make_fig5_nb.py` generates it. `data.py`, `panels.py`, `refit.py`, `depletion_rank.py`, `config.py`. |
-| `dnm_training_size/` | 119 | A separate experiment: Gnocchi's bias as a function of DNM training-set *size*, which is what distinguishes "less data" from "wrong data". |
 | `fig4_prevalence/` | 2 notebooks | Not about Chen et al.: a check on McHale et al.'s own Fig. 4. Copies of their two constraint-tools notebooks, edited to report the positive-class fraction π beside every normalized auPRC, and auROC beside it, since normalized auPRC compares fairly only at a common π. Runs on the HPC path; its README says how to read the result. |
 | `verify_comparisons_tables.py` | 113 | Why Extended Data Fig. 6's underlying data cannot answer the GC-bias question. A recorded dead end; `verify_comparisons_tables.log`, beside it, is the transcript of a real run, so the answer needs no re-download. |
 | `list_bucket_files.py` | 253 | Utility for browsing the public bucket without `gsutil`. `list_bucket_files.log` is the committed `-depth 2` run: every top-level directory expanded one level, so the inventory reads with no network access. |
@@ -84,7 +83,7 @@ the figure.
 | `generic.py`, `constraint_basics.py`, `nc_constraint_utils.py` | — | **Not written here.** Copied verbatim from `misc/` in Chen et al.'s public bucket, where `run_nc_constraint_gnomad_v31_main.py` imports them from. Present so that script is importable. |
 | `CLAUDE.md` | 411 | Working notes: the bucket data inventory, a recipe for reading the Hail tables locally, the methods narrative, and the settled findings. |
 | `.gitignore`, `requirements.txt` | — | Housekeeping. |
-| `fig5/output/`, `dnm_training_size/output/`, `preconditions/output/` | — | Figure PDFs and small cached tables. Large regenerable intermediates are gitignored. |
+| `fig5/output/`, `preconditions/output/` | — | Figure PDFs and small cached tables. Large regenerable intermediates are gitignored. |
 
 ## Reproducing Figure 5
 
@@ -119,11 +118,10 @@ anything to review — both are generated, and both are recreated by the command
 | path | size | what it is |
 |---|---|---|
 | `published/` | ~7 GB | Chen et al.'s published data, downloaded on demand from `gs://gnomad-nc-constraint-v31-paper`. Inputs, never edited. Named `published/` rather than `tmp/` so it does not read as disposable — refetching it takes hours. |
-| `refits/` | ~12 GB | One copy of each regional-adjustment refit, written by `fig5/refit.py` and read by both `fig5/` and `dnm_training_size/`. |
+| `refits/` | ~12 GB | One copy of each regional-adjustment refit, written by `fig5/refit.py` and read by `fig5/`. |
 
-Three large intermediates inside the tracked output directories are gitignored for the
-same reason: `fig5/output/r_eff_components.full.parquet` (81 MB) and the two
-`dnm_training_size/output/expected_counts_*.dnm_refit_frac*.txt` tables (121 MB each).
+One large intermediate inside a tracked output directory is gitignored for the same
+reason: `fig5/output/r_eff_components.full.parquet` (81 MB).
 
 Two inputs are **not** obtainable from public sources and are set to `None` in
 `fig5/config.py`: a depletion-rank BED (panel A's third curve) and McHale et al.'s
@@ -198,8 +196,7 @@ summed over all sites, over non-CpG sites and over CpG sites. The counterfactual
 holds non-CpG `r` at 1 leaves the adjustment flat within 0.4% across GC (wider run: 0.6%);
 it is computed and printed rather than drawn, because subtracting 1 from the identity
 makes its departure `Π·(r_CpG − 1)`, which the two drawn curves already bound
-(`0.264 × 0.014 = 0.0037` on the narrowed run). `dnm_training_size/` adds the training-size dose-response
-the size-matched control cannot show.
+(`0.264 × 0.014 = 0.0037` on the narrowed run).
 
 Stated rather than buried: panel D is in-sample (panel E is not); the callability caveat
 brackets the over-adjustment at **1.22–1.44** — do not quote 1.22 alone — and that caveat,

@@ -4,7 +4,7 @@ Are the four shipped training tables the training set the paper describes?
 Step 2's whole argument is about WHAT the regional adjustment was fit on, so the
 identity of the training set is a precondition for every claim fig5 makes about it.
 The paper states two counts; this checks that the bucket's files reproduce both, and
-that the join fig5/ and dnm_training_size/ perform loses nothing.
+that the join fig5/ performs loses nothing.
 
 Chen et al. 2024, Methods, "Adjustment of the effects of regional genomic features":
 a set of 413,304 unique DNMs compiled from two family-based WGS studies -- deCODE
@@ -116,7 +116,7 @@ def check_join_is_lossless(con, sites: str, features: str) -> tuple[bool, str]:
     n_surplus = sum(n for _, n in surplus)
     sex = [c for c, _ in surplus if c in ("chrX", "chrY")]
 
-    print("\n=== the join fig5/ and dnm_training_size/ actually perform ===")
+    print("\n=== the join fig5/ actually performs ===")
     print(f"  sites with no feature row: {unmatched:,}  "
           f"(anything above 0 would train on nulls)")
     print(f"  feature loci absent from the site table: {n_surplus:,} across "

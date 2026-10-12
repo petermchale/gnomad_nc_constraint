@@ -2,13 +2,12 @@
 The DNM training set and Gnocchi's per-context regional-feature mutation model.
 
 Extracted verbatim (2026-08-04) from dnm_training_size/
-run_dnm_training_experiment.py, so that all three consumers can import the
-same fitting code:
+run_dnm_training_experiment.py (that experiment was retired 2026-10-12; recover it
+from git at 0fcaac3), so that its consumers can import the same fitting code:
 
   fig5/              refits on three training populations (refit_and_apply) and
                      evaluates each on its own sites (predict_training_set), for
                      panels B, D and E.
-  dnm_training_size/ the same refit under a randomly shrunk training set.
   preconditions/     fit_univariate + bonferroni_select, which validate.py diffs
                      against Chen et al.'s published fitted parameters. The comparison
                      itself lives THERE, not here: it is a test, and the module under
