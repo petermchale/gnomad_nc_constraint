@@ -1004,10 +1004,11 @@ left for $r$ to correct, which is exactly what panel B measures. (Level, not rat
 are case-control-sampled training sites at ~10:1, so the y-axis of C is not a genome-wide
 mutation rate.)
 
-D is binned over **Chen windows** and A–C over **training sites**, the same split the main
-figure runs on, so the two do not end in the same place: D's last bin above the 100-window
-floor is centred at GC 0.65 against 0.73 for B and C. All four panels share this figure's
-0.2–0.8 axis. On the narrowed window set D no longer runs past panel B's own 0.2–0.73
+D is binned over **Chen windows** and B and C over **training sites**, the same split the
+main figure runs on, so the two do not end in the same place: D's last bin above the
+100-window floor is centred at GC 0.65 against 0.73 for B and C. B, C and D share this
+figure's 0.2–0.8 GC axis; A's abscissa is methylation level. On the narrowed window set D
+no longer runs past panel B's own 0.2–0.73
 range; that it did — reaching GC 0.75 with $\Pi$ at 0.43, so that the bins carrying the
 most CpG weight were exactly the ones the main panel could not show — was a feature of the
 1,843,559-window run.
