@@ -53,8 +53,8 @@ import numpy as np
 import polars as pl
 
 # Arial throughout -- the manuscript's typeface. This notebook is the only thing that
-# draws the panels and Supporting Figure 7, so setting it here covers both (panels.py
-# deliberately configures nothing). mathtext has to be pointed at Arial separately or
+# draws the panels and Supporting Figures 7 and 8, so setting it here covers all three
+# (panels.py deliberately configures nothing). mathtext has to be pointed at Arial separately or
 # every $R_{\mathrm{eff}}$ falls back to DejaVu Sans while the plain text does not;
 # fonttype 42 embeds TrueType instead of matplotlib's default Type 3, so the type stays
 # live and editable in the Illustrator assembly rather than arriving as outlines.
@@ -562,7 +562,7 @@ non-CpG — which is where the rest of this figure looks.
 code(r"""
 binned_b = D.r_eff_by_gc(df_win, edges, pop="full", cache_dir=CACHE_DIR)
 
-# No mean-GC line on this panel, though A, D and E carry one -- panel_r_eff's docstring
+# No mean-GC line on this panel, though A, D, E and F carry one -- panel_r_eff's docstring
 # says why, and it is worth reading before adding one back. The mean is still printed:
 # it is the number the caption would quote, and the one that says how far out in the
 # tail the divergence at GC 0.6-0.7 happens.
